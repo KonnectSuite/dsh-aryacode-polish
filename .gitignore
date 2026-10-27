@@ -1,6 +1,11 @@
-﻿node_modules/
+node_modules/
 *.tgz
 *.log
-lib/
 dist/
 .DS_Store
+__pycache__/
+*.pyc
+
+# `lib/` is deliberately NOT ignored: `lib/index.js` is the mount point the row
+# resolves and `lib/client.js` is the browser face the Shell loads. Both are
+# committed so `pnpm pack` produces the same bytes a reviewer can read.

@@ -1,0 +1,17 @@
+# AryaCode Polish bundle.
+#
+# One row. The row is the install surface: mounting it mounts the host half of
+# every feature, and it names the bare package specifier because the Shell
+# classifies a client row by `exactPackageSpecifier` — a subpath such as
+# `@aryacode/dsh-aryacode-polish/polish` is rejected and yields no client entry.
+#
+# The feature switches are the row's config, not separate rows:
+#
+#   spellcheck → right-click spelling corrections in the composer   (on)
+#
+# The patch only ever inserts. It must never target a row another bundle owns:
+# a profile without that row makes composition fail ("patch: entry ... not
+# found"), which is why the patch is kept to its own one row.
+- insert:
+    - id: polish
+      name: '@aryacode/dsh-aryacode-polish'
