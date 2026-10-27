@@ -99,11 +99,19 @@ entries/registry.js  the feature list — the one place a feature is declared
 entries/features/    one module per feature
 entries/config.js    volatile-reference accessors (resolve/flag/list/text)
 lib/index.js         mount point re-exporting the row
-lib/client.js        browser face: Configure page + per-feature UI
+client/face.js       browser face source: the row's Configure page
+client/switches.json the browser half of the seam — one entry per switch
+scripts/build-client.mjs  wraps client/face.js into lib/client.js
+lib/client.js        generated: the bundle the Shell loads
 locale/              card title and description (en, zh)
 docs/                parked investigations
 test/                node --test specs
 ```
+
+The Configure page is generated, not hand-maintained: `lib/client.js` is built
+from `client/face.js` and `client/switches.json` by `pnpm build:client` (which
+`pnpm pack` runs), and `test/client-face.spec.mjs` fails when `switches.json` and
+`entries/registry.js` disagree in either direction.
 
 ## Licence
 

@@ -1,5 +1,18 @@
 # Changelog
 
+## [0.1.1] - 2026-10-27
+
+### Added
+
+- **The row's Configure page.** `lib/client.js` is the bundle's browser face: it
+  registers the `polish` row's configuration page, so the row now has a page of
+  its own that reads the row's live config form and writes it back with the
+  Host's revision. With no feature landed yet the page states that plainly
+  instead of showing a switch that toggles nothing.
+- **`client/switches.json`.** The browser half of the feature seam: one entry per
+  switch, and `test/client-face.spec.mjs` fails when it and `entries/registry.js`
+  disagree in either direction.
+
 ## [0.1.0] - 2026-10-27
 
 ### Added

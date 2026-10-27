@@ -1,6 +1,6 @@
 {
   "name": "@aryacode/dsh-aryacode-polish",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "AryaCode Polish: one install for the small things that make AryaCode feel finished. One Plugins row, one switch per quality-of-life feature.",
   "keywords": [
     "dsh",
@@ -28,6 +28,7 @@
   "files": [
     "cordis.patch.yml",
     "entries/**/*",
+    "client/**/*",
     "lib/**/*",
     "locale/*.json",
     "docs/**/*",
@@ -38,10 +39,15 @@
   "dsh": {
     "bundle": {
       "patch": "./cordis.patch.yml"
+    },
+    "client": {
+      "platform": "web"
     }
   },
   "scripts": {
-    "test": "node --test test/patch.spec.mjs test/config.spec.mjs test/registry.spec.mjs test/docs.spec.mjs test/manifests.spec.mjs"
+    "build:client": "node scripts/build-client.mjs",
+    "prepack": "node scripts/build-client.mjs",
+    "test": "node --test test/patch.spec.mjs test/config.spec.mjs test/registry.spec.mjs test/docs.spec.mjs test/manifests.spec.mjs test/client-face.spec.mjs"
   },
   "peerDependencies": {
     "@deepseek-ai/cordis": "~4.0.4"
@@ -56,6 +62,7 @@
       "default": "./lib/index.js"
     },
     "./package.json": "./package.json",
+    "./client": "./lib/client.js",
     "./polish": "./entries/polish.js"
   }
 }
