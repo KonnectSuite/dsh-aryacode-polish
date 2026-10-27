@@ -1,5 +1,15 @@
 # Changelog
 
+## [0.3.4] - 2026-10-27
+
+### Added
+
+- **The bundle says which Harness it runs on.** `dsh.engines.dsh` is now declared
+  (`^0.2.1-rc.3`, the revision the two surfaces were verified against), so the
+  market can read the requirement instead of labelling the card "Host requirement
+  unknown", and an install onto an older Host can be refused rather than failing
+  at mount time. `test/manifests.spec.mjs` keeps the field present and semver.
+
 ## [0.3.3] - 2026-10-27
 
 ### Fixed

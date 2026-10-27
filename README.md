@@ -92,6 +92,8 @@ node --import tsx/esm apps/cli/src/bin.ts plugin --profile web add <path-to-tgz>
 
 ## Requirements
 
+- AryaCode `^0.2.1-rc.3` (declared as `dsh.engines.dsh`; the revision both
+  surfaces were verified against).
 - AryaCode with the Cordis plugin API (`@deepseek-ai/cordis ~4.0.4`).
 - Node `^22.19.0 || >=24.0.0` to build from source.
 
