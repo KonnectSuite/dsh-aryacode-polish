@@ -111,8 +111,9 @@ test('apply follows the switches and survives a volatile-only update', () => {
   const form = { sessionCost: { get: () => true } }
   assert.doesNotThrow(() => apply(ctx, form))
   assert.deepEqual(events.map(([event]) => event), ['loader/volatile-update'])
-  // The feature defaults to on, so its host half is mounted on the first sync.
-  assert.deepEqual(fibers.map(fiber => fiber.plugin), features.map(feature => feature.mount))
+  // The features default to on, so every host half is mounted on the first sync;
+  // a feature that lives only in the browser face has no fiber of its own.
+  assert.deepEqual(fibers.map(fiber => fiber.plugin), features.filter(feature => typeof feature.mount === 'function').map(feature => feature.mount))
 
   // A volatile-only change re-runs the same apply; the switch turning off disposes that feature.
   form.sessionCost = { get: () => false }

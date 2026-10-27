@@ -6,6 +6,12 @@
       "label": "Estimated session cost",
       "description": "Show what the open session has cost so far, priced from recorded usage at the published DeepSeek rates.",
       "defaultOn": true
+    },
+    {
+      "key": "accountBalance",
+      "label": "Account balance",
+      "description": "Show the remaining account balance in the sidebar foot, above the account row.",
+      "defaultOn": true
     }
   ]
 }

@@ -52,6 +52,20 @@ test('every switch has a label and a description', () => {
   }
 })
 
+test('the face registers every surface it ships, each under its own key', () => {
+  for (const slot of ['plugins.row.config', 'conversation.composer.dock', 'sidebar.footer.action']) {
+    assert.ok(bundle.includes(`'${slot}'`), `the face must register ${slot}`)
+  }
+  assert.match(bundle, /id: 'polish-cost'/)
+  assert.match(bundle, /id: 'polish-balance'/)
+})
+
+test('the balance line reads the account through an access grant', () => {
+  assert.ok(bundle.includes("whenAccess('account/watch'"), 'the balance read must run inside the account access grant')
+  assert.ok(bundle.includes('getBalance('), 'the balance comes from the account Remote method')
+  assert.ok(bundle.includes('CLIENT_VERSION'), 'the account call needs a client version the build stamps')
+})
+
 test('the switch list and the feature registry agree', () => {
   const declared = declaration.switches.map(entry => entry.key).sort()
   const registered = features.map(feature => feature.id).sort()

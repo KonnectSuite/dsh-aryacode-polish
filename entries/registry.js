@@ -40,6 +40,12 @@ export const features = [
     defaultOn: true,
     mount: mountCost,
   },
+  {
+    id: 'accountBalance',
+    label: 'Account balance',
+    description: 'Show the remaining account balance in the sidebar foot, above the account row.',
+    defaultOn: true,
+  },
 ]
 
 /**

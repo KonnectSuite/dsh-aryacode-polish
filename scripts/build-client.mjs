@@ -14,6 +14,8 @@ import { readFileSync, writeFileSync } from 'node:fs'
 const root = new URL('../', import.meta.url)
 const manifest = JSON.parse(readFileSync(new URL('package.json', root), 'utf8'))
 const declaration = JSON.parse(readFileSync(new URL('client/switches.json', root), 'utf8'))
+const money = readFileSync(new URL('client/money.js', root), 'utf8')
+const account = readFileSync(new URL('client/account.js', root), 'utf8')
 const face = readFileSync(new URL('client/face.js', root), 'utf8')
 
 const id = manifest.name
@@ -34,6 +36,7 @@ const constants = [
   `const SWITCHES = ${JSON.stringify(declaration.switches, null, 2)}`,
   `const ROW_ID = ${JSON.stringify(declaration.row)}`,
   `const ROW_KEY = ${JSON.stringify(id)} + '#' + ROW_ID`,
+  `const CLIENT_VERSION = ${JSON.stringify(manifest.version)}`,
 ].join('\n')
 
 const header = [
@@ -50,6 +53,10 @@ window.__ModuleLoader__.load({
   id: ${JSON.stringify(id)},
   factory: (require) => {
 ${indent(constants)}
+
+${indent(money.trimEnd().replace(/^export /gm, ''))}
+
+${indent(account.trimEnd().replace(/^export /gm, ''))}
 
 ${indent(face.trimEnd())}
   },

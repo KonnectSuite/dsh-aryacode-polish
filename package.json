@@ -1,6 +1,6 @@
 {
   "name": "@aryacode/dsh-aryacode-polish",
-  "version": "0.2.4",
+  "version": "0.3.3",
   "description": "AryaCode Polish: one install for the small things that make AryaCode feel finished. One Plugins row, one switch per quality-of-life feature.",
   "keywords": [
     "dsh",
@@ -48,7 +48,7 @@
   "scripts": {
     "build:client": "node scripts/build-client.mjs",
     "prepack": "node scripts/build-client.mjs",
-    "test": "node --test test/patch.spec.mjs test/config.spec.mjs test/registry.spec.mjs test/cost.spec.mjs test/docs.spec.mjs test/manifests.spec.mjs test/client-face.spec.mjs"
+    "test": "node --test test/patch.spec.mjs test/config.spec.mjs test/registry.spec.mjs test/cost.spec.mjs test/money.spec.mjs test/account.spec.mjs test/docs.spec.mjs test/manifests.spec.mjs test/client-face.spec.mjs"
   },
   "dependencies": {
     "zod": "^4.4.3"

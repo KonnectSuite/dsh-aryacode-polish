@@ -1,5 +1,64 @@
 # Changelog
 
+## [0.3.3] - 2026-10-27
+
+### Fixed
+
+- **The balance read could wait forever.** When the Host withheld the
+  `account/watch` grant, the read's promise never settled: the callback never
+  ran, so nothing resolved and the line silently stayed empty for the life of the
+  page. The read now carries a timeout and also starts its call before the
+  effect's yielded disposer, so an effect runner that stops at the first yield
+  still performs it. `test/account.spec.mjs` pins all seven refusal paths.
+
+### Changed
+
+- The read itself moved into `client/account.js`, beside `client/money.js`, for
+  the same reason: the build inlines it into the browser bundle and the spec
+  imports the same source.
+
+## [0.3.2] - 2026-10-27
+
+### Changed
+
+- **The balance decisions are testable.** Which wallet a line shows, and how the
+  amount is rendered (currency symbol, two decimals, unparseable values shown
+  verbatim), moved into `client/money.js`. The build inlines that file into
+  `lib/client.js`, so `test/money.spec.mjs` covers the exact source the browser
+  runs instead of a copy.
+
+## [0.3.1] - 2026-10-27
+
+### Fixed
+
+- **The balance line had no observable mount point.** When the account exposed no
+  wallet it rendered `null`, which is correct for the user but indistinguishable
+  from "the surface was never registered" for anyone verifying the build. The
+  component now always renders its wrapper (`data-polish-balance="empty"`, hidden)
+  and fills it with the amount only when the Host returns one.
+
+## [0.3.0] - 2026-10-27
+
+### Added
+
+- **Remaining account balance in the sidebar foot.** A line above the account row
+  shows the account's own wallet (`$17.33`), read once through a
+  `remoteAccess.whenAccess('account/watch', …)` grant so the call is allowed and
+  the grant is released as soon as the read settles. It renders nothing at all
+  when the switch is off, when the Host exposes no wallet, or when the read is
+  refused — an empty line beats a number the Host did not give us.
+- **A second switch, `accountBalance`.** It is declared once in
+  `entries/registry.js` and once in `client/switches.json`, exactly like the cost
+  switch, so the Configure page grows it automatically.
+
+### Notes
+
+- The line sits in `sidebar.footer.action`, the one documented seat in the
+  sidebar foot. It renders *above* the account row, because
+  `SidebarRoot.tsx:405-411` puts `footerActions` before `settingsArea`; the only
+  seat below the login would be `settings.launcher`, which means shadowing the
+  account row and its whole menu.
+
 ## [0.2.4] - 2026-10-27
 
 ### Changed

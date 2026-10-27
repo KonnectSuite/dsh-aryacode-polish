@@ -313,6 +313,60 @@ function CostPill(props) {
     : null)
 }
 
+/**
+ * The remaining-balance line in the sidebar foot.
+ *
+ * It renders nothing at all when the switch is off, the account exposes no
+ * wallet, or the read was refused — an empty line is better than a line that
+ * claims a number the Host did not give us.
+ *
+ * @param props - the slot's `wide` flag, our lazy `configForms`, and the balance reader.
+ * @returns the balance line, or null.
+ */
+function BalanceLine(props) {
+  const enabled = useSwitch(props.configForms, 'accountBalance', true)
+  const [wallet, setWallet] = React.useState(undefined)
+  const read = props.loadBalance
+  React.useEffect(() => {
+    if (!enabled || typeof read !== 'function') return undefined
+    let live = true
+    Promise.resolve()
+      .then(() => read())
+      .then(view => {
+        if (live) setWallet(walletOf(view))
+      }, () => {
+        if (live) setWallet(undefined)
+      })
+    return () => {
+      live = false
+    }
+  }, [enabled, read])
+  if (!enabled) return null
+  // The wrapper stays in the DOM even when there is no number to show, so a
+  // reader (and the verification script) can tell "registered but empty" from
+  // "not registered at all". An empty flex line costs the layout nothing.
+  if (wallet === undefined) {
+    return React.createElement('div', { 'data-polish-balance': 'empty', style: { display: 'none' } })
+  }
+  const money = formatBalance(wallet)
+  return React.createElement('div', {
+    title: 'Remaining account balance',
+    style: {
+      display: 'flex',
+      alignItems: 'center',
+      gap: '6px',
+      padding: '2px 8px 4px',
+      fontSize: '12px',
+      lineHeight: '16px',
+      minWidth: 0,
+      overflow: 'hidden',
+      whiteSpace: 'nowrap',
+      textOverflow: 'ellipsis',
+      opacity: 0.75,
+    },
+  }, props.wide === false ? money : 'Balance ' + money)
+}
+
 return {
   inject: ['slots'],
   /**
@@ -338,5 +392,12 @@ return {
       order: 2,
       inject: () => ({ configForms }),
     }, CostPill))
+    const loadBalance = makeBalanceReader(ctx, CLIENT_VERSION)
+    ctx.slots.inject('sidebar.footer.action', () => ctx.slots.register({
+      name: 'sidebar.footer.action',
+      id: 'polish-balance',
+      order: 3,
+      inject: () => ({ configForms, loadBalance }),
+    }, BalanceLine))
   },
 }
