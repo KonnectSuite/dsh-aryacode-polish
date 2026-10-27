@@ -1,5 +1,39 @@
 # Changelog
 
+## [0.3.9] - 2026-10-27
+
+### Changed
+
+- **The cost pill now looks like it belongs in the composer.** It was a foreign
+  widget next to the harness pills: two lines of text ("≈$0.538 partially
+  priced") in the row's flow. It now wears the same skin as the statistics pills
+  — the same 13 px-minus-one scale, 20 px line height, `1px 8px` padding, tertiary
+  label colour, tabular digits, a 14 px glyph, and `white-space: nowrap`, so it
+  reads as one line at the same size as its neighbours.
+- The "partially priced" caveat moved out of the pill and into the card, where it
+  can be read. The pill keeps a single `*` marker for the same fact.
+- The breakdown card is now the harness's own stat-dialog: same panel width
+  clamp, 16 px padding, `--dsw-radius-lg` corners, menu backdrop, prominent
+  elevation, 12/18 type, a two-column definition list with tabular figures, and
+  a portaled `position: fixed` panel measured from the pill so it cannot be
+  clipped by the composer scroller. It closes on outside click and on Escape.
+
+## [0.3.8] - 2026-10-27
+
+### Fixed
+
+- **The balance line never showed a number.** It waited for the host account
+  bundle's own access grant before reading, on the theory that the grant proves
+  the call is allowed. That grant belongs to the bundle that owns the account
+  stream, so for a plugin it can simply never arrive — the read hit its timeout,
+  resolved to nothing, and the sidebar looked empty with no error anywhere. The
+  line now reads the account Remote directly inside
+  `ctx.inject(['remote', 'remote.account'], …)`, and the Host still decides: an
+  unauthorised call comes back refused and the line stays hidden.
+- The read retries on its own (1.5 s, 5 s, 15 s, 30 s, and again whenever the
+  window regains focus), so a Shell that is still signing in at first paint no
+  longer leaves a permanently blank line.
+
 ## [0.3.7] - 2026-10-27
 
 ### Fixed

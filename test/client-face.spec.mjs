@@ -40,7 +40,17 @@ test('the row configuration entry is keyed to this bundle row', () => {
 
 test('the face requires only modules the Shell answers', () => {
   const required = [...bundle.matchAll(/require\('([^']+)'\)/g)].map(match => match[1])
-  assert.deepEqual(required, ['react'], 'the frozen module table answers react; anything else must be inlined')
+  assert.deepEqual(required, ['react', 'react-dom'], 'the frozen module table answers react and react-dom; anything else must be inlined')
+})
+
+test('the cost pill wears the composer stat skin instead of a widget of its own', () => {
+  assert.ok(bundle.includes("'data-composer-stat': 'polish-cost'"), 'the pill is addressable as a composer stat')
+  assert.ok(bundle.includes('whiteSpace: \'nowrap\''), 'the label never wraps')
+  assert.ok(bundle.includes('var(--dsw-alias-label-tertiary'), 'it takes the row\'s tertiary label colour')
+  assert.ok(bundle.includes('tabular-nums'), 'digits keep the row\'s alignment')
+  assert.ok(bundle.includes("React.createElement('dl'"), 'the card readings are a definition list like the native dialog')
+  assert.ok(bundle.includes('ReactDOM.createPortal'), 'the card escapes the composer\'s clipping')
+  assert.ok(bundle.includes('--dsw-elevation-prominent'), 'the card takes the harness dialog elevation')
 })
 
 test('every switch has a label and a description', () => {
@@ -60,10 +70,17 @@ test('the face registers every surface it ships, each under its own key', () => 
   assert.match(bundle, /id: 'polish-balance'/)
 })
 
-test('the balance line reads the account through an access grant', () => {
-  assert.ok(bundle.includes("whenAccess('account/watch'"), 'the balance read must run inside the account access grant')
+test('the balance line registers only where the account namespace exists', () => {
+  assert.ok(
+    bundle.includes("inject(['remote', 'remote.account']"),
+    'the balance surface must wait for the account namespace instead of reading through ctx.get',
+  )
   assert.ok(bundle.includes('getBalance('), 'the balance comes from the account Remote method')
   assert.ok(bundle.includes('CLIENT_VERSION'), 'the account call needs a client version the build stamps')
+  assert.ok(
+    !bundle.includes("whenAccess('account/watch'"),
+    'the balance read must not wait for a grant a plugin is not given',
+  )
 })
 
 test('the switch list and the feature registry agree', () => {

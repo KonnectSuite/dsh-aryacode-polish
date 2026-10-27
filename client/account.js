@@ -1,12 +1,19 @@
 /**
  * Reading the account balance from a plugin face.
  *
- * The account Remote methods are gated, so the read runs inside a
- * `remoteAccess.whenAccess('account/watch', …)` grant and the grant is released
- * as soon as the read settles. Every failure — no service in this Shell, a
- * refused grant, a failed call — resolves to `undefined` instead of throwing: a
- * sidebar line is never worth breaking the shell over, and a line that stays
- * empty is honest about a number it never received.
+ * The account Remote methods are the same ones the shipped account row uses. An
+ * earlier version waited for the host account bundle's own access grant before
+ * reading, on the theory that the grant proves the call is allowed. It does not:
+ * that grant belongs to the bundle that owns the account stream, and a plugin
+ * that waits for it can wait forever — the sidebar line then stays empty with no
+ * error anywhere, which is exactly what a user reports as "I don't see the
+ * balance".
+ *
+ * So this reads directly. The Host still decides: an unauthorised call comes back
+ * `{ ok: false }` (or throws) and this resolves to `undefined`. Every failure — no
+ * account namespace in this Shell, a refused call, a failed call — resolves to
+ * `undefined` instead of throwing, because a sidebar line is never worth breaking
+ * the shell over.
  *
  * This module is inlined into `lib/client.js` by `scripts/build-client.mjs` and
  * imported directly by `test/account.spec.mjs`, so the tested source is the one
@@ -35,62 +42,48 @@ export function clientMetadata(version) {
 }
 
 /**
- * Build the one-shot balance reader.
+ * The account Remote namespace, or undefined when this Shell has none.
  *
- * @param ctx - the browser plugin context; `ctx.get` resolves an optional service.
- * @param version - the version this build stamps into the account metadata.
- * @returns a reader that resolves to the balance view, or undefined when unavailable.
+ * @param ctx - the browser plugin context; the balance surface is registered
+ *   inside `ctx.inject(['remote', 'remote.account'], …)` so this normally resolves.
+ * @returns the namespace, or undefined.
  */
-export function makeBalanceReader(ctx, version, { timeoutMs = 10000 } = {}) {
-  const service = name => {
-    try {
-      return ctx.get(name)
-    } catch {
-      return undefined
-    }
+export function accountService(ctx) {
+  try {
+    const remote = ctx.remote !== undefined ? ctx.remote : ctx.get('remote')
+    const account = remote !== undefined && remote !== null ? remote.account : undefined
+    return account !== undefined && account !== null && typeof account.getBalance === 'function' ? account : undefined
+  } catch {
+    return undefined
   }
-  return async () => {
-    const access = service('remoteAccess')
-    const remote = service('remote')
-    if (access === undefined || remote === undefined) return undefined
-    const metadata = clientMetadata(version)
-    return await new Promise(resolve => {
-      let settled = false
-      let stop
-      const timer = setTimeout(() => finish(undefined), timeoutMs)
-      const finish = value => {
-        if (settled) return
-        settled = true
-        clearTimeout(timer)
-        resolve(value)
-        if (typeof stop === 'function') {
-          try {
-            stop()
-          } catch {
-            /* the grant may already have been released */
-          }
-        }
-      }
-      // The read starts before the yield so an effect runner that stops at the
-      // first yielded disposer still performs the call.
-      stop = access.whenAccess('account/watch', function* () {
-        void (async () => {
-          try {
-            const result = await remote.account.getBalance(metadata)
-            const value = result !== undefined && result.ok === true ? result.value : undefined
-            finish(value !== undefined && value.status === 'ready' ? value : undefined)
-          } catch {
-            finish(undefined)
-          }
-        })()
-        yield () => {
-          if (!settled) {
-            settled = true
-            clearTimeout(timer)
-            resolve(undefined)
-          }
-        }
-      })
-    })
+}
+
+/**
+ * Read the balance once.
+ *
+ * @param ctx - the browser plugin context.
+ * @param version - the version this build stamps into the account metadata.
+ * @param options - `timeoutMs` bounds a call that never settles.
+ * @returns the ready balance view, or undefined when there is no number to show.
+ */
+export async function readBalance(ctx, version, { timeoutMs = 15000 } = {}) {
+  const account = accountService(ctx)
+  if (account === undefined) return undefined
+  const call = (async () => {
+    const result = await account.getBalance(clientMetadata(version))
+    if (result === undefined || result === null || result.ok !== true) return undefined
+    const value = result.value
+    return value !== undefined && value !== null && value.status === 'ready' ? value : undefined
+  })().catch(() => undefined)
+  let timer
+  const timeout = new Promise(resolve => {
+    timer = setTimeout(() => resolve(undefined), timeoutMs)
+    // A pending balance read must not keep a Node process alive during tests.
+    if (typeof timer === 'object' && timer !== null && typeof timer.unref === 'function') timer.unref()
+  })
+  try {
+    return await Promise.race([call, timeout])
+  } finally {
+    clearTimeout(timer)
   }
 }
