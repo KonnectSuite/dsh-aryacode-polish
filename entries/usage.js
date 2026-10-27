@@ -15,18 +15,64 @@ function zero() {
 }
 
 /**
- * Beijing peak is weekdays 09:00-12:00 and 14:00-18:00; weekends are off-peak
- * all day. DeepSeek bills peak hours at twice the off-peak rate.
+ * Chinese statutory public holidays, as Beijing calendar dates.
+ *
+ * DeepSeek bills peak hours at twice the off-peak rate, and its rule is "Beijing
+ * time, Monday to Friday (excluding Chinese statutory public holidays) 09:00-12:00
+ * and 14:00-18:00"; weekends and holidays are off-peak all day. A weekday holiday
+ * that is not listed here would be priced at peak and overstate the estimate, so
+ * this list is dated data like the rate table: append the next year's notice, do
+ * not edit history.
+ *
+ * 2026: General Office of the State Council, Guo Ban Fa Ming Dian [2025] No. 7
+ * (2025-11-04),
+ * https://www.gov.cn/zhengce/zhengceku/202511/content_7047091.htm
+ *
+ * Designated make-up working days stay off-peak: the published rule names
+ * Monday through Friday, so a working Saturday is still a Saturday.
+ */
+const CHINA_HOLIDAYS = new Set([
+  // New Year 2026: Jan 1 (Thu) - Jan 3 (Sat)
+  '2026-01-01', '2026-01-02', '2026-01-03',
+  // Spring Festival: Feb 15 (Sun) - Feb 23 (Mon)
+  '2026-02-15', '2026-02-16', '2026-02-17', '2026-02-18', '2026-02-19',
+  '2026-02-20', '2026-02-21', '2026-02-22', '2026-02-23',
+  // Qingming: Apr 4 (Sat) - Apr 6 (Mon)
+  '2026-04-04', '2026-04-05', '2026-04-06',
+  // Labour Day: May 1 (Fri) - May 5 (Tue)
+  '2026-05-01', '2026-05-02', '2026-05-03', '2026-05-04', '2026-05-05',
+  // Dragon Boat: Jun 19 (Fri) - Jun 21 (Sun)
+  '2026-06-19', '2026-06-20', '2026-06-21',
+  // Mid-Autumn: Sep 25 (Fri) - Sep 27 (Sun)
+  '2026-09-25', '2026-09-26', '2026-09-27',
+  // National Day: Oct 1 (Thu) - Oct 7 (Wed)
+  '2026-10-01', '2026-10-02', '2026-10-03', '2026-10-04',
+  '2026-10-05', '2026-10-06', '2026-10-07',
+])
+
+/**
+ * Beijing peak is weekdays 09:00-12:00 and 14:00-18:00, minus Chinese statutory
+ * public holidays; weekends are off-peak all day. DeepSeek bills peak hours at
+ * twice the off-peak rate.
  * @param {number} time - event time in milliseconds.
  * @returns {boolean} whether that instant is a billed peak instant.
  */
 export function isBeijingPeak(time) {
   const parts = new Intl.DateTimeFormat('en-US', {
-    timeZone: 'Asia/Shanghai', weekday: 'short', hour: 'numeric', hourCycle: 'h23',
+    timeZone: 'Asia/Shanghai',
+    weekday: 'short',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: 'numeric',
+    hourCycle: 'h23',
   }).formatToParts(new Date(time))
-  const weekday = parts.find(part => part.type === 'weekday')?.value
-  const hour = Number(parts.find(part => part.type === 'hour')?.value)
+  const part = type => parts.find(entry => entry.type === type)?.value
+  const weekday = part('weekday')
+  const hour = Number(part('hour'))
   if (weekday === 'Sat' || weekday === 'Sun' || !Number.isInteger(hour)) return false
+  const date = `${part('year')}-${part('month')}-${part('day')}`
+  if (CHINA_HOLIDAYS.has(date)) return false
   return (hour >= 9 && hour < 12) || (hour >= 14 && hour < 18)
 }
 

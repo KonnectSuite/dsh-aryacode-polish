@@ -1,5 +1,26 @@
 # Changelog
 
+## [0.3.7] - 2026-10-27
+
+### Fixed
+
+- **A weekday holiday was priced at peak.** DeepSeek's rule is "Beijing time,
+  Monday to Friday **excluding Chinese statutory public holidays**, 09:00–12:00
+  and 14:00–18:00", and the fold only knew about weekdays: every weekday inside
+  those windows was billed at 2×, so a public holiday overstated the estimate by
+  double. `entries/usage.js` now carries the 2026 holiday dates as dated data,
+  sourced from the State Council notice (Guo Ban Fa Ming Dian [2025] No. 7), and
+  `test/cost.spec.mjs` proves a holiday Thursday is off-peak while an ordinary one
+  is not.
+
+### Changed
+
+- **The rate table is verified against both price pages and pinned by a test.**
+  Re-checked 2026-10-27 against the English and Chinese pricing pages: all twelve
+  off-peak numbers match (Flash `0.003/0.15/0.6` USD and `0.02/1/4` CNY, Pro
+  `0.022/0.66/1.98` USD and `0.15/4.5/13.5` CNY), and the legacy Flash model names
+  still bill at the Flash price. A new spec fails if any of those numbers drift.
+
 ## [0.3.6] - 2026-10-27
 
 ### Fixed

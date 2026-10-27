@@ -12,7 +12,11 @@ import { applyModelUsage, initialModelUsage } from './usage.js'
 /**
  * Off-peak price per million tokens. Peak is twice this. `usd` is the English
  * price page and `cny` the Chinese one; cache writes are billed as misses.
- * Verified 2026-09-27 against https://api-docs.deepseek.com/quick_start/pricing/
+ *
+ * Verified 2026-10-27 against both pages:
+ * https://api-docs.deepseek.com/quick_start/pricing/
+ * https://api-docs.deepseek.com/zh-cn/quick_start/pricing
+ * `test/cost.spec.mjs` pins all twelve numbers so an edit cannot drift silently.
  */
 const OFF_PEAK = {
   flash: {

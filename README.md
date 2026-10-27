@@ -39,7 +39,9 @@ The numbers come from the Host, never from the browser:
 
 - `entries/usage.js` folds model-attributed provider usage out of the durable
   session log, one row per provider, model, and hour, and tags each band as peak
-  or off-peak (Beijing weekdays 09–12 and 14–18 are billed at 2×).
+  or off-peak. Peak is Beijing weekdays 09:00–12:00 and 14:00–18:00, billed at 2×,
+  and Chinese statutory public holidays are off-peak all day — the 2026 list is
+  dated data in that file, sourced from the State Council notice.
 - `entries/cost.js` registers the `polishCost` projection and prices that fold:
   cache reads at the cache rate, uncached input and cache writes at the miss
   rate, output at the output rate. The wire view is already money, so no rate
@@ -47,8 +49,10 @@ The numbers come from the Host, never from the browser:
 - An unknown provider, model, or rate period keeps its tokens and marks the
   estimate **incomplete** — the pill says so rather than reporting a number it
   cannot stand behind.
-- The rate table is dated and lives in one place. When DeepSeek changes prices,
-  append a period; do not edit history.
+- The rate table is dated and lives in one place, and
+  `test/cost.spec.mjs` pins all twelve published numbers together with the two
+  price pages they came from. When DeepSeek changes prices, append a period; do
+  not edit history.
 
 ## Declaring a feature
 

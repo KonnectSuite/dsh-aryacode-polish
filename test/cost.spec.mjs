@@ -39,6 +39,17 @@ test('peak hours are Beijing weekdays 09-12 and 14-18', () => {
   assert.equal(isBeijingPeak(Date.parse('2026-10-27T10:00:00Z')), false)
 })
 
+test('a Chinese statutory holiday is off-peak even on a weekday', () => {
+  // 2026 National Day runs Oct 1 (Thu) - Oct 7 (Wed). Both instants below are
+  // 10:30 in Beijing on a Thursday or Friday, i.e. inside the peak window; only
+  // the holiday one is billed off-peak. Getting this wrong doubles the estimate.
+  assert.equal(isBeijingPeak(Date.parse('2026-10-02T02:30:00Z')), false, 'Oct 2 is a holiday')
+  assert.equal(isBeijingPeak(Date.parse('2026-10-08T02:30:00Z')), true, 'Oct 8 is an ordinary Thursday')
+  // Spring Festival 2026 covers Feb 15 - Feb 23; Feb 24 is ordinary again.
+  assert.equal(isBeijingPeak(Date.parse('2026-02-18T02:30:00Z')), false, 'Spring Festival')
+  assert.equal(isBeijingPeak(Date.parse('2026-02-24T02:30:00Z')), true, 'the day after')
+})
+
 test('the fold attributes usage to the model that reported it', () => {
   const view = deriveModelUsage([message({ inputTokens: 1000, outputTokens: 500, cacheReadTokens: 2000 })])
   assert.equal(view.models.length, 1)
@@ -144,4 +155,24 @@ test('rate tables are keyed by provider, model, and the period the usage landed 
   assert.equal(rateTable('deepseek-official', 'deepseek-v4-pro', OFF_PEAK).cny.miss, '4.5')
   assert.equal(rateTable('deepseek-account', 'deepseek-flash', Date.parse('2020-01-01T00:00:00Z')), undefined)
   assert.equal(rateTable('nobody', 'deepseek-flash', OFF_PEAK), undefined)
+})
+
+test('every published rate is exactly what the price pages say', () => {
+  // Pinned against both pages on 2026-10-27:
+  //   https://api-docs.deepseek.com/quick_start/pricing/          (usd)
+  //   https://api-docs.deepseek.com/zh-cn/quick_start/pricing     (cny)
+  // Off-peak, per million tokens. Peak is twice these, which the pricing tests
+  // above already exercise. If DeepSeek changes a price, append a period in
+  // `RATE_PERIODS` and update this table — never edit history silently.
+  const published = {
+    'deepseek-flash': { usd: { cache: '0.003', miss: '0.15', output: '0.6' }, cny: { cache: '0.02', miss: '1', output: '4' } },
+    'deepseek-v4-pro': { usd: { cache: '0.022', miss: '0.66', output: '1.98' }, cny: { cache: '0.15', miss: '4.5', output: '13.5' } },
+  }
+  for (const [model, expected] of Object.entries(published)) {
+    assert.deepEqual(rateTable('deepseek-account', model, OFF_PEAK), expected, `${model} drifted from the published rates`)
+  }
+  // The legacy Flash names are still billed at the Flash price, per the same page.
+  for (const legacy of ['deepseek-v4-flash', 'deepseek-v4-flash-vision-exp']) {
+    assert.deepEqual(rateTable('deepseek-official', legacy, OFF_PEAK), published['deepseek-flash'], `${legacy} must bill as Flash`)
+  }
 })
