@@ -46,6 +46,12 @@ export const features = [
     description: 'Show the remaining account balance in the sidebar foot, above the account row.',
     defaultOn: true,
   },
+  {
+    id: 'openWorkspaceFolder',
+    label: 'Open workspace folder',
+    description: 'Add an "Open workspace folder" row to a Session\u2019s menu that opens its workspace in the file browser.',
+    defaultOn: true,
+  },
 ]
 
 /**

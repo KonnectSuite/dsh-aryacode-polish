@@ -40,7 +40,11 @@ test('the row configuration entry is keyed to this bundle row', () => {
 
 test('the face requires only modules the Shell answers', () => {
   const required = [...bundle.matchAll(/require\('([^']+)'\)/g)].map(match => match[1])
-  assert.deepEqual(required, ['react', 'react-dom'], 'the frozen module table answers react and react-dom; anything else must be inlined')
+  assert.deepEqual(
+    required,
+    ['react', 'react-dom', '@deepseek-ai/dsh-client-ui-primitives'],
+    'the frozen module table answers these three; anything else must be inlined',
+  )
 })
 
 test('the cost pill wears the composer stat skin instead of a widget of its own', () => {
@@ -63,11 +67,36 @@ test('every switch has a label and a description', () => {
 })
 
 test('the face registers every surface it ships, each under its own key', () => {
-  for (const slot of ['plugins.row.config', 'conversation.composer.dock', 'sidebar.footer.action']) {
+  for (const slot of [
+    'plugins.row.config',
+    'conversation.composer.dock',
+    'sidebar.footer.action',
+    'sidebar.workspaces.session.menu.item',
+  ]) {
     assert.ok(bundle.includes(`'${slot}'`), `the face must register ${slot}`)
   }
   assert.match(bundle, /id: 'polish-cost'/)
   assert.match(bundle, /id: 'polish-balance'/)
+  assert.match(bundle, /id: 'polish-open-folder'/)
+})
+
+test('the workspace row opens the folder through the Session Remote', () => {
+  assert.ok(
+    bundle.includes('openWorkspacePath('),
+    'opening a folder is the Session Remote method, not a shell hack',
+  )
+  assert.ok(
+    bundle.includes('canOpenWorkspacePath('),
+    'the Host is asked whether it can open a path before the row is offered',
+  )
+  assert.ok(
+    bundle.includes("inject(['workspaces', 'remote', 'remote.session']"),
+    'the workspace row declares every service it reaches; the Shell refuses an undeclared namespace',
+  )
+  assert.ok(
+    !bundle.includes('onContextMenu'),
+    'the workspace row is not hijacked: a plugin cannot own that menu without a shell change',
+  )
 })
 
 test('the balance line registers only where the account namespace exists', () => {

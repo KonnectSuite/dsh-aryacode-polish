@@ -1,5 +1,60 @@
 # Changelog
 
+## [0.4.4] - 2026-10-27
+
+### Fixed
+
+- **The row reported "this Host cannot open a folder" on a Host that can.** A Remote
+  method answers an envelope — `{ ok, value }` — not the bare return value, so
+  `canOpenWorkspacePath()` never looked like `true`. The row now reads
+  `ok === true && value === true`, tolerates a plain boolean, and checks the
+  `ok` flag of the open call itself instead of trusting that no throw means opened.
+
+## [0.4.3] - 2026-10-27
+
+### Fixed
+
+- **The row still could not open anything.** 0.4.2 declared `remote.session` but the
+  guard checks each namespace on its own: reading `ctx.remote.session` needs both
+  `remote` and `remote.session` on the inject list, so the call failed one level
+  earlier. The registration now declares `['workspaces', 'remote', 'remote.session']`.
+
+## [0.4.2] - 2026-10-27
+
+### Fixed
+
+- **The row did nothing when clicked.** The Shell refuses `ctx.get('remote.session')`
+  — a Remote namespace may only be read through a declared injection — so the open
+  call failed before it reached the Host. The registration now declares
+  `ctx.inject(['workspaces', 'remote.session'], …)` and calls the namespace the
+  injected context hands it. Found by the row reporting its own failure (0.4.1).
+
+## [0.4.1] - 2026-10-27
+
+### Changed
+
+- The **Open workspace folder** row reports a failed open instead of doing nothing.
+  A menu row that silently ignores the click is impossible to diagnose in the
+  field; the bundle now writes one console.warn naming the failing step (no
+  Session Remote, a Host that cannot open a path, or the Remote error itself).
+
+## [0.4.0] - 2026-10-27
+
+### Added
+
+- **Open workspace folder.** A Session's "…" menu gains an **Open workspace folder**
+  row that opens the Session's workspace directory in Explorer/Finder through the
+  Session Remote (`openWorkspacePath`), gated by `canOpenWorkspacePath` and resolved
+  from the Workspace snapshot. New switch `openWorkspaceFolder`, on by default, and
+  the row hides itself when the Session has no workspace or the Host cannot open a
+  path.
+- `docs/workspace-folder.md` records why the requested surface — right-clicking the
+  workspace row itself — is not reachable from a plugin: that row has no context
+  menu, the workspace-scoped menu list slot does not exist, and native menus and
+  desktop IPC are closed to plugins. The bundle ships on the documented Session-row
+  slot rather than hijacking private markup, and the note says where the feature
+  should move if a workspace-scoped slot ever lands.
+
 ## [0.3.9] - 2026-10-27
 
 ### Changed
