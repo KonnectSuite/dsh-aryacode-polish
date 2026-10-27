@@ -7,8 +7,8 @@ installed into and patches nothing. It is one package, one Plugins row, and one
 switch per feature, so a refinement that turns out to be wrong for a machine can
 be turned off without uninstalling anything.
 
-Status: **0.3.4.** Two features shipped and released: the estimated session cost
-pill and the account balance line.
+Status: **two features shipped.** The version is the package's, and the card
+header already shows it.
 
 ## What it is
 

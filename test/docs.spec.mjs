@@ -54,6 +54,15 @@ test('the changelog carries the shipped version', () => {
   )
 })
 
+test('the README does not hard-code a version', () => {
+  // The packaged README is the card's page body, so a version written into its
+  // prose is stale the moment the next release ships — which is exactly how
+  // 0.3.5 shipped a page still describing 0.2.0. The version belongs in the
+  // manifest and the page header, not in the prose.
+  const readme = read('README.md')
+  assert.ok(!/Status:[^\n]*\d+\.\d+\.\d+/.test(readme), 'the status line must not name a version')
+})
+
 test('the handoff describes the shipped package, not a plan', () => {
   // HANDOFF.md once told the next agent the repo was private and had "no package
   // scaffold yet", and that npm must never be the channel. All three were false

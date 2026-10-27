@@ -1,5 +1,15 @@
 # Changelog
 
+## [0.3.6] - 2026-10-27
+
+### Fixed
+
+- **The README's status line no longer carries a version.** The packaged README is
+  the card's page body, so any version written into its prose is stale as soon as
+  the next release ships — 0.3.5 was published with a page still describing
+  "0.3.4". The status now says what shipped; the version comes from the manifest
+  and the page header. `test/docs.spec.mjs` fails if a version returns.
+
 ## [0.3.5] - 2026-10-27
 
 ### Fixed
