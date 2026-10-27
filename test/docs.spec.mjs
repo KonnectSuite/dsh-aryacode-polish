@@ -53,3 +53,14 @@ test('the changelog carries the shipped version', () => {
     `CHANGELOG.md needs a "## [${pkg.version}]" heading`,
   )
 })
+
+test('the handoff describes the shipped package, not a plan', () => {
+  // HANDOFF.md once told the next agent the repo was private and had "no package
+  // scaffold yet", and that npm must never be the channel. All three were false
+  // by the time it was read, and each cost time. Keep the briefing current.
+  const handoff = read('HANDOFF.md')
+  assert.ok(handoff.includes(pkg.name), 'the handoff must name the shipped package')
+  for (const stale of ['No package scaffold yet', 'Never publish from npm', '(private)']) {
+    assert.ok(!handoff.includes(stale), `HANDOFF.md still claims "${stale}"`)
+  }
+})

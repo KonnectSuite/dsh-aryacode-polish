@@ -7,7 +7,8 @@ installed into and patches nothing. It is one package, one Plugins row, and one
 switch per feature, so a refinement that turns out to be wrong for a machine can
 be turned off without uninstalling anything.
 
-Status: **0.2.0.** One feature shipped: the estimated session cost pill.
+Status: **0.3.4.** Two features shipped and released: the estimated session cost
+pill and the account balance line.
 
 ## What it is
 
@@ -116,10 +117,11 @@ entries/polish.js    the row: Config derived from the registry, apply()
 entries/registry.js  the feature list — the one place a feature is declared
 entries/usage.js     the fold: model-attributed usage out of the session log
 entries/cost.js      the polishCost projection: rates, pricing, host mount
-entries/features/    one module per feature
 entries/config.js    volatile-reference accessors (resolve/flag/list/text)
 lib/index.js         mount point re-exporting the row
 client/face.js       browser face source: the Configure page and every surface
+client/money.js      which wallet is shown, and how the amount is rendered
+client/account.js    the granted, timeout-bounded balance read
 client/switches.json the browser half of the seam — one entry per switch
 scripts/build-client.mjs  wraps client/face.js into lib/client.js
 lib/client.js        generated: the bundle the Shell loads

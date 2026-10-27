@@ -1,5 +1,23 @@
 # Changelog
 
+## [0.3.5] - 2026-10-27
+
+### Fixed
+
+- **The card's own page described an older plugin.** The README that ships in the
+  tarball *is* the page body in the Plugins market, and it still said "0.2.0, one
+  feature shipped" and listed a layout directory that does not exist. Status,
+  layout, and requirements now match the package.
+
+### Changed
+
+- `HANDOFF.md` was rewritten for the shipped bundle: the contracts that cost time
+  (a row's config namespace is the row id, not the slot key; no bundler for the
+  face; the client session contract exposes no events), the slot geography around
+  the account row, the development loop, and the release order that keeps the
+  catalogue record. `test/docs.spec.mjs` now fails if the briefing drifts back to
+  the stale claims it once made.
+
 ## [0.3.4] - 2026-10-27
 
 ### Added
