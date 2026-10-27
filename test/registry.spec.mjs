@@ -96,11 +96,11 @@ test('the row exports the entry contract', () => {
 
 test('apply follows the switches and survives a volatile-only update', () => {
   const events = []
-  const plugins = []
+  const fibers = []
   const ctx = {
     plugin(plugin) {
-      const fiber = { dispose() {}, plugin }
-      plugins.push(plugin)
+      const fiber = { disposed: false, plugin, dispose() { fiber.disposed = true } }
+      fibers.push(fiber)
       return fiber
     },
     on(event, handler) {
@@ -108,8 +108,20 @@ test('apply follows the switches and survives a volatile-only update', () => {
       return () => {}
     },
   }
-  assert.doesNotThrow(() => apply(ctx, {}))
+  const form = { sessionCost: { get: () => true } }
+  assert.doesNotThrow(() => apply(ctx, form))
   assert.deepEqual(events.map(([event]) => event), ['loader/volatile-update'])
-  // The real registry is empty today: nothing is mounted, and the row still runs.
-  assert.deepEqual(plugins, [])
+  // The feature defaults to on, so its host half is mounted on the first sync.
+  assert.deepEqual(fibers.map(fiber => fiber.plugin), features.map(feature => feature.mount))
+
+  // A volatile-only change re-runs the same apply; the switch turning off disposes that feature.
+  form.sessionCost = { get: () => false }
+  events[0][1]()
+  assert.equal(fibers[0].disposed, true)
+
+  // Turning it back on mounts a fresh fiber instead of reusing a disposed one.
+  form.sessionCost = { get: () => true }
+  events[0][1]()
+  assert.equal(fibers.length, 2)
+  assert.equal(fibers[1].disposed, false)
 })

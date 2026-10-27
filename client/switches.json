@@ -1,4 +1,11 @@
 {
   "row": "polish",
-  "switches": []
+  "switches": [
+    {
+      "key": "sessionCost",
+      "label": "Estimated session cost",
+      "description": "Show what the open session has cost so far, priced from recorded usage at the published DeepSeek rates.",
+      "defaultOn": true
+    }
+  ]
 }

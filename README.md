@@ -7,8 +7,7 @@ installed into and patches nothing. It is one package, one Plugins row, and one
 switch per feature, so a refinement that turns out to be wrong for a machine can
 be turned off without uninstalling anything.
 
-Status: **0.1.0 in development.** The scaffold and the feature seam are in place
-and tested; no feature has shipped yet.
+Status: **0.2.0.** One feature shipped: the estimated session cost pill.
 
 ## What it is
 
@@ -25,13 +24,29 @@ and tested; no feature has shipped yet.
 
 Row: **AryaCode Polish** (`polish`).
 
-No switch is registered yet: `entries/registry.js` is empty until the first
-feature lands. Each entry in that list becomes one volatile boolean in this
+Each entry in `entries/registry.js` becomes one volatile boolean in this
 Configure page automatically.
 
 | Switch | Default | What it does |
 | --- | --- | --- |
-| — | — | No features yet. |
+| **Estimated session cost** (`sessionCost`) | On | A `≈$0.39` pill in the composer dock that opens a breakdown card — cache hit, uncached input, cached input, output, requests, and the estimate — priced from the session's recorded usage at the published DeepSeek rates. |
+
+### How the cost is computed
+
+The numbers come from the Host, never from the browser:
+
+- `entries/usage.js` folds model-attributed provider usage out of the durable
+  session log, one row per provider, model, and hour, and tags each band as peak
+  or off-peak (Beijing weekdays 09–12 and 14–18 are billed at 2×).
+- `entries/cost.js` registers the `polishCost` projection and prices that fold:
+  cache reads at the cache rate, uncached input and cache writes at the miss
+  rate, output at the output rate. The wire view is already money, so no rate
+  table reaches the client.
+- An unknown provider, model, or rate period keeps its tokens and marks the
+  estimate **incomplete** — the pill says so rather than reporting a number it
+  cannot stand behind.
+- The rate table is dated and lives in one place. When DeepSeek changes prices,
+  append a period; do not edit history.
 
 ## Declaring a feature
 
@@ -96,10 +111,12 @@ installed app.
 cordis.patch.yml     one insert, one row
 entries/polish.js    the row: Config derived from the registry, apply()
 entries/registry.js  the feature list — the one place a feature is declared
+entries/usage.js     the fold: model-attributed usage out of the session log
+entries/cost.js      the polishCost projection: rates, pricing, host mount
 entries/features/    one module per feature
 entries/config.js    volatile-reference accessors (resolve/flag/list/text)
 lib/index.js         mount point re-exporting the row
-client/face.js       browser face source: the row's Configure page
+client/face.js       browser face source: the Configure page and every surface
 client/switches.json the browser half of the seam — one entry per switch
 scripts/build-client.mjs  wraps client/face.js into lib/client.js
 lib/client.js        generated: the bundle the Shell loads

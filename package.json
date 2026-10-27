@@ -1,6 +1,6 @@
 {
   "name": "@aryacode/dsh-aryacode-polish",
-  "version": "0.1.1",
+  "version": "0.2.4",
   "description": "AryaCode Polish: one install for the small things that make AryaCode feel finished. One Plugins row, one switch per quality-of-life feature.",
   "keywords": [
     "dsh",
@@ -10,7 +10,8 @@
     "bundle",
     "polish",
     "quality-of-life",
-    "spellcheck"
+    "cost",
+    "usage"
   ],
   "license": "MIT",
   "type": "module",
@@ -47,7 +48,10 @@
   "scripts": {
     "build:client": "node scripts/build-client.mjs",
     "prepack": "node scripts/build-client.mjs",
-    "test": "node --test test/patch.spec.mjs test/config.spec.mjs test/registry.spec.mjs test/docs.spec.mjs test/manifests.spec.mjs test/client-face.spec.mjs"
+    "test": "node --test test/patch.spec.mjs test/config.spec.mjs test/registry.spec.mjs test/cost.spec.mjs test/docs.spec.mjs test/manifests.spec.mjs test/client-face.spec.mjs"
+  },
+  "dependencies": {
+    "zod": "^4.4.3"
   },
   "peerDependencies": {
     "@deepseek-ai/cordis": "~4.0.4"

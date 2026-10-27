@@ -43,7 +43,14 @@ test('the tarball carries every file the row needs', () => {
 
 test('the peer dependency is the host Cordis range', () => {
   assert.ok(pkg.peerDependencies?.['@deepseek-ai/cordis'], 'cordis is a peer, not a dependency')
-  assert.ok(!pkg.dependencies, 'a bundle ships no runtime dependencies of its own')
+})
+
+test('runtime dependencies are only what the host cannot supply', () => {
+  // `zod` is the harness's own schema library, pinned by every projection in the
+  // tree, but it is not part of the Shell's frozen client module table and is not
+  // hoisted into a profile, so the bundle installs its own copy. Anything else
+  // here would mean the bundle duplicates the host; keep the list to that one.
+  assert.deepEqual(Object.keys(pkg.dependencies ?? {}), ['zod'], 'only zod may be a runtime dependency')
 })
 
 test('dependency specs are registry ranges, never local paths or URLs', () => {

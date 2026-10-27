@@ -23,14 +23,24 @@
  * @module dsh-aryacode-polish-registry
  */
 
+import { mountCost } from './cost.js'
+
 /**
- * Every feature this bundle ships. Empty until the first feature lands:
- * spelling corrections are investigated and documented in
- * `docs/parked-spellcheck.md`, and are parked because they need a shell change.
+ * Every feature this bundle ships. Spelling corrections are investigated and
+ * documented in `docs/parked-spellcheck.md`; they are parked because a
+ * right-click correction menu needs a shell change no plugin can reach.
  *
  * @type {ReadonlyArray<{ id: string, label: string, description: string, defaultOn: boolean, mount?: unknown }>}
  */
-export const features = []
+export const features = [
+  {
+    id: 'sessionCost',
+    label: 'Estimated session cost',
+    description: 'Show what the open session has cost so far, priced from recorded usage at the published DeepSeek rates.',
+    defaultOn: true,
+    mount: mountCost,
+  },
+]
 
 /**
  * Derive the row's config shape from the feature list.
