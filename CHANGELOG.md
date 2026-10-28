@@ -1,3 +1,9 @@
+## [0.71.0]
+
+### Added
+- A tree with workspaces but no sessions now says so instead of rendering empty rows:
+  "No sessions in these workspaces yet. Press + on a workspace to start one."
+
 ## [0.70.0]
 
 ### Added
