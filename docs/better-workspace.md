@@ -49,3 +49,24 @@ config form and adds/removes the registration each time the switch flips.
 Drag and drop, reorder and pinned ordering, the "/" name grouping the reference
 plugin offers, appearance options, and the same tree in the New Session picker. Those
 are M2/M3; the seat is already the right place for them.
+
+## What M2 added
+
+- **Filter** — one box over workspaces and session titles. Every group it keeps is
+  opened, because a match you cannot see is not a match; the footer reports
+  "n of m sessions" whenever the filter hides any. `/` focuses it from anywhere,
+  Escape clears it.
+- **Pinned first, running dot** — a pinned session is hoisted to the top of its
+  workspace with a star, and a running session shows a dot, so the row can be read
+  without clicking it.
+- **Drag and drop** — a workspace dropped on another moves in front of it
+  (`workspaces.insertBefore`); a session dropped on a sibling reorders it
+  (`workspaces.insertSessionBefore`). A session refuses to leave its workspace: the
+  Host stores sessions inside workspaces, and moving one would look like a delete.
+- **Keyboard walk** — arrows move a highlighted row, Enter opens a session or folds a
+  workspace, Escape closes the menu, then clears the filter, then drops the cursor.
+- **Quiet rows** — the "..." action appears on hover or on the keyboard cursor instead
+  of on every row at once, and a header control folds or expands every workspace.
+
+Still owed: "/"-in-title grouping, per-row appearance, workspace presets, and the same
+tree in the Hero picker.

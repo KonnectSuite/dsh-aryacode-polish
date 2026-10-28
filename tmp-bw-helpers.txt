@@ -1,0 +1,104 @@
+export function filterTree(rows, query, pinned) {
+  const needle = String(query || '').trim().toLowerCase()
+  const ordered = rows.map(({ workspace, sessions }) => {
+    const hoisted = []
+    const rest = []
+    ;(sessions || []).forEach(row => {
+      if (pinned && pinned.has(row.id)) hoisted.push(row)
+      else rest.push(row)
+    })
+    return { workspace, sessions: hoisted.concat(rest) }
+  })
+  if (!needle) return ordered
+  const matched = []
+  ordered.forEach(({ workspace, sessions }) => {
+    const label = workspaceLabel(workspace).toLowerCase()
+    if (label.includes(needle)) {
+      matched.push({ workspace, sessions })
+      return
+    }
+    const hits = sessions.filter(row => String(row.displayTitle || row.id).toLowerCase().includes(needle))
+    if (hits.length > 0) matched.push({ workspace, sessions: hits })
+  })
+  return matched
+}
+
+/**
+ * The rows a keyboard walk visits, in the order they are drawn. A filter opens every
+ * group it kept, because a match you cannot see is not a match.
+ */
+export function flattenRows(rows, expanded, query) {
+  const filtering = String(query || '').trim().length > 0
+  const flat = []
+  rows.forEach(({ workspace, sessions }) => {
+    flat.push({ kind: 'workspace', id: workspace.workspaceId, workspaceId: workspace.workspaceId })
+    const open = filtering || expanded[workspace.workspaceId] !== false
+    if (!open) return
+    ;(sessions || []).forEach(row => {
+      flat.push({ kind: 'session', id: row.id, workspaceId: workspace.workspaceId })
+    })
+  })
+  return flat
+}
+
+export function moveBefore(list, movingId, beforeId) {
+  const from = list.findIndex(item => item.id === movingId)
+  const to = list.findIndex(item => item.id === beforeId)
+  if (from < 0 || to < 0 || from === to) return list
+  const next = list.slice()
+  const [moving] = next.splice(from, 1)
+  const target = next.findIndex(item => item.id === beforeId)
+  next.splice(target < 0 ? next.length : target, 0, moving)
+  return next
+}
+
+const WS_FILTER = {
+  margin: '2px 2px 6px',
+  padding: '4px 8px',
+  border: '0.5px solid var(--dsw-alias-border-l2, rgba(0, 0, 0, 0.12))',
+  borderRadius: 'var(--dsw-radius-sm)',
+  background: 'transparent',
+  color: 'var(--dsw-alias-label-primary, inherit)',
+  font: 'inherit',
+  fontSize: 'calc(var(--dsh-content-font-size-secondary, 13px) - 2px)',
+  outline: 'none',
+}
+
+const WS_ROW_ACTION = {
+  flex: 'none',
+  width: '20px',
+  height: '20px',
+  display: 'inline-flex',
+  alignItems: 'center',
+  justifyContent: 'center',
+  padding: 0,
+  border: 'none',
+  borderRadius: 'var(--dsw-radius-sm)',
+  background: 'transparent',
+  color: 'var(--dsw-alias-label-tertiary)',
+  cursor: 'pointer',
+}
+
+const WS_DOT = {
+  flex: 'none',
+  width: '6px',
+  height: '6px',
+  borderRadius: '50%',
+  marginRight: '2px',
+  background: 'var(--dsw-alias-label-success, #12b76a)',
+}
+
+const WS_PIN = {
+  flex: 'none',
+  fontSize: '9px',
+  lineHeight: 1,
+  color: 'var(--dsw-alias-label-quaternary, #8a8a8a)',
+}
+
+const WS_PIN_COUNT = WS_PIN
+
+const WS_COUNT_NOTE = {
+  margin: '2px 4px 0',
+  fontSize: 'calc(var(--dsh-content-font-size-secondary, 13px) - 3px)',
+  color: 'var(--dsw-alias-label-quaternary, #8a8a8a)',
+}

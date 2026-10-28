@@ -328,6 +328,111 @@ export function workspaceLabel(workspace) {
   return words.charAt(0).toUpperCase() + words.slice(1)
 }
 
+export function filterTree(rows, query, pinned) {
+  const needle = String(query || '').trim().toLowerCase()
+  const ordered = rows.map(({ workspace, sessions }) => {
+    const hoisted = []
+    const rest = []
+    ;(sessions || []).forEach(row => {
+      if (pinned && pinned.has(row.id)) hoisted.push(row)
+      else rest.push(row)
+    })
+    return { workspace, sessions: hoisted.concat(rest) }
+  })
+  if (!needle) return ordered
+  const matched = []
+  ordered.forEach(({ workspace, sessions }) => {
+    const label = workspaceLabel(workspace).toLowerCase()
+    if (label.includes(needle)) {
+      matched.push({ workspace, sessions })
+      return
+    }
+    const hits = sessions.filter(row => String(row.displayTitle || row.id).toLowerCase().includes(needle))
+    if (hits.length > 0) matched.push({ workspace, sessions: hits })
+  })
+  return matched
+}
+
+/**
+ * The rows a keyboard walk visits, in the order they are drawn. A filter opens every
+ * group it kept, because a match you cannot see is not a match.
+ */
+export function flattenRows(rows, expanded, query) {
+  const filtering = String(query || '').trim().length > 0
+  const flat = []
+  rows.forEach(({ workspace, sessions }) => {
+    flat.push({ kind: 'workspace', id: workspace.workspaceId, workspaceId: workspace.workspaceId })
+    const open = filtering || expanded[workspace.workspaceId] !== false
+    if (!open) return
+    ;(sessions || []).forEach(row => {
+      flat.push({ kind: 'session', id: row.id, workspaceId: workspace.workspaceId })
+    })
+  })
+  return flat
+}
+
+export function moveBefore(list, movingId, beforeId) {
+  const from = list.findIndex(item => item.id === movingId)
+  const to = list.findIndex(item => item.id === beforeId)
+  if (from < 0 || to < 0 || from === to) return list
+  const next = list.slice()
+  const [moving] = next.splice(from, 1)
+  const target = next.findIndex(item => item.id === beforeId)
+  next.splice(target < 0 ? next.length : target, 0, moving)
+  return next
+}
+
+const WS_FILTER = {
+  margin: '2px 2px 6px',
+  padding: '4px 8px',
+  border: '0.5px solid var(--dsw-alias-border-l2, rgba(0, 0, 0, 0.12))',
+  borderRadius: 'var(--dsw-radius-sm)',
+  background: 'transparent',
+  color: 'var(--dsw-alias-label-primary, inherit)',
+  font: 'inherit',
+  fontSize: 'calc(var(--dsh-content-font-size-secondary, 13px) - 2px)',
+  outline: 'none',
+}
+
+const WS_ROW_ACTION = {
+  flex: 'none',
+  width: '20px',
+  height: '20px',
+  display: 'inline-flex',
+  alignItems: 'center',
+  justifyContent: 'center',
+  padding: 0,
+  border: 'none',
+  borderRadius: 'var(--dsw-radius-sm)',
+  background: 'transparent',
+  color: 'var(--dsw-alias-label-tertiary)',
+  cursor: 'pointer',
+}
+
+const WS_DOT = {
+  flex: 'none',
+  width: '6px',
+  height: '6px',
+  borderRadius: '50%',
+  marginRight: '2px',
+  background: 'var(--dsw-alias-label-success, #12b76a)',
+}
+
+const WS_PIN = {
+  flex: 'none',
+  fontSize: '9px',
+  lineHeight: 1,
+  color: 'var(--dsw-alias-label-quaternary, #8a8a8a)',
+}
+
+const WS_PIN_COUNT = WS_PIN
+
+const WS_COUNT_NOTE = {
+  margin: '2px 4px 0',
+  fontSize: 'calc(var(--dsh-content-font-size-secondary, 13px) - 3px)',
+  color: 'var(--dsw-alias-label-quaternary, #8a8a8a)',
+}
+
 export function BetterWorkspace(props) {
   const services = props.services || {}
   const { ctx, slots } = services
@@ -337,6 +442,12 @@ export function BetterWorkspace(props) {
   const [armed, setArmed] = React.useState(null)
   const [adding, setAdding] = React.useState(false)
   const [notice, setNotice] = React.useState('')
+  const [query, setQuery] = React.useState('')
+  const [cursor, setCursor] = React.useState(-1)
+  const [hover, setHover] = React.useState(null)
+  const [drag, setDrag] = React.useState(null)
+  const [dropping, setDropping] = React.useState(null)
+  const filterRef = React.useRef(null)
 
   const workspaceState = useLive(services.workspacesLive)
   const sessionState = useLive(services.sessionsLive)
@@ -344,10 +455,36 @@ export function BetterWorkspace(props) {
   const sessionList = sessionState && sessionState.ids && sessionState.byId
     ? sessionState.ids.map(id => sessionState.byId[id]).filter(Boolean)
     : (sessionState && (sessionState.items || sessionState.sessions)) || []
-  const rows = workspaceRows(workspaceList, sessionList)
+  const pinned = React.useMemo(
+    () => new Set((workspaceState && workspaceState.pinnedSessionIds) || []),
+    [workspaceState],
+  )
+  const allRows = workspaceRows(workspaceList, sessionList)
+  const rows = filterTree(allRows, query, pinned)
+  const walk = flattenRows(rows, expanded, query)
   const runtime = React.useMemo(() => menuRuntime(ctx, slots, standard), [ctx, slots, standard.wide])
   const RowBoundary = React.useMemo(() => rowBoundary(), [])
   const entries = React.useMemo(() => rowMenuEntries(slots), [slots, workspaceList.length, sessionList.length])
+  const totalCount = allRows.reduce((sum, row) => sum + row.sessions.length, 0)
+  const shownCount = rows.reduce((sum, row) => sum + row.sessions.length, 0)
+  const allFolded = rows.length > 0 && rows.every(row => expanded[row.workspace.workspaceId] === false)
+
+  React.useEffect(() => {
+    if (cursor >= walk.length) setCursor(walk.length - 1)
+  }, [walk.length, cursor])
+
+  React.useEffect(() => {
+    const onShortcut = (event) => {
+      const node = event.target
+      const typing = node && (node.tagName === 'INPUT' || node.tagName === 'TEXTAREA' || node.isContentEditable)
+      if (event.key === '/' && !typing) {
+        event.preventDefault()
+        if (filterRef.current && filterRef.current.focus) filterRef.current.focus()
+      }
+    }
+    document.addEventListener('keydown', onShortcut)
+    return () => document.removeEventListener('keydown', onShortcut)
+  }, [])
 
   const openMenu = (event, row, workspace) => {
     event.preventDefault()
@@ -360,8 +497,71 @@ export function BetterWorkspace(props) {
     setArmed(null)
     setMenu({ kind: 'workspace', workspace, anchor: { top: event.clientY, left: event.clientX } })
   }
-
   const closeMenu = React.useCallback(() => setMenu(null), [])
+
+  const toggleWorkspace = (workspaceId) => {
+    setExpanded((prev) => {
+      const next = Object.assign({}, prev)
+      next[workspaceId] = prev[workspaceId] === false
+      return next
+    })
+  }
+  const foldAll = () => {
+    if (allFolded) { setExpanded({}); return }
+    const next = {}
+    rows.forEach((row) => { next[row.workspace.workspaceId] = false })
+    setExpanded(next)
+  }
+
+  const reorderWorkspace = async (movingId, beforeId) => {
+    if (!services.reorderWorkspace || !movingId || movingId === beforeId) return
+    try { await services.reorderWorkspace(movingId, beforeId) } catch { setNotice('Could not reorder workspaces.') }
+  }
+  const reorderSession = async (workspaceId, movingId, beforeId) => {
+    if (!services.reorderSession || !movingId || movingId === beforeId) return
+    try { await services.reorderSession(workspaceId, movingId, beforeId) } catch { setNotice('Could not reorder sessions.') }
+  }
+  const dropOnWorkspace = (targetId) => {
+    const moving = drag
+    setDrag(null)
+    setDropping(null)
+    if (!moving || moving.kind !== 'workspace') return
+    void reorderWorkspace(moving.id, targetId)
+  }
+  const dropOnSession = (workspaceId, targetId) => {
+    const moving = drag
+    setDrag(null)
+    setDropping(null)
+    if (!moving || moving.kind !== 'session' || moving.id === targetId) return
+    if (moving.workspaceId !== workspaceId) { setNotice('A session stays in the workspace it belongs to.'); return }
+    void reorderSession(workspaceId, moving.id, targetId)
+  }
+
+  const activate = (item) => {
+    if (!item) return
+    if (item.kind === 'workspace') toggleWorkspace(item.workspaceId)
+    else services.openSession(item.id)
+  }
+  const onKeyDown = (event) => {
+    if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
+      if (walk.length === 0) return
+      event.preventDefault()
+      const step = event.key === 'ArrowDown' ? 1 : -1
+      setCursor(Math.min(walk.length - 1, Math.max(0, cursor + step)))
+      return
+    }
+    if (event.key === 'Enter') {
+      if (cursor < 0) return
+      event.preventDefault()
+      activate(walk[cursor])
+      return
+    }
+    if (event.key === 'Escape') {
+      if (query) { setQuery(''); return }
+      if (menu) { closeMenu(); return }
+      setCursor(-1)
+    }
+  }
 
   const workspaceMenu = menu && menu.kind === 'workspace'
     ? React.createElement(RowMenu, { anchor: menu.anchor, onClose: closeMenu },
@@ -370,9 +570,7 @@ export function BetterWorkspace(props) {
         style: WS_MENU_ITEM,
         onClick: async () => {
           closeMenu()
-          try {
-            await services.openFolder(menu.workspace.path)
-          } catch {}
+          try { await services.openFolder(menu.workspace.path) } catch {}
         },
       }, 'Open in File Explorer'),
       React.createElement('button', {
@@ -380,9 +578,7 @@ export function BetterWorkspace(props) {
         style: WS_MENU_ITEM,
         onClick: async () => {
           closeMenu()
-          try {
-            await navigator.clipboard.writeText(menu.workspace.path)
-          } catch {}
+          try { await navigator.clipboard.writeText(menu.workspace.path) } catch {}
         },
       }, 'Copy path'),
       React.createElement('button', {
@@ -392,16 +588,13 @@ export function BetterWorkspace(props) {
           const workspace = menu.workspace
           if (!armed || armed !== workspace.workspaceId) {
             setArmed(workspace.workspaceId)
-            setMenu(Object.assign({}, menu, { anchor: menu.anchor }))
+            setMenu(Object.assign({}, menu))
             return
           }
           closeMenu()
-          try {
-            await services.removeWorkspace(workspace.workspaceId)
-          } catch {}
+          try { await services.removeWorkspace(workspace.workspaceId) } catch {}
         },
-      }, armed && armed === menu.workspace.workspaceId ? 'Remove workspace?' : 'Remove workspace'),
-    )
+      }, armed && armed === menu.workspace.workspaceId ? 'Remove workspace?' : 'Remove workspace'))
     : null
 
   const sessionMenu = menu && menu.kind === 'session'
@@ -412,12 +605,182 @@ export function BetterWorkspace(props) {
           runtime,
           workspacesSnapshot: workspaceState,
           session: { sessionId: menu.row.id, displayTitle: menu.row.displayTitle, session: menu.row },
-        }))),
-    )
+        }))))
     : null
+
+  const children = []
+
+  children.push(React.createElement('div', { key: 'header', 'data-polish-ws': 'header', style: WS_HEADER },
+    React.createElement('span', { style: WS_HEADER_TITLE }, 'Workspaces'),
+    React.createElement('button', {
+      key: 'fold',
+      type: 'button',
+      'data-polish-ws-fold': 'true',
+      title: allFolded ? 'Expand all' : 'Collapse all',
+      'aria-label': allFolded ? 'Expand all workspaces' : 'Collapse all workspaces',
+      style: WS_ADD,
+      onClick: foldAll,
+    }, allFolded ? '⌄' : '⌃'),
+    React.createElement('button', {
+      key: 'add',
+      type: 'button',
+      'data-polish-ws-add': 'true',
+      title: 'Add a workspace',
+      'aria-label': 'Add a workspace',
+      style: WS_ADD,
+      onClick: () => { setAdding(true); setNotice('') },
+    }, '+')))
+
+  children.push(React.createElement('input', {
+    key: 'filter',
+    ref: filterRef,
+    'data-polish-ws-filter': 'true',
+    type: 'search',
+    value: query,
+    placeholder: 'Filter workspaces and sessions',
+    'aria-label': 'Filter workspaces and sessions',
+    style: WS_FILTER,
+    onChange: (event) => { setQuery(event.target.value); setCursor(-1) },
+    onKeyDown: (event) => {
+      if (event.key === 'Escape') { event.stopPropagation(); setQuery('') }
+    },
+  }))
+
+  if (notice) {
+    children.push(React.createElement('div', { key: 'notice', 'data-polish-ws': 'notice', style: WS_NOTICE }, notice))
+  }
+
+  if (adding && services.sourceFlow) {
+    children.push(React.createElement(services.sourceFlow, {
+      key: 'flow',
+      configForms: services.configForms(),
+      open: true,
+      onPicked: async (path) => {
+        if (!path) return
+        try {
+          await services.createWorkspace(path)
+          setAdding(false)
+        } catch (error) {
+          setNotice((error && error.message) || 'Could not add that folder.')
+        }
+      },
+      onCancel: () => setAdding(false),
+      onError: (message) => setNotice(message || 'Could not add that folder.'),
+    }))
+  }
+
+  if (rows.length === 0) {
+    children.push(React.createElement('div', {
+      key: 'empty',
+      style: { padding: '8px 6px', color: 'var(--dsw-alias-label-quaternary, #8a8a8a)' },
+    }, query ? 'Nothing matches "' + query + '".' : 'No workspace yet.'))
+  }
+
+  let index = -1
+  rows.forEach((group) => {
+    const workspace = group.workspace
+    const sessions = group.sessions
+    index += 1
+    const open = expanded[workspace.workspaceId] !== false
+    const focused = cursor === index
+    const hovered = hover === 'workspace:' + workspace.workspaceId
+    const dropHere = dropping === 'workspace:' + workspace.workspaceId
+
+    children.push(React.createElement('div', {
+      key: 'workspace:' + workspace.workspaceId,
+      style: { display: 'flex', flexDirection: 'column' },
+    },
+    React.createElement('div', {
+      'data-polish-ws-row': workspace.workspaceId,
+      draggable: true,
+      title: workspace.path || workspaceLabel(workspace),
+      style: Object.assign({}, WS_ROW, {
+        fontWeight: 500,
+        background: dropHere
+          ? 'var(--dsw-alias-interactive-bg-hover, rgba(0, 0, 0, 0.05))'
+          : (focused ? 'var(--dsw-alias-interactive-bg-hover, rgba(0, 0, 0, 0.04))' : undefined),
+        boxShadow: focused ? 'inset 0 0 0 1px var(--dsw-alias-border-l2, rgba(0, 0, 0, 0.12))' : undefined,
+      }),
+      onClick: () => toggleWorkspace(workspace.workspaceId),
+      onContextMenu: (event) => openWorkspaceMenu(event, workspace),
+      onMouseEnter: () => setHover('workspace:' + workspace.workspaceId),
+      onMouseLeave: () => setHover(null),
+      onDragStart: () => setDrag({ kind: 'workspace', id: workspace.workspaceId }),
+      onDragOver: (event) => {
+        if (!drag || drag.kind !== 'workspace' || drag.id === workspace.workspaceId) return
+        event.preventDefault()
+        setDropping('workspace:' + workspace.workspaceId)
+      },
+      onDragLeave: () => setDropping(null),
+      onDrop: (event) => { event.preventDefault(); dropOnWorkspace(workspace.workspaceId) },
+    },
+    React.createElement(CaretGlyph, { open }),
+    React.createElement(FolderGlyph),
+    React.createElement('span', { style: WS_TITLE }, workspaceLabel(workspace)),
+    React.createElement('span', { style: WS_COUNT }, String(sessions.length)),
+    hovered || focused
+      ? React.createElement('button', {
+        type: 'button',
+        'data-polish-ws-menu': 'workspace',
+        'aria-label': 'Workspace menu',
+        style: WS_ROW_ACTION,
+        onClick: (event) => openWorkspaceMenu(event, workspace),
+      }, React.createElement(DotsGlyph))
+      : null)))
+
+    if (open) {
+      sessions.forEach((row) => {
+        index += 1
+        const rowFocused = cursor === index
+        const rowHovered = hover === 'session:' + row.id
+        const lifted = dropping === 'session:' + row.id
+        children.push(React.createElement('div', {
+          key: 'session:' + row.id,
+          'data-polish-ws-session': row.id,
+          draggable: true,
+          style: Object.assign({}, WS_ROW, {
+            paddingLeft: '24px',
+            opacity: drag && drag.kind === 'session' && drag.id === row.id ? 0.5 : undefined,
+            background: lifted
+              ? 'var(--dsw-alias-interactive-bg-hover, rgba(0, 0, 0, 0.05))'
+              : (rowFocused ? 'var(--dsw-alias-interactive-bg-hover, rgba(0, 0, 0, 0.04))' : undefined),
+            boxShadow: rowFocused ? 'inset 0 0 0 1px var(--dsw-alias-border-l2, rgba(0, 0, 0, 0.12))' : undefined,
+          }),
+          onClick: () => services.openSession(row.id),
+          onContextMenu: (event) => openMenu(event, row, workspace),
+          onMouseEnter: () => setHover('session:' + row.id),
+          onMouseLeave: () => setHover(null),
+          onDragStart: () => setDrag({ kind: 'session', id: row.id, workspaceId: workspace.workspaceId }),
+          onDragOver: (event) => {
+            if (!drag || drag.kind !== 'session' || drag.id === row.id) return
+            event.preventDefault()
+            setDropping('session:' + row.id)
+          },
+          onDragLeave: () => setDropping(null),
+          onDrop: (event) => { event.preventDefault(); dropOnSession(workspace.workspaceId, row.id) },
+        },
+        row.running ? React.createElement('span', { style: WS_DOT, title: 'Running' }) : null,
+        pinned.has(row.id) ? React.createElement('span', { style: WS_PIN, title: 'Pinned' }, '\u2605') : null,
+        React.createElement('span', { style: WS_TITLE }, row.displayTitle || row.id),
+        rowHovered || rowFocused
+          ? React.createElement('button', {
+            type: 'button',
+            'data-polish-ws-menu': 'session',
+            'aria-label': 'Session menu',
+            style: WS_ROW_ACTION,
+            onClick: (event) => openMenu(event, row, workspace),
+          }, React.createElement(DotsGlyph))
+          : null))
+      })
+    }
+  })
 
   return React.createElement('div', {
     'data-polish-ws': 'tree',
+    tabIndex: 0,
+    role: 'tree',
+    'aria-label': 'Workspaces',
+    onKeyDown: onKeyDown,
     style: {
       display: 'flex',
       flexDirection: 'column',
@@ -427,68 +790,13 @@ export function BetterWorkspace(props) {
       overflowY: 'auto',
       overflowX: 'hidden',
       padding: '2px 6px 12px',
+      outline: 'none',
     },
   },
-    React.createElement('div', { 'data-polish-ws': 'header', style: WS_HEADER },
-      React.createElement('span', { style: WS_HEADER_TITLE }, 'Workspaces'),
-      React.createElement('button', {
-        type: 'button',
-        'data-polish-ws-add': 'true',
-        title: 'Add a workspace',
-        'aria-label': 'Add a workspace',
-        style: WS_ADD,
-        onClick: () => { setAdding(true); setNotice('') },
-      }, '+')),
-    notice ? React.createElement('div', { 'data-polish-ws': 'notice', style: WS_NOTICE }, notice) : null,
-    adding && services.sourceFlow
-      ? React.createElement(services.sourceFlow, {
-        configForms: services.configForms(),
-        open: true,
-        onPicked: async (path) => {
-          if (!path) return
-          try {
-            await services.createWorkspace(path)
-            setAdding(false)
-          } catch (error) {
-            setNotice((error && error.message) || 'Could not add that folder.')
-          }
-        },
-        onCancel: () => setAdding(false),
-        onError: (message) => setNotice(message || 'Could not add that folder.'),
-      })
-      : null,
-  rows.length === 0
-    ? React.createElement('div', { style: { padding: '8px 6px', color: 'var(--dsw-alias-label-quaternary, #8a8a8a)' } }, 'No workspace yet.')
-    : rows.map(({ workspace, sessions }) => {
-      const open = expanded[workspace.workspaceId] !== false
-      return React.createElement('div', { key: workspace.workspaceId, style: { display: 'flex', flexDirection: 'column' } },
-        React.createElement('div', {
-          'data-polish-ws-row': workspace.workspaceId,
-          style: Object.assign({}, WS_ROW, { fontWeight: 500 }),
-          onClick: () => setExpanded(prev => Object.assign({}, prev, { [workspace.workspaceId]: prev[workspace.workspaceId] === false })),
-          onContextMenu: event => openWorkspaceMenu(event, workspace),
-        },
-        React.createElement(CaretGlyph, { open }),
-        React.createElement(FolderGlyph),
-        React.createElement('span', { style: WS_TITLE, title: workspace.path || workspace.title }, workspaceLabel(workspace)),
-        React.createElement('span', { style: WS_COUNT }, String(sessions.length))),
-        open
-          ? sessions.map(row => React.createElement('div', {
-            key: row.id,
-            'data-polish-ws-session': row.id,
-            style: Object.assign({}, WS_ROW, { paddingLeft: '24px' }),
-            onClick: () => services.openSession(row.id),
-            onContextMenu: event => openMenu(event, row, workspace),
-          },
-          React.createElement('span', { style: WS_TITLE }, row.displayTitle || row.id),
-          React.createElement('button', {
-            type: 'button',
-            'aria-label': 'Session menu',
-            style: Object.assign({}, WS_MENU_ITEM, { width: '20px', height: '20px', padding: 0, justifyContent: 'center', flex: 'none' }),
-            onClick: event => openMenu(event, row, workspace),
-          }, React.createElement(DotsGlyph))))
-          : null)
-    }),
+  children,
+  shownCount < totalCount
+    ? React.createElement('div', { key: 'count', style: WS_COUNT_NOTE }, String(shownCount) + ' of ' + String(totalCount) + ' sessions')
+    : null,
   sessionMenu,
   workspaceMenu)
 }
@@ -539,6 +847,8 @@ export function installWorkspaceSeat(ctx, configForms, extras = {}) {
             sessionsLive: seated.sessions.list,
             openSession: (id) => seated.uiWorkspace.openSession(id),
             createWorkspace: (path) => seated.workspaces.create({ path }),
+            reorderWorkspace: (movingId, beforeId) => seated.workspaces.insertBefore(movingId, beforeId),
+            reorderSession: (workspaceId, movingId, beforeId) => seated.workspaces.insertSessionBefore(workspaceId, movingId, beforeId),
             removeWorkspace: (id) => seated.workspaces.delete(id),
             openFolder: async (path) => {
               const answer = await seated.remote.session.openWorkspacePath({ path })
