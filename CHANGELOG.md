@@ -1,3 +1,11 @@
+## [0.39.0] - 2026-10-28
+
+- Sort workspaces by what they have spent: "Most spent first" ranks the tree by the cost totals already
+  shown on every workspace row, and a workspace nobody has spent in sinks to the bottom instead of
+  jumping to the top on a zero.
+- Every sort mode now gets its label from one table (SORT_TITLES), so the menu can never name a mode
+  that does not exist.
+
 ## [0.38.0] - 2026-10-28
 
 ### Added

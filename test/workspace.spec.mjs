@@ -22,6 +22,8 @@ import {
   markOf,
   sortRows,
   sortOf,
+  SORTS,
+  SORT_TITLES,
   readSort,
   writeSort,
   lookOf,
@@ -760,4 +762,40 @@ it('a reset really resets every view knob', () => {
   assert.deepEqual(defaults.folders, {})
   assert.equal(defaults.density, 'comfortable')
   assert.equal(defaults.sort, 'host')
+})
+
+it('Sort by spend ranks workspaces by what they cost', () => {
+  const groups = [
+    { workspace: { workspaceId: 'a', title: 'Alpha' }, sessions: [] },
+    { workspace: { workspaceId: 'b', title: 'Bravo' }, sessions: [] },
+    { workspace: { workspaceId: 'c', title: 'Charlie' }, sessions: [] },
+  ]
+  const totals = { a: { usd: 0.5 }, b: { usd: 2.25 } }
+  const ranked = sortRows(groups, 'cost', (group) => totals[group.workspace.workspaceId])
+  assert.deepEqual(ranked.map((group) => group.workspace.workspaceId), ['b', 'a', 'c'])
+})
+
+it('A workspace with no spend sinks below a priced one, whatever its name', () => {
+  const groups = [
+    { workspace: { workspaceId: 'aaa', title: 'AAA' }, sessions: [] },
+    { workspace: { workspaceId: 'zzz', title: 'ZZZ' }, sessions: [] },
+  ]
+  const totals = { zzz: { usd: 0.01 } }
+  const ranked = sortRows(groups, 'cost', (group) => totals[group.workspace.workspaceId])
+  assert.deepEqual(ranked.map((group) => group.workspace.workspaceId), ['zzz', 'aaa'])
+})
+
+it('Every sort mode is named once, and cost is one of them', () => {
+  assert.deepEqual(SORTS, ['host', 'name', 'cost'])
+  assert.equal(SORT_TITLES.cost, 'Most spent first')
+  assert.equal(sortOf('cost'), 'cost')
+  for (const mode of SORTS) assert.equal(typeof SORT_TITLES[mode], 'string')
+})
+
+it('Sorting by spend without totals falls back to names, not to a crash', () => {
+  const groups = [
+    { workspace: { workspaceId: 'b', title: 'Bravo' }, sessions: [] },
+    { workspace: { workspaceId: 'a', title: 'Alpha' }, sessions: [] },
+  ]
+  assert.deepEqual(sortRows(groups, 'cost').map((group) => group.workspace.workspaceId), ['a', 'b'])
 })

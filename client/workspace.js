@@ -613,7 +613,13 @@ export function densityOf(value) {
 }
 
 export const SORT_KEY = 'aryacode-polish:sort.v1'
-export const SORTS = ['host', 'name']
+export const SORTS = ['host', 'name', 'cost']
+
+export const SORT_TITLES = {
+  host: 'Host order',
+  name: 'Sort A to Z',
+  cost: 'Most spent first',
+}
 
 export function sortOf(value) {
   return SORTS.indexOf(value) === -1 ? 'host' : value
@@ -638,8 +644,30 @@ export function writeSort(value, storage) {
 
 // Folder membership is the primary key so a folder's workspaces stay together;
 // '' sorts before any folder name, which keeps unfiled workspaces on top.
-export function sortRows(rows, mode) {
-  if (sortOf(mode) !== 'name') return rows
+export function sortRows(rows, mode, totalOf) {
+  const kind = sortOf(mode)
+  if (kind === 'host') return rows
+  if (kind === 'cost') {
+    const spent = (group) => {
+      const total = typeof totalOf === 'function' ? totalOf(group) : undefined
+      return total && typeof total.usd === 'number' && Number.isFinite(total.usd) ? total.usd : undefined
+    }
+    const ranked = rows.map((group, index) => ({
+      group,
+      index,
+      usd: spent(group),
+      label: workspaceLabel(group.workspace).toLowerCase(),
+    }))
+    ranked.sort((a, b) => {
+      // A workspace nobody has spent in sinks below a priced one, whatever its name.
+      if (a.usd === undefined && b.usd !== undefined) return 1
+      if (b.usd === undefined && a.usd !== undefined) return -1
+      if (a.usd !== undefined && b.usd !== undefined && a.usd !== b.usd) return b.usd - a.usd
+      if (a.label !== b.label) return a.label < b.label ? -1 : 1
+      return a.index - b.index
+    })
+    return ranked.map((entry) => entry.group)
+  }
   const ranked = rows.map((group, index) => ({
     group,
     index,
@@ -1380,7 +1408,7 @@ export function BetterWorkspace(props) {
   }
   const allRows = workspaceRows(workspaceList, byPin.rest)
   const archivedSessions = split.archived
-  const rows = filterTree(sortRows(allRows, sort), query, pinned)
+  const rows = filterTree(sortRows(allRows, sort, (group) => sumCost(group.sessions, sessionState)), query, pinned)
   const folderOf = (workspace) => folderKey(workspace)
   const visibleRows = rows.filter((group) => {
     const key = folderOf(group.workspace)
@@ -2260,7 +2288,7 @@ export function BetterWorkspace(props) {
         'data-polish-tree-sort': each,
         style: WS_MENU_ITEM,
         onClick: () => { setMenu(null); setSort(each); writeSort(each) },
-      }, mark + (each === 'name' ? 'Sort A to Z' : 'Host order')))
+      }, mark + (SORT_TITLES[each] || each)))
     })
     items.push(React.createElement('button', {
       key: 'reset',
