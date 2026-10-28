@@ -1,3 +1,13 @@
+## [0.65.0]
+
+The tree says what it is to a screen reader.
+
+### Added
+- Real tree semantics: the section is a multiselectable `tree`; folders and workspaces are
+  `treeitem` at level 1 with `aria-expanded` and `aria-selected`; sessions are `treeitem` at level 2
+  and report selection while picked or focused. Nothing about the drawing changed — only what an
+  assistive technology is told about it.
+
 ## [0.64.1]
 
 Shift+Home / Shift+End can start a selection.

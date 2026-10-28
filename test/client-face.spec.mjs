@@ -592,3 +592,9 @@ test('F2 rename and shift-extended selection', () => {
     assert.ok(workspaceSource.includes(marker), 'bundle should carry ' + marker)
   }
 })
+
+test('tree semantics', () => {
+  for (const marker of ["'aria-level': 1", "'aria-level': 2", "'aria-multiselectable': true", "'aria-expanded': open === true", "'aria-selected': picked.indexOf(row.id) >= 0 || rowFocused"]) {
+    assert.ok(workspaceSource.includes(marker), 'bundle should carry ' + marker)
+  }
+})

@@ -632,3 +632,15 @@ unfocused tree answers "Focus a row to rename it."
 **Shift+Home / Shift+End** extend the selection to the first or last session, seeded from the focused
 session when nothing is picked yet — the first version required an existing selection, which left a
 keyboard-only user with no way to begin one.
+
+
+## Tree semantics
+
+The section is `role="tree"` with `aria-label="Workspaces"` and `aria-multiselectable="true"`. Folder
+headers and workspace rows are `treeitem` at `aria-level="1"` carrying `aria-expanded` (a folder says
+whether it is folded, a workspace whether its sessions are open) and `aria-selected` for the keyboard
+cursor. Session rows are `treeitem` at `aria-level="2"` and report `aria-selected` while picked or
+focused.
+
+This matches the keyboard behaviour the tree already had — arrow walk, Home/End, type-ahead,
+Ctrl/Space selection — so the announced structure is not a claim the interaction cannot keep.

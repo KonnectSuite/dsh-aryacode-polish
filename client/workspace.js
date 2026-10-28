@@ -3821,6 +3821,9 @@ export function BetterWorkspace(props) {
     return React.createElement('div', {
       key: 'session:' + row.id,
       'data-polish-ws-session': row.id,
+      role: 'treeitem',
+      'aria-level': 2,
+      'aria-selected': picked.indexOf(row.id) >= 0 || rowFocused,
       'data-polish-cursor': rowFocused ? 'true' : undefined,
       'data-polish-session-picked': picked.indexOf(row.id) >= 0 ? 'true' : undefined,
       'data-polish-session-unread': isUnread(row, seen) ? 'true' : undefined,
@@ -3990,6 +3993,10 @@ export function BetterWorkspace(props) {
       children.push(React.createElement('div', {
         key: 'folder:' + folder,
         'data-polish-ws-folder': folder,
+        role: 'treeitem',
+        'aria-level': 1,
+        'aria-expanded': folded[folder] !== true,
+        'aria-label': folder + ' folder',
         role: 'group',
         'aria-label': folder,
         title: folded ? 'Expand ' + folder : 'Collapse ' + folder,
@@ -4101,6 +4108,10 @@ export function BetterWorkspace(props) {
     },
     React.createElement('div', {
       'data-polish-ws-row': workspace.workspaceId,
+      role: 'treeitem',
+      'aria-level': 1,
+      'aria-expanded': open === true,
+      'aria-selected': focused,
       'data-polish-cursor': focused ? 'true' : undefined,
       draggable: true,
       title: workspace.path || workspaceLabel(workspace),
@@ -4422,9 +4433,10 @@ export function BetterWorkspace(props) {
 
   return React.createElement('div', {
     'data-polish-ws': 'tree',
-    tabIndex: 0,
     role: 'tree',
     'aria-label': 'Workspaces',
+    'aria-multiselectable': true,
+    tabIndex: 0,
     onKeyDown: onKeyDown,
     style: {
       display: 'flex',
