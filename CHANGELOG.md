@@ -1,3 +1,12 @@
+## [0.66.0]
+
+Space picks, like every file list you have ever used.
+
+### Added
+- **Space** picks or unpicks the focused session and says how many are picked, so a bulk action no
+  longer needs a modifier key. Typing a space in the filter still types a space — the handler stands
+  aside whenever the event comes from an input, a textarea or a contenteditable.
+
 ## [0.65.0]
 
 The tree says what it is to a screen reader.

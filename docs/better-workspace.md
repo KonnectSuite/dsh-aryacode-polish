@@ -644,3 +644,11 @@ focused.
 
 This matches the keyboard behaviour the tree already had — arrow walk, Home/End, type-ahead,
 Ctrl/Space selection — so the announced structure is not a claim the interaction cannot keep.
+
+
+## Space picks
+
+**Space** picks or unpicks the focused session and reports the count ("1 selected"), so a bulk action
+never needs a modifier key. The handler stands aside when the event comes from an input, a textarea or
+a contenteditable — a space typed into the filter is still a space. A workspace row under the cursor
+answers "Focus a session to pick it." instead of picking something else.

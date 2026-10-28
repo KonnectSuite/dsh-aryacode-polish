@@ -2360,6 +2360,20 @@ export function BetterWorkspace(props) {
     if (next >= 0) setCursor(next)
   }
   const onKeyDown = (event) => {
+    const tag = event.target && event.target.tagName
+    const typing = tag === 'INPUT' || tag === 'TEXTAREA' || (event.target && event.target.isContentEditable === true)
+    if (event.key === ' ' && !typing && !event.ctrlKey && !event.metaKey && !event.altKey) {
+      const entry = walk[cursor]
+      if (!entry) return
+      event.preventDefault()
+      if (entry.kind !== 'session') { setNotice('Focus a session to pick it.'); return }
+      const has = picked.indexOf(entry.id) >= 0
+      const next = has ? picked.filter((id) => id !== entry.id) : picked.concat([entry.id])
+      setPicked(next)
+      setAnchorId(entry.id)
+      setNotice(next.length > 0 ? selectionLabel(next.length) : '')
+      return
+    }
     if (event.key === '[' || event.key === ']') {
       event.preventDefault()
       hopWorkspace(event.key === ']' ? 1 : -1)
@@ -3178,6 +3192,7 @@ export function BetterWorkspace(props) {
     ['Ctrl+K', 'jump to any session or workspace'],
     ['Ctrl+Alt+Up / Down', 'move the focused workspace up or down'],
     ['F2', 'rename the focused workspace or session'],
+    ['Space', 'pick or unpick the focused session'],
     ['Shift+F10', 'open the row menu'],
     ['Alt+click', 'a folder, to fold every other folder'],
     ['Double-click', 'a workspace or session, to rename it'],

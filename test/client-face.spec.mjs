@@ -598,3 +598,9 @@ test('tree semantics', () => {
     assert.ok(workspaceSource.includes(marker), 'bundle should carry ' + marker)
   }
 })
+
+test('Space picks the focused session', () => {
+  for (const marker of ["event.key === ' ' && !typing", "'Focus a session to pick it.'", "const typing = tag === 'INPUT'"]) {
+    assert.ok(workspaceSource.includes(marker), 'bundle should carry ' + marker)
+  }
+})
