@@ -459,3 +459,16 @@ Ctrl-click toggles a session, shift-click takes the span from the last picked ro
 ## Saved views
 
 A view is the three knobs that decide what the tree shows — filter text (operators included), sort and density — stored under a name in `aryacode-polish:views.v1`. The header menu lists them, applies them in one click, and forgets them; saving under an existing name refines it in place, and twelve is the ceiling on purpose.
+
+
+## Header totals
+
+The section header states what the whole tree holds: `WORKSPACES  ≈$0.012`. The number is
+`treeTotals(rows, snapshot)` — every listed session, priced through the same `polishCost`
+projection the rows read, summed per currency and only shown when at least one session is
+priced. The tooltip names the rest (`6 sessions in 2 workspaces · 4 priced`), so an unpriced
+session is never averaged in as zero.
+
+Density, sort and the shortcut sheet left the header for the header menu (right-click the
+title). The header keeps only the four actions that are about this tree right now: fold,
+copy as text, sort, and add.

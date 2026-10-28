@@ -364,6 +364,38 @@ export function countMatches(rows, query) {
   return total
 }
 
+/**
+ * Everything the tree currently holds, in one line: how much work is in it and
+ * what it has cost so far. Unpriced sessions are counted, never silently priced at 0.
+ */
+export function treeTotals(rows, snapshot) {
+  let sessions = 0
+  let workspaces = 0
+  let priced = 0
+  let usd = 0
+  let cny = 0
+  let sawUsd = false
+  let sawCny = false
+  ;(rows || []).forEach(({ workspace, sessions: list }) => {
+    if (!workspace) return
+    workspaces += 1
+    const each = list || []
+    sessions += each.length
+    const total = sumCost(each, snapshot)
+    if (!total) return
+    each.forEach((row) => { if (costOf(snapshot, row.id)) priced += 1 })
+    if (typeof total.usd === 'string') { usd += Number(total.usd) || 0; sawUsd = true }
+    if (typeof total.cny === 'string') { cny += Number(total.cny) || 0; sawCny = true }
+  })
+  return {
+    sessions,
+    workspaces,
+    priced,
+    usd: sawUsd ? usd.toFixed(8) : undefined,
+    cny: sawCny ? cny.toFixed(8) : undefined,
+  }
+}
+
 /** Every id between the anchor and the target, in the order they are drawn. */
 export function rangeWithin(ids, anchorId, targetId) {
   const list = ids || []
@@ -1753,6 +1785,8 @@ export function BetterWorkspace(props) {
     return ids
   }, [marks])
   const rows = filterTree(sortRows(allRows, sort, (group) => sumCost(group.sessions, sessionState)), query, pinned, { isRunning, flagged: flaggedIds })
+  const totals = React.useMemo(() => treeTotals(rows, sessionState), [rows, sessionState])
+  const totalsLabel = costLabel({ usd: totals.usd, cny: totals.cny })
   const folderOf = (workspace) => folderKey(workspace)
   const visibleRows = rows.filter((group) => {
     const key = folderOf(group.workspace)
@@ -2860,6 +2894,18 @@ export function BetterWorkspace(props) {
       },
     }, 'Save this view…'))
     items.push(React.createElement('button', {
+      key: 'help',
+      type: 'button',
+      'data-polish-tree-help': 'true',
+      style: WS_MENU_ITEM,
+      onClick: () => {
+        setMenu(null)
+        writeHelp(true)
+        setHelpSeen(true)
+        setHelpOpen(true)
+      },
+    }, 'Show the shortcuts'))
+    items.push(React.createElement('button', {
       key: 'reset',
       type: 'button',
       'data-polish-tree-reset': 'true',
@@ -2878,13 +2924,6 @@ export function BetterWorkspace(props) {
         setNotice('Reset the tree.')
       },
     }, 'Reset the tree'))
-    items.push(React.createElement('button', {
-      key: 'help',
-      type: 'button',
-      'data-polish-tree-help': 'true',
-      style: WS_MENU_ITEM,
-      onClick: () => { setMenu(null); setHelpOpen(true); writeHelp(true); setHelpSeen(true) },
-    }, 'Show the shortcuts'))
     return items
   }
 
@@ -2974,7 +3013,24 @@ export function BetterWorkspace(props) {
       setMenu({ kind: 'tree', anchor: { top: event.clientY, left: Math.max(8, event.clientX - 40) } })
     },
   },
-    React.createElement('span', { style: WS_HEADER_TITLE }, 'Workspaces'),
+    React.createElement('span', { style: WS_HEADER_TITLE },
+      React.createElement('span', { style: { flex: '1 1 auto', minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis' } }, 'Workspaces'),
+      React.createElement('span', {
+        'data-polish-ws-totals': String(totals.sessions),
+        'aria-label': 'Totals for this tree',
+        title: totals.sessions + (totals.sessions === 1 ? ' session in ' : ' sessions in ') + totals.workspaces
+          + (totals.workspaces === 1 ? ' workspace' : ' workspaces')
+          + (totals.priced > 0 ? ' \u00b7 ' + totals.priced + ' priced' : ''),
+        style: {
+          fontSize: 'calc(var(--dsh-content-font-size-secondary, 13px) - 3px)',
+          color: 'var(--dsw-alias-label-quaternary, #8a8a8a)',
+          fontVariantNumeric: 'tabular-nums',
+          flexShrink: 0,
+          letterSpacing: '0',
+          textTransform: 'none',
+          whiteSpace: 'nowrap',
+        },
+      }, totalsLabel || String(totals.sessions))),
     React.createElement('button', {
       key: 'fold',
       type: 'button',
@@ -3010,19 +3066,6 @@ export function BetterWorkspace(props) {
         setSort(next)
       },
     }, sortOf(sort) === 'name' ? 'A→Z' : '↕'),
-    React.createElement('button', {
-      key: 'density',
-      type: 'button',
-      'data-polish-ws-density': densityOf(density),
-      title: DENSITY_TITLES[densityOf(density)],
-      'aria-label': DENSITY_TITLES[densityOf(density)],
-      style: WS_ADD,
-      onClick: () => {
-        const next = nextDensity(density)
-        setDensity(next)
-        writeDensity(next)
-      },
-    }, DENSITY_GLYPHS[densityOf(density)]),
     React.createElement('button', {
       key: 'help',
       type: 'button',
@@ -3964,6 +4007,6 @@ export function installWorkspaceSeat(ctx, configForms, extras = {}) {
   }
 }
 const WS_HEADER = { display: 'flex', alignItems: 'center', gap: '6px', padding: '2px 4px 4px' }
-const WS_HEADER_TITLE = { flex: 1, minWidth: 0, fontSize: 'calc(' + "var(--dsh-content-font-size-secondary, 13px)" + ' - 2px)', letterSpacing: '0.02em', textTransform: 'uppercase', color: 'var(--dsw-alias-label-quaternary, #8a8a8a)' }
+const WS_HEADER_TITLE = { flex: 1, minWidth: 0, display: 'flex', alignItems: 'center', gap: '6px', whiteSpace: 'nowrap', fontSize: 'calc(' + "var(--dsh-content-font-size-secondary, 13px)" + ' - 2px)', letterSpacing: '0.02em', textTransform: 'uppercase', color: 'var(--dsw-alias-label-quaternary, #8a8a8a)' }
 const WS_ADD = { flex: 'none', width: '20px', height: '20px', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', padding: 0, border: 'none', background: 'transparent', color: 'var(--dsw-alias-label-tertiary)', fontSize: '15px', lineHeight: 1, borderRadius: 'var(--dsw-radius-sm)', cursor: 'pointer' }
 const WS_NOTICE = { margin: '0 4px 6px', fontSize: 'calc(' + "var(--dsh-content-font-size-secondary, 13px)" + ' - 2px)', color: 'var(--dsw-alias-label-secondary)' }

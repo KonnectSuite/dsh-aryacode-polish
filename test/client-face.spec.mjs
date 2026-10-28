@@ -361,7 +361,7 @@ test('folders and saved orders ride the same workspace seat', () => {
 })
 
 test('the tree offers density modes and an archived section', () => {
-  assert.ok(workspaceSource.includes("'data-polish-ws-density'"), 'the header carries the density switch')
+  assert.ok(workspaceSource.includes("'data-polish-tree-density'"), 'the tree menu carries the density switch')
   assert.ok(workspaceSource.includes('aryacode-polish:density'), 'the chosen density is remembered')
   assert.ok(workspaceSource.includes('DENSITY_METRICS'), 'density changes row height from a table')
   assert.ok(workspaceSource.includes("'data-polish-ws-archived'"), 'archived sessions get their own section')

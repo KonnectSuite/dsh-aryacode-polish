@@ -20,6 +20,7 @@ import {
   viewSummary,
   selectionLabel,
   countMatches,
+  treeTotals,
   flattenRows,
   moveBefore,
   folderKey,
@@ -1069,4 +1070,32 @@ it('a view summarises the knobs it would change', () => {
   assert.equal(viewSummary({ query: '! ', sort: 'recent', density: 'compact' }), '! \u00b7 Recent first \u00b7 Compact')
   assert.equal(viewSummary({ query: '', sort: 'host', density: 'comfortable' }), 'Host order')
   assert.equal(viewSummary(undefined), '')
+})
+
+
+it('the header totals count work and money without inventing either', () => {
+  const snapshot = {
+    projectionsBySession: {
+      a: { values: { polishCost: { costUsd: '0.25', costCny: '1.80', incomplete: false } } },
+      b: { values: { polishCost: { costUsd: '0.75', costCny: '5.40', incomplete: false } } },
+    },
+  }
+  const rows = [
+    { workspace: { workspaceId: 'w1', title: 'W one' }, sessions: [{ id: 'a' }, { id: 'b' }] },
+    { workspace: { workspaceId: 'w2', title: 'W two' }, sessions: [{ id: 'c' }] },
+  ]
+  const totals = treeTotals(rows, snapshot)
+  assert.equal(totals.sessions, 3)
+  assert.equal(totals.workspaces, 2)
+  assert.equal(totals.priced, 2)
+  assert.equal(totals.usd, '1.00000000')
+  assert.equal(totals.cny, '7.20000000')
+
+  assert.deepEqual(treeTotals([], snapshot), {
+    sessions: 0,
+    workspaces: 0,
+    priced: 0,
+    usd: undefined,
+    cny: undefined,
+  })
 })

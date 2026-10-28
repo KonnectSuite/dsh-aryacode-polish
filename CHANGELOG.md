@@ -1,3 +1,14 @@
+## [0.51.0]
+
+Named views, then the tree learned to report itself: the header now says how many
+sessions it holds and what they have cost in total.
+
+### Added
+- `treeTotals(rows, snapshot)` — sessions, workspaces, priced sessions, and the summed
+  cost per currency, taken from the same projection the rows read.
+- The header line `<n> · ≈$<total>`, with a tooltip naming how many priced sessions
+  are behind the number.
+
 ## [0.50.0] - 2026-10-28
 
 - Saved views: the header menu can remember the filter, the sort and the density under a name, apply any of them in one click, and forget them again.
