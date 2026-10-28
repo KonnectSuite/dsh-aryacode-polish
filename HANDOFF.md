@@ -2,28 +2,45 @@
 
 AryaCode Polish is **shipped and installable**, not a plan. This file is the
 briefing for whoever picks it up next: what exists, which contracts cost time,
-and how to release. Read `README.md` for the user-facing story.
+and how to release. `README.md` is the user-facing story and lists every switch;
+`docs/` carries the per-feature detail.
 
 ## State
 
 - Repo: `C:\Users\KNPhu\.arya\github\KonnectSuite\dsh-aryacode-polish` —
-  **public**, `main`.
-- Package: `@aryacode/dsh-aryacode-polish`. Current version **0.3.4**.
-- Distribution: on npm (`latest` resolves) **and** in the Arya Plugin Market
-  (`KonnectSuite/dsh-arya-market`, branch `catalog`). Installing from the market
-  card in Dev AryaCode was verified end to end: it lands as a digest-named tarball
-  under `<profile>/.dsh-market/releases/`, adds itself to `dsh.profile.bundles`,
-  and the surfaces mount after a restart.
-- Shipped features, each its own switch in the row's Configure page:
-  1. **Estimated session cost** — `polishCost` host projection priced from the
-     recorded session log, `≈$…` pill in the composer dock, breakdown card.
-  2. **Account balance** — remaining wallet in `sidebar.footer.action`, directly
-     above the account row.
-- Parked, by the user's decision: right-click spelling corrections. See
-  `docs/parked-spellcheck.md` — it needs a shell change, no plugin can reach it.
+  **public**, `main`, clean. HEAD `798017b` ("style(workspace): grey closed
+  folders, blue open, tinted current rows; drop the Focus row").
+- Package: `@aryacode/dsh-aryacode-polish`. Current version **0.96.0**.
+- Distribution: npm `latest` = 0.96.0 (published 2026-10-28T19:40:15Z) **and** the
+  Arya Plugin Market (`KonnectSuite/dsh-arya-market`, branch `catalog`, entry
+  `arya: true`, tarball on `registry.npmjs.org`). A market install lands as a
+  digest-named tarball under `<profile>/.dsh-market/releases/`, adds itself to
+  `dsh.profile.bundles`, and its surfaces mount after a restart. The desktop
+  profile on this machine runs 0.96.0 that way.
+- **Not preseeded into the AryaCode installer**, by the user's decision: the
+  installer ships the market, the better sidebar and the engineering bundle;
+  polish and local-llm are market-only, so users install and update them from the
+  market without an app release.
+- Seven shipped features, each its own switch (below). **316 specs**
+  (`node --test`, ~1 s) — the old "66 specs" figure is long gone.
+- Nothing was ever written to the installed AryaCode
+  (`%LOCALAPPDATA%\Programs\AryaCode`) or to the installed data home. All
+  verification used Dev AryaCode.
 
-Nothing was ever written to the installed AryaCode (`%LOCALAPPDATA%\Programs\AryaCode`)
-or to the installed data home. All verification used Dev AryaCode.
+## What it ships
+
+| Switch id | What it does | Detail |
+| --- | --- | --- |
+| `sessionCost` | `≈$…` pill in the composer dock from the session's recorded usage, at the published DeepSeek rates; opens a breakdown card. Host projection `polishCost`. | `entries/usage.js`, `entries/cost.js` |
+| `accountBalance` | Remaining wallet in `sidebar.footer.action`, directly above the account row; renders nothing when the Host exposes no wallet. | `client/account.js` |
+| `openWorkspaceFolder` | **Open workspace folder** in a Session's `…` menu. | `docs/workspace-folder.md` |
+| `githubWorkspace` | Sign in with the GitHub CLI, list repositories, clone one as a workspace. Token stays on the Host, used only as git's auth header. | `docs/github-workspaces.md` |
+| `workspaceSources` | **On this PC** / **GitHub repository…** behind the Workspaces **+**. | `entries/folders.js` |
+| `betterWorkspace` | Replaces the sidebar workspace list with our tree: folders, pins, day grouping, find, sort, read state, money, bulk actions, keyboard, subagent hiding. **The big one.** | `docs/better-workspace.md` (46 KB, the real spec) |
+| `panelScreenshot` | Camera button in the right panel: copies the open tab to the clipboard and attaches it to the message. | `docs/panel-screenshot.md` |
+
+Parked, by the user's decision: right-click spelling corrections — it needs a
+shell change no plugin can reach (`docs/parked-spellcheck.md`).
 
 ## Shape of the package
 
@@ -31,15 +48,19 @@ or to the installed data home. All verification used Dev AryaCode.
 cordis.patch.yml      one `- insert:` with one row, id `polish`, bare package name
 entries/registry.js   THE feature list — one entry per feature, nothing else
 entries/polish.js     the row: Config derived from the registry, apply(), mount/unmount
+entries/config.js     accessors: resolve / flag / list / text
 entries/usage.js      fold: model-attributed usage out of the session event log
 entries/cost.js       polishCost projection + dated rate table + pricing
-entries/config.js     accessors: resolve / flag / list / text
-client/face.js        browser face source (configure page, cost pill, balance line)
+entries/sessions.js   the tree's own route (POST api/polish.sessions): parent links
+entries/folders.js    workspace sources: OS folder chooser / folder list
+entries/github.js     GitHub CLI auth, repo listing, clone (Host side)
+client/face.js        browser face: shell surfaces, menus, cost pill, balance line
+client/workspace.js   the tree itself (211 KB — read docs/better-workspace.md first)
 client/money.js       wallet choice + amount rendering (inlined into the bundle)
 client/account.js     granted, timeout-bounded balance read (inlined)
 client/switches.json  browser half of the seam: one entry per switch
-scripts/build-client.mjs  wraps face.js + money.js + account.js into lib/client.js
-lib/client.js         generated — never hand-edit, `pnpm build:client` rewrites it
+scripts/build-client.mjs  wraps the client modules into lib/client.js
+lib/client.js         generated (≈516 KB) — never hand-edit, `pnpm build:client`
 lib/index.js          mount point, re-exports the row
 locale/en.json, zh.json  card title + description (keys must match)
 ```
@@ -49,13 +70,14 @@ locale/en.json, zh.json  card title + description (keys must match)
 1. One entry in `entries/registry.js`
    (`{ id, label, description, defaultOn, mount? }`) — that entry *is* the
    volatile switch, because the row's `Config` schema is derived from the list.
-2. One matching entry in `client/switches.json`, or
-   `test/client-face.spec.mjs` fails the parity check in either direction.
-3. Put anything testable in a plain ESM module under `client/` and let
-   `scripts/build-client.mjs` inline it (`export ` is stripped); keep
-   `client/face.js` to hooks and markup.
-4. Test: host logic in `test/*.spec.mjs`, then `pnpm test`, `pnpm pack`, install
-   in Dev AryaCode, verify in the browser, commit, release.
+2. One matching entry in `client/switches.json`, or `test/client-face.spec.mjs`
+   fails the parity check in either direction.
+3. Put anything testable in a plain ESM module and let `scripts/build-client.mjs`
+   inline it (`export ` is stripped); keep `client/face.js` to hooks and markup.
+4. A row in the README `Switches` table — `test/docs.spec.mjs` fails when a switch
+   is missing there, and the README may not claim an "N features shipped" count.
+5. Test: host logic in `test/*.spec.mjs`, then `pnpm test`, `pnpm pack`, install
+   into Dev AryaCode, verify in the browser, commit, release.
 
 ## Contracts that cost real time
 
@@ -70,14 +92,20 @@ locale/en.json, zh.json  card title + description (keys must match)
 - A volatile-only change does **not** re-run `apply()`. `entries/polish.js` mounts
   and disposes features from `loader/volatile-update`.
 - Declaring `dsh.client` obliges `exports['./client']`, and the `id` inside
-  `window.__ModuleLoader__.load({ id })` must equal the package name.
+  `window.__ModuleLoader__.load({ id })` must equal the package name. The bundle's
+  row in `cordis.patch.yml` must name the bare package specifier: the Shell
+  classifies a client row by `exactPackageSpecifier`, so a `/polish` subpath is
+  rejected and yields no client entry.
 - There is **no bundler** for the face: the build is a text wrapper. Anything you
   `require` must come from the Shell's frozen module table — in practice only
   `require('react')`; everything else has to be inlined from source.
 - The client session contract exposes **no events** (`ISession`,
   `SessionSnapshot`). Anything derived from the log must be a host projection via
   `ctx.sessionProjections.register(...)`, which is a ctx effect: disposal follows
-  the fiber.
+  the fiber. For facts the projections cannot carry, the tree uses its own Host
+  route, `POST api/polish.sessions` (`entries/sessions.js`), answered from the
+  session rows' `parentSessionId` — the route exists because projections are empty
+  on a profile whose subagents were never resumed (0.93.4 vs 0.94.0).
 - **Slot geography matters.** `SidebarRoot` renders `footerActions`
   (`sidebar.footer.action`) *above* `settingsArea` (`sidebar.settings` →
   `settings.launcher` → the account row). Nothing documented renders below the
@@ -89,6 +117,11 @@ locale/en.json, zh.json  card title + description (keys must match)
   nothing times the read out, the promise never settles — the line stays empty
   for the life of the page. `client/account.js` uses a 10 s ceiling and starts the
   call before the effect's yielded disposer.
+- **The tree's metrics are the shipped list's.** 0.95.x pinned workspace rows to
+  34px, session rows to 32px, 8px inline padding, titles 14/20, counts and money
+  12/17 tertiary, section headings 12px sentence case, chips 22px pill height,
+  density presets comfortable 34 / compact 28 / folders 30. Change one of those
+  and the tree stops looking native.
 - The market badge still reads **"Host requirement unknown"** even with
   `dsh.engines.dsh` declared and the package on npm. That is market-side; the same
   declaration does feed the compatibility filter
@@ -98,23 +131,29 @@ locale/en.json, zh.json  card title + description (keys must match)
 
 Never round-trip them through PowerShell string operations. `Set-Content
 -Encoding utf8` writes a BOM that kills the specs (`SyntaxError: Unexpected token
-''`), and a `-replace` round-trip once stored cp1252 bytes (`—`, `…`,
-`≈`) that shipped to the UI. Bump versions with `npm pkg set version=…`
+''`), and a `-replace` round-trip once stored cp1252 bytes (`—`, `…`, `≈`)
+that shipped to the UI. Bump versions with `npm pkg set version=…`
 (`pnpm pkg` is not implemented in pnpm 11.0.9), and rewrite JSON through node.
 
 ## Development loop
 
 ```powershell
 cd C:\Users\KNPhu\.arya\github\KonnectSuite\dsh-aryacode-polish
-pnpm test                 # 66 specs, node --test
+pnpm test                 # 316 specs, node --test
 pnpm pack                 # runs build:client first
 
+# Web profile (fastest for browser checks)
 cd C:\Users\KNPhu\.arya\github\KonnectSuite\AryaCode
 $env:DSH_HOME = "C:\Users\KNPhu\AppData\Local\AryaCode-dev\home"
 node --import tsx/esm apps/cli/src/bin.ts plugin --profile web add <tgz>
 pnpm run start:web -- --no-open      # print the token URL from the output
 ```
 
+- **The desktop app resolves its home from `ARYACODE_HOME`, not `DSH_HOME`**
+  (`apps/desktop/src/paths.ts:31-35`, `main.ts:6`). Launching it with only
+  `DSH_HOME` set makes it share the installed app's `userData` and profile, take
+  the same single-instance lock, and exit silently with code 0. `AryaCode-dev.bat`
+  now sets both; do the same by hand.
 - The `file:` pin means a repack at the **same version is never refetched** — bump
   the version for every install, or remove then add.
 - Kill the old server before starting a new one: a second `start:web` while port
@@ -135,9 +174,6 @@ pnpm run start:web -- --no-open      # print the token URL from the output
 
 ## Release
 
-Both channels work; npm is no longer blocked (a staged publish cleared itself and
-`npm publish` now publishes directly).
-
 ```powershell
 cd C:\Users\KNPhu\.arya\github\KonnectSuite\dsh-market
 node scripts/publish-arya-catalog.mjs --pull          # FIRST — otherwise the record is lost
@@ -147,9 +183,8 @@ node scripts/publish-arya-release.mjs --npm <version> `
 node scripts/publish-arya-catalog.mjs --push
 ```
 
-- `--tarball <tgz>` also works (publishes a GitHub release asset instead of
-  pointing at the registry). The scripts refuse any archive whose manifest lacks
-  `dsh.bundle.patch`.
+- `--tarball <tgz>` also works (a GitHub release asset instead of the registry).
+  The scripts refuse any archive whose manifest lacks `dsh.bundle.patch`.
 - Order matters: `--pull` after a release record **overwrites it** and `--push`
   then reports "nothing to publish". Pull, release, push.
 - Verify afterwards from the remote, not from the working copy:
@@ -171,5 +206,8 @@ node scripts/publish-arya-catalog.mjs --push
    `docs/parked-spellcheck.md`, shipped as a patch release of the harness.
 3. The **"Host requirement unknown"** badge is a market-side gap, not a manifest
    gap.
-4. The next features are whatever the user names — the seam is ready, and one
+4. Polish is deliberately **not** in the installer seed, so a machine without the
+   market installed has no polish until it installs it; if that ever changes, it
+   is one entry in `apps/desktop/src/starter-plugins.ts`.
+5. The next features are whatever the user names — the seam is ready, and one
    feature is one registry entry plus one switch entry plus its surface.
