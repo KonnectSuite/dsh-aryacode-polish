@@ -9,6 +9,7 @@ import {
   matchesText,
   highlightSegments,
   historyPush,
+  spendByWorkspace,
   workspaceOwning,
   readHistory,
   writeHistory,
@@ -1411,5 +1412,33 @@ describe('the workspace that owns the open session', () => {
   it('tolerates a group without sessions', () => {
     const ragged = [{ workspace: { workspaceId: 'w3' } }, ...groups]
     assert.equal(workspaceOwning(ragged, 'a').workspace.workspaceId, 'w1')
+  })
+})
+
+describe('spend by workspace', () => {
+  const snapshot = {
+    projectionsBySession: {
+      a: { values: { polishCost: { costUsd: '0.25000000' } } },
+      b: { values: { polishCost: { costUsd: '1.50000000' } } },
+      c: { values: { polishCost: { costCny: '7.20000000' } } },
+    },
+  }
+  const rows = [
+    { workspace: { workspaceId: 'w1', title: 'One' }, sessions: [{ id: 'a' }] },
+    { workspace: { workspaceId: 'w2', title: 'Two' }, sessions: [{ id: 'b' }] },
+    { workspace: { workspaceId: 'w3', title: 'Three' }, sessions: [{ id: 'c' }] },
+    { workspace: { workspaceId: 'w4', title: 'Four' }, sessions: [{ id: 'nope' }] },
+  ]
+
+  it('orders the spenders dearest first and leaves the free ones out', () => {
+    const list = spendByWorkspace(rows, snapshot)
+    assert.deepEqual(list.map((entry) => entry.workspaceId), ['w2', 'w1', 'w3'])
+    assert.equal(list[0].usd, 1.5)
+    assert.equal(list[2].cny, 7.2)
+  })
+
+  it('survives junk input', () => {
+    assert.deepEqual(spendByWorkspace(undefined, snapshot), [])
+    assert.deepEqual(spendByWorkspace([{ sessions: [] }], snapshot), [])
   })
 })

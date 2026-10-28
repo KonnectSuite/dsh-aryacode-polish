@@ -1,3 +1,8 @@
+## [0.79.0]
+
+- The header total is a door: it opens **Spend by workspace**, every workspace that spent something,
+  dearest first, with each row's session count.
+
 ## [0.78.0]
 
 - The workspace that owns the session you last opened from the tree is marked with an accent edge

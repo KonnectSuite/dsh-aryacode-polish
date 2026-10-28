@@ -732,3 +732,17 @@ It is derived, not guessed: `workspaceOwning(allRows, currentSessionId)` walks t
 one whose `sessions` hold the id from the persisted history stack, so the marker is the same fact
 Alt+Left walks. Verified live: no marker at rest, one marked workspace after opening a session
 (`inset 2px` accent bar, `aria-current="true"`), and the same marker after a full reload.
+
+
+## Spend by workspace
+
+The header total is a button. It opens **Spend by workspace**: every workspace that spent something,
+dearest first, each row carrying its own total and its session count, above the same footnote the
+session card uses.
+
+`spendByWorkspace(rows, snapshot)` collects each group's `sumCost` and sorts numerically — the values
+`sumCost` returns are fixed-point STRINGS, so comparing them as strings ranks "$1.50" above "$12.00";
+the helper converts to numbers before sorting and keeps the money in `costLabel`'s hands for display.
+
+Verified live: header `≈$0.0065` → card `default-workspace ≈$0.0053 · 11` then `Documents ≈$0.0012 · 10`,
+which add up to the header exactly, and Close dismisses it.

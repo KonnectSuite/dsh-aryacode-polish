@@ -401,6 +401,29 @@ export function countMatches(rows, query) {
  * Everything the tree currently holds, in one line: how much work is in it and
  * what it has cost so far. Unpriced sessions are counted, never silently priced at 0.
  */
+/** Every workspace that has spent something, dearest first. */
+export function spendByWorkspace(rows, snapshot) {
+  const list = []
+  for (const group of Array.isArray(rows) ? rows : []) {
+    if (!group || !group.workspace) continue
+    const total = sumCost(Array.isArray(group.sessions) ? group.sessions : [], snapshot)
+    if (!total) continue
+    list.push({
+      workspaceId: group.workspace.workspaceId,
+      label: workspaceLabel(group.workspace),
+      usd: total.usd === undefined ? undefined : Number(total.usd),
+      cny: total.cny === undefined ? undefined : Number(total.cny),
+      sessions: Array.isArray(group.sessions) ? group.sessions.length : 0,
+    })
+  }
+  return list.sort((a, b) => {
+    const au = typeof a.usd === 'number' ? a.usd : -1
+    const bu = typeof b.usd === 'number' ? b.usd : -1
+    if (bu !== au) return bu - au
+    if (a.label === b.label) return 0
+    return a.label < b.label ? -1 : 1
+  })
+}
 export function treeTotals(rows, snapshot) {
   let sessions = 0
   let workspaces = 0
@@ -2161,6 +2184,7 @@ export function BetterWorkspace(props) {
   const [renaming, setRenaming] = React.useState(null)
   const [folderTarget, setFolderTarget] = React.useState(null)
   const [costPeek, setCostPeek] = React.useState(null)
+  const [spendOpen, setSpendOpen] = React.useState(false)
   const [helpOpen, setHelpOpen] = React.useState(false)
   const [helpSeen, setHelpSeen] = React.useState(() => readHelp())
   const commitRename = async () => {
@@ -3430,6 +3454,39 @@ export function BetterWorkspace(props) {
       ['Requests', number(peekTokens.requests)],
       ['Priced sessions', number(peekTokens.priced) + ' of ' + number((peekGroup && peekGroup.sessions.length) || 0)],
     ].filter(Boolean)
+  const spendRows = React.useMemo(() => spendByWorkspace(allRows, sessionState), [allRows, sessionState])
+  const spendRow = (entry) => React.createElement('div', {
+    key: 'spend:' + entry.workspaceId,
+    'data-polish-spend-row': entry.workspaceId,
+    style: { display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: '10px', fontSize: '12px' },
+  },
+    React.createElement('span', { style: { minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' } }, entry.label),
+    React.createElement('span', { style: { flexShrink: 0, fontVariantNumeric: 'tabular-nums', color: 'var(--dsw-alias-label-tertiary, #6b6b6b)' } },
+      (typeof entry.usd === 'number' ? costLabel({ usd: entry.usd }) : costLabel({ cny: entry.cny })) + ' · ' + entry.sessions),
+  )
+  const spendCard = spendOpen && spendRows.length > 0
+    ? ReactDOM.createPortal(React.createElement(React.Fragment, null,
+      React.createElement('div', { style: SWITCHER_BACKDROP, onClick: () => setSpendOpen(false) }),
+      React.createElement('div', {
+        'data-polish-spend-card': 'open',
+        role: 'dialog',
+        'aria-label': 'Spend by workspace',
+        style: { position: 'fixed', top: '18%', left: '50%', transform: 'translateX(-50%)', zIndex: 1350, width: '340px', maxHeight: '60vh', overflow: 'auto', background: 'Canvas', color: 'CanvasText', border: '1px solid var(--dsw-alias-border-l2, rgba(0, 0, 0, 0.12))', borderRadius: '12px', boxShadow: '0 12px 32px rgba(0, 0, 0, 0.18)', padding: '14px' },
+      },
+        React.createElement('div', { style: { display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: '8px' } },
+          React.createElement('strong', { style: { fontSize: '13px' } }, 'Spend by workspace'),
+          React.createElement('span', { 'data-polish-spend-total': 'true', style: { fontSize: '12px', fontVariantNumeric: 'tabular-nums' } }, totalsLabel || String(totals.sessions)),
+        ),
+        React.createElement('div', { style: { display: 'flex', flexDirection: 'column', gap: '6px', marginTop: '10px' } }, spendRows.map(spendRow)),
+        React.createElement('div', { style: { marginTop: '10px', paddingTop: '8px', borderTop: '1px solid var(--dsw-alias-border-l2, rgba(0, 0, 0, 0.12))', fontSize: '11px', color: 'var(--dsw-alias-label-quaternary, #8a8a8a)' } }, COST_FOOTNOTE),
+        React.createElement('button', {
+          'data-polish-spend-close': 'true',
+          onClick: () => setSpendOpen(false),
+          style: { marginTop: '10px', width: '100%', padding: '6px 10px', borderRadius: '8px', border: '1px solid var(--dsw-alias-border-l2, rgba(0, 0, 0, 0.12))', background: 'transparent', color: 'inherit', cursor: 'pointer', fontSize: '12px' },
+        }, 'Close'),
+      ),
+    ), document.body)
+    : null
   const costPeekCard = costPeek && peekTokens && peekTokens.priced > 0
     ? ReactDOM.createPortal(
       React.createElement('div', {
@@ -3753,7 +3810,11 @@ export function BetterWorkspace(props) {
       React.createElement('span', { style: { flex: '1 1 auto', minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis' } }, 'Workspaces'),
       React.createElement('span', {
         'data-polish-ws-totals': String(totals.sessions),
-        'aria-label': 'Totals for this tree',
+        role: 'button',
+        tabIndex: 0,
+        onClick: () => setSpendOpen(true),
+        onKeyDown: (event) => { if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); setSpendOpen(true) } },
+        'aria-label': 'Totals for this tree. Open the spend by workspace.',
         title: totals.sessions + (totals.sessions === 1 ? ' session in ' : ' sessions in ') + totals.workspaces
           + (totals.workspaces === 1 ? ' workspace' : ' workspaces')
           + (totals.priced > 0 ? ' \u00b7 ' + totals.priced + ' priced' : '')
@@ -3766,6 +3827,7 @@ export function BetterWorkspace(props) {
           letterSpacing: '0',
           textTransform: 'none',
           whiteSpace: 'nowrap',
+          cursor: 'pointer',
         },
       }, totalsLabel || String(totals.sessions))),
     React.createElement('button', {
@@ -4711,6 +4773,7 @@ export function BetterWorkspace(props) {
     : null,
   switcherCard,
   helpCard,
+  spendCard,
   costPeekCard,
   folderLookMenu,
   sessionMenu,
