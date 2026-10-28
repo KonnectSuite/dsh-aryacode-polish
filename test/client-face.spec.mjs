@@ -229,9 +229,16 @@ test('the workspace row opens the folder through the Session Remote', () => {
     bundle.includes("inject(['workspaces', 'remote', 'remote.session']"),
     'the workspace row declares every service it reaches; the Shell refuses an undeclared namespace',
   )
+  // A plugin may not reach into a Shell-rendered row, so the menu row stays a menu
+  // row. The right-click menu lives on the rows Better workspace renders itself,
+  // inside the surface it replaced - that is the sanctioned route.
   assert.ok(
-    !bundle.includes('onContextMenu'),
-    'the workspace row is not hijacked: a plugin cannot own that menu without a shell change',
+    !bundle.includes('data-row-key'),
+    'no private row attribute is patched: a release would erase that',
+  )
+  assert.ok(
+    bundle.includes('onContextMenu'),
+    'the replaced surface owns its own rows, so their menus are ours to draw',
   )
 })
 
@@ -258,4 +265,16 @@ test('the emitted bundle lists exactly the declared switches', () => {
   for (const entry of declaration.switches) {
     assert.ok(bundle.includes(`"key": ${JSON.stringify(entry.key)}`), `${entry.key} is missing from lib/client.js; run pnpm build:client`)
   }
+})
+
+test('the better workspace seat shadows the shipped browser without re-declaring its children', () => {
+  // A child-hole declaration is exclusive: the shipped entry owns session.menu.item,
+  // so re-declaring it throws and the seat is dropped. The occupants are read off
+  // the slots service instead and rendered by hand.
+  assert.ok(bundle.includes("'sidebar.workspaces'"))
+  assert.ok(bundle.includes('priority: -1'))
+  assert.ok(bundle.includes("slots.entries('sidebar.workspaces.session.menu.item')"))
+  assert.ok(bundle.includes('menuOpenState'))
+  assert.ok(bundle.includes('installWorkspaceSeat('))
+  assert.ok(!bundle.includes('children: {'), 'no child-hole declaration may ride this registration')
 })

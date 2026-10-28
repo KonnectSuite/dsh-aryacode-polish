@@ -69,6 +69,12 @@ export const features = [
     mount: mountFolders,
   },
   {
+    id: 'betterWorkspace',
+    label: 'Better workspace',
+    description: 'Replace the sidebar workspace list with our own tree, with a right-click menu on every workspace.',
+    defaultOn: true,
+  },
+  {
     id: 'panelScreenshot',
     label: 'Right-panel screenshot',
     description: 'Copy the open right panel into the chat as an image, and onto the clipboard.',

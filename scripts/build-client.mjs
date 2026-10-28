@@ -16,6 +16,7 @@ const manifest = JSON.parse(readFileSync(new URL('package.json', root), 'utf8'))
 const declaration = JSON.parse(readFileSync(new URL('client/switches.json', root), 'utf8'))
 const money = readFileSync(new URL('client/money.js', root), 'utf8')
 const account = readFileSync(new URL('client/account.js', root), 'utf8')
+const workspace = readFileSync(new URL('client/workspace.js', root), 'utf8')
 const face = readFileSync(new URL('client/face.js', root), 'utf8')
 /*
  * html2canvas is the one third-party script the face needs: the right panel can
@@ -69,6 +70,7 @@ ${indent(html2canvas.trimEnd())}
 ${indent(money.trimEnd().replace(/^export /gm, ''))}
 
 ${indent(account.trimEnd().replace(/^export /gm, ''))}
+${indent(workspace.trimEnd().replace(/^export /gm, ''))}
 
 ${indent(face.trimEnd())}
   },

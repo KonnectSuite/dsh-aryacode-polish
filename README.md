@@ -7,7 +7,7 @@ installed into and patches nothing. It is one package, one Plugins row, and one
 switch per feature, so a refinement that turns out to be wrong for a machine can
 be turned off without uninstalling anything.
 
-Status: **six features shipped.** The version is the package's, and the card
+Status: **seven features shipped.** The version is the package's, and the card
 header already shows it.
 
 ## What it is
@@ -30,6 +30,7 @@ Configure page automatically.
 
 | Switch | Default | What it does |
 | --- | --- | --- |
+| Better workspace | On | Replaces the sidebar workspace list with our own tree and a right-click menu on each workspace. |
 | **Estimated session cost** (`sessionCost`) | On | A `≈$0.39` pill in the composer dock that opens a breakdown card — cache hit, uncached input, cached input, output, requests, and the estimate — priced from the session's recorded usage at the published DeepSeek rates. |
 | **Account balance** (`accountBalance`) | On | The account's remaining wallet (`$17.33`) in the sidebar foot, above the account row. Renders nothing when the Host exposes no wallet, so it never shows a number nobody gave it. |
 | **Open workspace folder** (`openWorkspaceFolder`) | On | An **Open workspace folder** row in a Session's "…" menu that opens the Session's workspace in Explorer/Finder. Renders nothing when the Session has no workspace or the Host cannot open a path. See [Open a workspace folder](docs/workspace-folder.md) for why the request had to land here instead of on the workspace row itself. |

@@ -1849,6 +1849,9 @@ return {
         return undefined
       }
     }
+    // The Better workspace seat shadows the shipped browser at a different priority,
+    // so it must be present only while its switch is on.
+    installWorkspaceSeat(ctx, configForms, { sourceFlow: WorkspaceSourceFlow })
     ctx.slots.inject('plugins.row.config', () => ctx.slots.register({
       name: 'plugins.row.config',
       key: ROW_KEY,

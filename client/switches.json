@@ -36,6 +36,12 @@
       "label": "Right-panel screenshot",
       "description": "Copy the open right panel into the chat as an image, and onto the clipboard.",
       "defaultOn": true
+    },
+    {
+      "key": "betterWorkspace",
+      "label": "Better workspace",
+      "description": "Replace the sidebar workspace list with our own tree: workspaces with their sessions, a right-click menu on a workspace (open, copy path, remove), and the shipped session menu inside it.",
+      "defaultOn": true
     }
   ]
 }

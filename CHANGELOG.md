@@ -1,5 +1,62 @@
 # Changelog
 
+## [0.9.6] - 2026-10-28
+
+### Fixed
+
+- A workspace whose Host title merely repeats its id is humanised, because that is
+  what the default workspace's title is.
+
+## [0.9.5] - 2026-10-28
+
+### Added
+
+- Better workspace carries the add control the stock browser had: a header with a
+  "+" that opens this bundle's own source menu (On this PC or a GitHub repository)
+  and adds the chosen folder as a workspace.
+- The default workspace no longer shows its raw id: an empty Host `title` is
+  humanised ("default-workspace" reads "Default workspace").
+
+## [0.9.4] - 2026-10-28
+
+### Fixed
+
+- The seat's `inject()` is called with the standard props the runtime captured, so the
+  menu renders again after 0.9.3 referenced a name that only lived in the factory.
+
+## [0.9.3] - 2026-10-28
+
+### Fixed
+
+- Each menu seat's own `inject()` runs before its occupant renders, so this bundle's
+  "Open workspace folder" row is back beside the shipped rows instead of silently
+  rendering nothing for want of the services it declared.
+
+## [0.9.2] - 2026-10-28
+
+### Fixed
+
+- The shipped session menu rows (Pin, Rename, Fork, Archive) now receive the standard
+  hooks they call -- `usePinned`, `useArchived`, `useSessionAccess` and `useShortcuts` --
+  derived from the snapshots this seat already subscribes to, instead of throwing
+  `TypeError: usePinned is not a function` inside `usePinState`.
+
+## [0.9.1] - 2026-10-28
+
+### Fixed
+
+- Better workspace reads the session list as `{ ids, byId }` and keeps the Host order;
+  it no longer re-sorts on a timestamp `SessionSummary` does not carry.
+
+## [0.9.0] - 2026-10-28
+
+### Added
+
+- Better workspace (`betterWorkspace`): our own sidebar browser registered into
+  `sidebar.workspaces` at `priority: -1`, with the shipped session menu rendered
+  inside it and a right-click menu on every workspace row (open, copy path, remove).
+  See `docs/better-workspace.md` for why this is a takeover rather than a menu item.
+
 
 ## [0.8.2] - 2026-10-28
 
