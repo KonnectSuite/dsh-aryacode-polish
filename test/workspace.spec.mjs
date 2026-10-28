@@ -55,6 +55,7 @@ import {
   readDensity,
   writeDensity,
   splitArchived,
+  splitPinned,
   GLYPHS,
 } from '../client/workspace.js'
 
@@ -552,5 +553,35 @@ describe('workspace sort modes', () => {
     writeSort('name', storage)
     assert.equal(readSort(storage), 'name')
     assert.equal(readSort({ getItem: () => 'nonsense', setItem: () => {} }), 'host')
+  })
+})
+
+describe('pinned sessions', () => {
+  const sessions = [
+    { id: 's1', displayTitle: 'one' },
+    { id: 's2', displayTitle: 'two' },
+    { id: 's3', displayTitle: 'three' },
+  ]
+
+  it('lifts pinned sessions out of their workspace, in order', () => {
+    const split = splitPinned(sessions, ['s3', 's1'])
+    assert.deepEqual(split.pinned.map(s => s.id), ['s1', 's3'])
+    assert.deepEqual(split.rest.map(s => s.id), ['s2'])
+  })
+
+  it('returns everything untouched when nothing is pinned', () => {
+    const split = splitPinned(sessions, [])
+    assert.deepEqual(split.pinned, [])
+    assert.deepEqual(split.rest.map(s => s.id), ['s1', 's2', 's3'])
+  })
+
+  it('ignores pin ids for sessions that are gone', () => {
+    const split = splitPinned(sessions, ['s9'])
+    assert.deepEqual(split.pinned, [])
+    assert.equal(split.rest.length, 3)
+  })
+
+  it('survives an undefined list', () => {
+    assert.deepEqual(splitPinned(undefined, ['s1']), { pinned: [], rest: [] })
   })
 })

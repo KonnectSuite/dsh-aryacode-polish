@@ -382,3 +382,9 @@ test('the tree can sort A to Z and the switcher can jump to a workspace', () => 
     assert.ok(bundle.includes(marker), 'bundle is missing ' + marker)
   }
 })
+
+test('a pinned session is lifted into its own section', () => {
+  for (const marker of ['data-polish-ws-pinned', 'data-polish-ws-pinned-row', 'splitPinned(', "'Pinned'"]) {
+    assert.ok(bundle.includes(marker), 'bundle is missing ' + marker)
+  }
+})

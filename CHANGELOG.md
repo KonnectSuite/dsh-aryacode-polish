@@ -1,3 +1,9 @@
+## [0.25.0] - 2026-10-28
+
+Added: pinned sessions are lifted into a Pinned section at the top of the tree, with their workspace
+name beside them and the usual session menu on right-click — a pin used to be a star on a row you had
+to find. Unpinning puts the session back where it belongs.
+
 ## [0.24.0] - 2026-10-28
 
 Added: a sort control in the tree header (host order or A to Z, folders kept together), and workspace

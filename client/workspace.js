@@ -688,6 +688,19 @@ export function writeDensity(value, storage) {
  * archived. The shipped browser hides archived sessions; here they keep a section of
  * their own at the bottom instead of disappearing without a trace.
  */
+// Pinned sessions get their own section, exactly like archived ones, so a pin is
+// visible where you look for it instead of only as a star on a row you must find.
+export function splitPinned(sessions, pinnedIds) {
+  const pinned = new Set(pinnedIds || [])
+  const pinnedSessions = []
+  const rest = []
+  for (const row of sessions || []) {
+    if (pinned.has(row.id)) pinnedSessions.push(row)
+    else rest.push(row)
+  }
+  return { pinned: pinnedSessions, rest }
+}
+
 export function splitArchived(sessions, archivedIds) {
   const archive = archivedIds instanceof Set ? archivedIds : new Set(archivedIds || [])
   const active = []
@@ -1144,6 +1157,7 @@ export function BetterWorkspace(props) {
   const [markDraft, setMarkDraft] = React.useState('')
   const [switcher, setSwitcher] = React.useState(null)
   const [density, setDensity] = React.useState(() => readDensity())
+  const [pinOpen, setPinOpen] = React.useState(true)
   const [archiveOpen, setArchiveOpen] = React.useState(false)
   React.useEffect(() => { writeFolded({ workspaces: expanded, folders }) }, [expanded, folders])
   React.useEffect(() => { writeFolders(declared) }, [declared])
@@ -1187,7 +1201,15 @@ export function BetterWorkspace(props) {
   const metrics = DENSITY_METRICS[densityOf(density)]
   const archiveSet = new Set((workspaceState && workspaceState.archivedSessionIds) || [])
   const split = splitArchived(sessionList, archiveSet)
-  const allRows = workspaceRows(workspaceList, split.active)
+  const byPin = splitPinned(split.active, (workspaceState && workspaceState.pinnedSessionIds) || [])
+  const pinnedSessions = byPin.pinned
+  const workspaceOfPinned = (sessionId) => {
+    for (const group of workspaceRows(workspaceList, split.active)) {
+      if (group.sessions.some((row) => row.id === sessionId)) return group.workspace
+    }
+    return undefined
+  }
+  const allRows = workspaceRows(workspaceList, byPin.rest)
   const archivedSessions = split.archived
   const rows = filterTree(sortRows(allRows, sort), query, pinned)
   const folderOf = (workspace) => folderKey(workspace)
@@ -2237,6 +2259,39 @@ export function BetterWorkspace(props) {
       },
     }, '×')))
     if (!empty) continue
+  }
+
+  if (pinnedSessions.length > 0) {
+    children.push(React.createElement('div', {
+      key: 'pinned-head',
+      'data-polish-ws-pinned': 'head',
+      style: WS_SECTION,
+      onClick: () => setPinOpen((open) => !open),
+    },
+    React.createElement('span', { 'aria-hidden': 'true' }, pinOpen ? '\u2304' : '\u203a'),
+    React.createElement('span', { style: WS_TITLE }, 'Pinned'),
+    React.createElement('span', { style: WS_COUNT }, String(pinnedSessions.length))))
+
+    if (pinOpen) {
+      for (const row of pinnedSessions) {
+        const group = workspaceOfPinned(row.id)
+        children.push(React.createElement('div', {
+          key: 'pinned:' + row.id,
+          'data-polish-ws-pinned-row': row.id,
+          title: 'Pinned session',
+          style: WS_ROW,
+          onClick: () => services.openSession(row.id),
+          onContextMenu: (event) => {
+            event.preventDefault()
+            event.stopPropagation()
+            setMenu({ kind: 'session', row, workspace: group, anchor: { top: event.clientY, left: event.clientX } })
+          },
+        },
+        React.createElement('span', { style: WS_PIN, 'aria-hidden': 'true' }, '\u2605'),
+        React.createElement('span', { style: WS_TITLE }, row.displayTitle || row.id),
+        React.createElement('span', { style: WS_COUNT_NOTE }, group ? workspaceLabel(group) : '')))
+      }
+    }
   }
 
   if (archivedSessions.length > 0) {

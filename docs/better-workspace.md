@@ -300,3 +300,13 @@ Ctrl/⌘-K lists workspaces as well as sessions: a workspace row carries `⌂` a
 `workspace`, and choosing it unfolds its folder, opens the workspace and highlights the row
 ("Jumped to <name>.") instead of opening a session. Sessions keep their existing behaviour: Enter
 opens the session.
+
+## Pinned sessions
+
+Pins are the Host's own `pinnedSessionIds`, so nothing is stored locally. A pinned session is lifted
+out of its workspace into a **Pinned** section at the top of the tree, with its workspace name beside
+it, because a pin that only draws a star on a row you must first find is not doing much. The section is
+collapsible, keeps the Host's order, and right-clicking a pinned row opens the ordinary session menu —
+where **Unpin session** puts the session back where it belongs.
+
+Archived still wins: an archived session never appears in Pinned.
