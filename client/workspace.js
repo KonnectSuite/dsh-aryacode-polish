@@ -1070,6 +1070,18 @@ export function writeSort(value, storage) {
 // Folder membership is the primary key so a folder's workspaces stay together;
 // '' sorts before any folder name, which keeps unfiled workspaces on top.
 /** Order the sessions inside a workspace by the same mode the tree is sorted with. */
+/** The hover text of a session row: its full title, then whatever we know about it. */
+export function sessionTip(row, extras) {
+  const title = String((row && (row.displayTitle || row.title || row.id)) || '').trim()
+  const parts = [title === '' ? 'Untitled session' : title]
+  const note = extras && typeof extras.note === 'string' ? extras.note.trim() : ''
+  if (note !== '') parts.push(note)
+  const cost = extras && typeof extras.cost === 'string' ? extras.cost.trim() : ''
+  if (cost !== '') parts.push(cost)
+  const age = extras && typeof extras.age === 'string' ? extras.age.trim() : ''
+  if (age !== '') parts.push(age)
+  return parts.join('\n')
+}
 export function sortSessions(sessions, mode, costOf) {
   const list = Array.isArray(sessions) ? sessions.slice() : []
   if (mode !== 'name' && mode !== 'cost' && mode !== 'recent') return list
@@ -4153,6 +4165,7 @@ export function BetterWorkspace(props) {
       'data-polish-cursor': rowFocused ? 'true' : undefined,
       'data-polish-session-picked': picked.indexOf(row.id) >= 0 ? 'true' : undefined,
       'data-polish-session-unread': isUnread(row, seen) ? 'true' : undefined,
+      title: sessionTip(row, { note: markOf(marks, row.id).note, cost: sessionCost, age: ageTitle(row.updatedAt) }),
       draggable: true,
       style: Object.assign({}, WS_ROW, {
         paddingLeft: '24px',

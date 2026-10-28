@@ -1,3 +1,8 @@
+## [0.81.0]
+
+- A session row answers a hover with its full title, its note, its money and the date it was last touched,
+  so a truncated row can still be read in full.
+
 ## [0.80.0]
 
 - The tree's sort now reaches inside a workspace: **Sort A to Z**, **Most spent first** and

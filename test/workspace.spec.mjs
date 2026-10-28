@@ -9,6 +9,7 @@ import {
   matchesText,
   highlightSegments,
   historyPush,
+  sessionTip,
   sortSessions,
   spendByWorkspace,
   workspaceOwning,
@@ -1471,5 +1472,25 @@ describe('session order inside a workspace', () => {
   it('tolerates junk', () => {
     assert.deepEqual(sortSessions(undefined, 'name'), [])
     assert.deepEqual(sortSessions([{ id: 'z' }], 'cost'), [{ id: 'z' }])
+  })
+})
+
+describe('the tooltip of a session row', () => {
+  it('names the session even when it has no title', () => {
+    assert.equal(sessionTip({ id: 'abc' }, undefined), 'abc')
+    assert.equal(sessionTip({ id: 'abc', displayTitle: '   ' }, {}), 'Untitled session')
+  })
+
+  it('stacks the note, the money and the date when it has them', () => {
+    const tip = sessionTip(
+      { displayTitle: 'Count the things' },
+      { note: 'rerun fixtures', cost: '≈$0.012', age: 'Oct 28, 2026, 6:02 AM' },
+    )
+    assert.deepEqual(tip.split(String.fromCharCode(10)), ['Count the things', 'rerun fixtures', '≈$0.012', 'Oct 28, 2026, 6:02 AM'])
+  })
+
+  it('skips the extras that are missing or blank', () => {
+    const tip = sessionTip({ displayTitle: 'Only a title' }, { note: '', cost: '   ', age: undefined })
+    assert.equal(tip, 'Only a title')
   })
 })

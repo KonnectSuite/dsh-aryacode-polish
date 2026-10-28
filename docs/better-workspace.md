@@ -757,3 +757,13 @@ missing list, and breaks ties by lowercased name then arrival index, which keeps
 
 Verified live: under **Most spent first** one workspace read `ok ≈$0.0030`, `Greeting ≈$0.0016`,
 `Greeting ≈$0.000096`; **Sort A to Z** changed the names; host order restored the original sequence.
+
+
+### Reading a truncated row
+
+A session row shows a shortened title, so it answers a hover with everything it knows:
+`sessionTip(row, { note, cost, age })` — the full title, the note, the money and the absolute date,
+one per line, skipping whatever is missing and saying "Untitled session" when there is no title at all.
+
+Verified live: `Delta reply request\n≈$0.00011\nOct 28, 2026, 9:19 AM` on a priced row, and just
+`AryaCode\nOct 28, 2026, 9:47 AM` on one that has spent nothing.
