@@ -599,3 +599,15 @@ A hovered (or keyboard-focused) session row shows three small controls: pin, fla
 button writes through the same `withMark` store the menu row uses (`aryacode-polish:session-marks.v1`),
 so the `#` filter, the Flagged chip and the tree menu never disagree about what is flagged — there is
 only one place a flag can live.
+
+
+## Hide empty
+
+**Hide workspaces with no sessions** (`aryacode-polish:hideempty.v1`) drops workspaces whose session
+list is empty from the drawing pass — `drawnRows` — without touching them anywhere else. Their
+folders, colours, stars and folder membership are untouched, so toggling it off restores the tree
+exactly as it was, and a workspace you start using reappears the moment its first session exists.
+
+The live verification in this dev tree could only show the negative case (nothing was hidden, because
+every workspace here has sessions); the positive case is covered by the bundle assertion rather than a
+screenshot, because creating an empty workspace needs the native folder picker.

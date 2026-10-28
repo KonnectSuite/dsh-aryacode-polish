@@ -574,3 +574,9 @@ test('a session can be flagged straight from the row', () => {
     assert.ok(workspaceSource.includes(marker), 'bundle should carry ' + marker)
   }
 })
+
+test('empty workspaces can be hidden', () => {
+  for (const marker of ["'data-polish-tree-hide-empty'", 'const drawnRows = hideEmpty ?']) {
+    assert.ok(workspaceSource.includes(marker), 'bundle should carry ' + marker)
+  }
+})

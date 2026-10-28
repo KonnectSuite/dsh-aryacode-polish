@@ -1893,6 +1893,18 @@ export function BetterWorkspace(props) {
   const [expanded, setExpanded] = React.useState(() => readFolded().workspaces)
   const [folderOrder, setFolderOrder] = React.useState(() => readFolderOrder(window.localStorage))
   const [starred, setStarred] = React.useState(() => readStarred(window.localStorage))
+  const [hideEmpty, setHideEmpty] = React.useState(() => {
+    try { return window.localStorage.getItem('aryacode-polish:hideempty.v1') === '1' } catch (error) { return false }
+  })
+  const paintHideEmpty = React.useCallback((next) => {
+    setHideEmpty(next)
+    try {
+      if (next) window.localStorage.setItem('aryacode-polish:hideempty.v1', '1')
+      else window.localStorage.removeItem('aryacode-polish:hideempty.v1')
+    } catch (error) {
+      // storage is best effort
+    }
+  }, [])
   const [dayGroupsOn, setDayGroupsOn] = React.useState(() => {
     try { return window.localStorage.getItem('aryacode-polish:daygroups.v1') === '1' } catch (error) { return false }
   })
@@ -3242,6 +3254,13 @@ export function BetterWorkspace(props) {
       }, mark + (SORT_TITLES[each] || each)))
     })
     items.push(React.createElement('button', {
+      key: 'hideempty',
+      type: 'button',
+      'data-polish-tree-hide-empty': hideEmpty ? 'on' : 'off',
+      style: WS_MENU_ITEM,
+      onClick: () => { setMenu(null); paintHideEmpty(!hideEmpty); setNotice(hideEmpty ? 'Empty workspaces are listed again.' : 'Empty workspaces are hidden.') },
+    }, (hideEmpty ? '\u2713 ' : '') + 'Hide workspaces with no sessions'))
+    items.push(React.createElement('button', {
       key: 'daygroups',
       type: 'button',
       'data-polish-tree-daygroups': dayGroupsOn ? 'on' : 'off',
@@ -3878,7 +3897,9 @@ export function BetterWorkspace(props) {
       : null)
   }
 
-  orderedRows.forEach((group) => {
+  const drawnRows = hideEmpty ? orderedRows.filter((group) => (group.sessions || []).length > 0) : orderedRows
+
+  drawnRows.forEach((group) => {
     const workspace = group.workspace
     if (starredTop && starredIds.has(workspace.workspaceId) && !announced['★']) {
       announced['★'] = true

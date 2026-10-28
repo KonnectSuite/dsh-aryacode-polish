@@ -1,3 +1,12 @@
+## [0.62.0]
+
+Empty workspaces stop taking up room.
+
+### Added
+- **Hide workspaces with no sessions** in the header menu (remembered in
+  `aryacode-polish:hideempty.v1`). A workspace you just created and have not used yet reappears the
+  moment it has a session — nothing is deleted, only not drawn.
+
 ## [0.61.0]
 
 Flagging a session no longer needs the menu.
