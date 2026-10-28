@@ -364,10 +364,14 @@ describe('quick switcher and folded state', () => {
   it('round-trips folded state and survives junk', () => {
     const memory = new Map()
     const storage = { getItem: k => (memory.has(k) ? memory.get(k) : null), setItem: (k, v) => memory.set(k, v) }
-    writeFolded({ workspaces: { w1: false }, folders: { Work: true } }, storage)
-    assert.deepEqual(readFolded(storage), { workspaces: { w1: false }, folders: { Work: true } })
-    assert.deepEqual(readFolded({ getItem: () => 'nope{', setItem: () => {} }), { workspaces: {}, folders: {} })
-    assert.deepEqual(readFolded(undefined), { workspaces: {}, folders: {} })
+    writeFolded({ workspaces: { w1: false }, folders: { Work: true }, pinned: false, archived: true }, storage)
+    assert.deepEqual(readFolded(storage), { workspaces: { w1: false }, folders: { Work: true }, pinned: false, archived: true })
+    const junk = { workspaces: {}, folders: {}, pinned: true, archived: false }
+    assert.deepEqual(readFolded({ getItem: () => 'nope{', setItem: () => {} }), junk)
+    assert.deepEqual(readFolded(undefined), junk)
+    // an older store without the section switches keeps today's defaults
+    storage.setItem('aryacode-polish:folded.v1', JSON.stringify({ workspaces: {}, folders: {} }))
+    assert.deepEqual(readFolded(storage), junk)
   })
 })
 

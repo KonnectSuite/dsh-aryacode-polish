@@ -1,3 +1,10 @@
+## [0.92.1]
+
+### Fixed
+- The Pinned and Archived sections remember whether you left them open: `folded.v1` now carries
+  `pinned` and `archived`, so a restart no longer re-opens Pinned and re-closes Archived.
+- Day grouping honours the eight-session cap, with its own `Show N more` per day section.
+
 ## [0.91.0]
 
 ### Added

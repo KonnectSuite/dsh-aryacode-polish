@@ -1564,16 +1564,18 @@ const WS_SECTION = {
 export function readFolded(storage) {
   try {
     const store = storage || (typeof localStorage === 'undefined' ? undefined : localStorage)
-    if (!store) return { workspaces: {}, folders: {} }
+    if (!store) return { workspaces: {}, folders: {}, pinned: true, archived: false }
     const raw = store.getItem(FOLD_KEY)
-    if (!raw) return { workspaces: {}, folders: {} }
+    if (!raw) return { workspaces: {}, folders: {}, pinned: true, archived: false }
     const parsed = JSON.parse(raw)
     return {
       workspaces: (parsed && parsed.workspaces) || {},
       folders: (parsed && parsed.folders) || {},
+      pinned: !(parsed && parsed.pinned === false),
+      archived: !!(parsed && parsed.archived),
     }
   } catch {
-    return { workspaces: {}, folders: {} }
+    return { workspaces: {}, folders: {}, pinned: true, archived: false }
   }
 }
 
@@ -1584,6 +1586,8 @@ export function writeFolded(state, storage) {
     const clean = {
       workspaces: (state && state.workspaces) || {},
       folders: (state && state.folders) || {},
+      pinned: !(state && state.pinned === false),
+      archived: !!(state && state.archived),
     }
     store.setItem(FOLD_KEY, JSON.stringify(clean))
   } catch {
@@ -2290,9 +2294,9 @@ export function BetterWorkspace(props) {
   const [markDraft, setMarkDraft] = React.useState('')
   const [switcher, setSwitcher] = React.useState(null)
   const [density, setDensity] = React.useState(() => readDensity())
-  const [pinOpen, setPinOpen] = React.useState(true)
-  const [archiveOpen, setArchiveOpen] = React.useState(false)
-  React.useEffect(() => { writeFolded({ workspaces: expanded, folders }) }, [expanded, folders])
+  const [pinOpen, setPinOpen] = React.useState(() => readFolded().pinned)
+  const [archiveOpen, setArchiveOpen] = React.useState(() => readFolded().archived)
+  React.useEffect(() => { writeFolded({ workspaces: expanded, folders, pinned: pinOpen, archived: archiveOpen }) }, [expanded, folders, pinOpen, archiveOpen])
   React.useEffect(() => { writeFolders(declared) }, [declared])
   React.useEffect(() => { writeMarks(marks) }, [marks])
   React.useEffect(() => { writePresets(presets) }, [presets])
@@ -4756,10 +4760,21 @@ export function BetterWorkspace(props) {
             'data-polish-ws-day': section.bucket,
             style: WS_DAY_HEAD,
           }, section.title))
-          section.sessions.forEach((row) => {
+          const dayKey = workspace.workspaceId + '|' + section.bucket
+          const dayCapped = capSessions(section.sessions, SESSION_CAP, showAllSessions[dayKey] === true)
+          dayCapped.shown.forEach((row) => {
             index += 1
             children.push(sessionRow(workspace, row, index, sessions))
           })
+          if (dayCapped.hidden > 0) {
+            children.push(React.createElement('button', {
+              key: 'day-more:' + dayKey,
+              type: 'button',
+              'data-polish-ws-day-more': dayKey,
+              style: Object.assign({}, WS_MENU_ITEM, { width: 'auto', padding: '2px 6px', marginLeft: '24px' }),
+              onClick: () => setShowAllSessions((prev) => Object.assign({}, prev, { [dayKey]: true })),
+            }, 'Show ' + dayCapped.hidden + ' more'))
+          }
         })
       } else {
         const capped = capSessions(shown, SESSION_CAP, showAllSessions[workspace.workspaceId] === true)
