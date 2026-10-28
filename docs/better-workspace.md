@@ -201,3 +201,12 @@ drop target, so the gesture cannot rename something onto itself.
 A workspace note shows as a small card under the row on hover rather than as a browser
 tooltip: tooltips are slow to appear, unstyleable, and vanish when the pointer leaves. The
 card is portalled, `pointer-events: none`, and only exists while a note does.
+
+## Folders without content
+
+A folder can be declared before anything lives in it (**New folder…** in a workspace menu).
+It draws its own header with the word `empty` where the count would be, accepts a workspace
+drop like any other folder header, and carries a `×` that removes the declaration. Declared
+names live in `aryacode-polish:folders.v1`; the tree draws the names its workspaces imply
+first and the declared ones after, so an empty folder never jumps ahead of real content and
+disappears on its own the moment the first workspace is filed into it.

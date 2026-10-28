@@ -326,3 +326,12 @@ test('a workspace can be dropped on a folder and shows its note on hover', () =>
   assert.ok(workspaceSource.includes("'data-polish-note-card'"), 'the note appears in a card')
   assert.ok(workspaceSource.includes('setCard({ text: note'), 'the card only exists when a note does')
 })
+
+test('a folder can exist before it holds a workspace', () => {
+  assert.ok(workspaceSource.includes("'data-polish-folder-new'"), 'the menu can declare a folder')
+  assert.ok(workspaceSource.includes("'data-polish-folder-input'"), 'the folder name is typed into a field')
+  assert.ok(workspaceSource.includes('aryacode-polish:folders'), 'declared folders are remembered')
+  assert.ok(workspaceSource.includes("'data-polish-ws-empty'"), 'an empty folder still draws a header')
+  assert.ok(workspaceSource.includes("'data-polish-folder-remove'"), 'an empty folder can be removed')
+  assert.ok(workspaceSource.includes('folderNamesOf('), 'declared folders join the ones the workspaces imply')
+})

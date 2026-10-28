@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.18.0] - 2026-10-28
+
+### Added
+- **Folders that exist before their content.** The workspace menu can declare a folder, an
+  empty folder draws its own header with an empty count, accepts a workspace drop, and
+  can be removed again. Declared folders are remembered (ryacode-polish:folders.v1).
+
+
 ## [0.17.0] - 2026-10-28
 
 ### Added
