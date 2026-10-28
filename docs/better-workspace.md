@@ -407,3 +407,10 @@ else matched" or "the tree is empty now". So the tree says what happened — `n 
 matched slice of each title is wrapped in a `mark` — and Escape clears the filter back to
 everything. Home and End jump to the ends of the keyboard walk, because arrowing past thirty
 sessions to reach the last one is not a feature.
+
+## The palette can act
+
+Ctrl-K started as a jumper: type a title, press Enter, you are there. It carries one more kind of hit
+now — `New session in <workspace>` for every workspace — so the same box that finds work can start
+it. The rule is deliberate: jumping hits come first (that is what the muscle memory expects), actions
+follow, and every row says which it is in the hint on the right.

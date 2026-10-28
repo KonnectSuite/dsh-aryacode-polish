@@ -919,6 +919,20 @@ export function writeFolded(state, storage) {
  * that merely contains it, and equal kinds keep the order they arrived in — so
  * typing "gre" puts Greeting above anything that mentions greeting later on.
  */
+/**
+ * The palette is not only a jumper: every workspace contributes a "start a session here" action, so
+ * Ctrl-K can create work as well as find it. Kept pure so the entries are testable without React.
+ */
+export function actionEntries(rows) {
+  return (rows || []).map((group) => ({
+    id: 'new:' + group.workspace.workspaceId,
+    kind: 'action',
+    workspaceId: group.workspace.workspaceId,
+    title: 'New session in ' + workspaceLabel(group.workspace),
+    workspace: workspaceLabel(group.workspace),
+  }))
+}
+
 export function rankMatches(items, query, text = (item) => String(item.title || item.id || '')) {
   const list = Array.isArray(items) ? items : []
   const needle = String(query || '').trim().toLowerCase()
@@ -1446,9 +1460,17 @@ export function BetterWorkspace(props) {
         items.push({ id: row.id, kind: 'session', title: row.displayTitle || row.id, workspace })
       })
     })
+    actionEntries(allRows).forEach((entry) => items.push(entry))
     return items
   }, [allRows])
   const switchHits = switcher ? rankMatches(switchItems, switcher.query) : []
+
+  const runAction = (hit) => {
+    const started = services.startSession(hit.workspaceId)
+    Promise.resolve(started)
+      .then(() => setNotice('Started a session in ' + hit.workspace + '.'))
+      .catch((error) => setNotice(error && error.message ? error.message : 'Could not start a session.'))
+  }
 
   const revealWorkspace = (workspaceId) => {
     const group = allRows.find((row) => row.workspace.workspaceId === workspaceId)
@@ -2229,6 +2251,10 @@ export function BetterWorkspace(props) {
               revealWorkspace(hit.workspaceId)
               return
             }
+            if (hit.kind === 'action') {
+              runAction(hit)
+              return
+            }
             services.openSession(hit.id)
           }
         },
@@ -2239,6 +2265,7 @@ export function BetterWorkspace(props) {
           : switchHits.map((hit, at) => React.createElement('button', {
             key: hit.id,
             type: 'button',
+            'data-polish-switcher-action': hit.kind === 'action' ? hit.workspaceId : undefined,
             'data-polish-switcher-row': hit.id,
             style: Object.assign({}, SWITCHER_ROW, {
               background: at === switcher.index ? 'var(--dsw-alias-interactive-bg-hover, rgba(0,0,0,0.06))' : 'transparent',
@@ -2247,11 +2274,12 @@ export function BetterWorkspace(props) {
             onClick: () => {
               setSwitcher(null)
               if (hit.kind === 'workspace') { revealWorkspace(hit.workspaceId); return }
+              if (hit.kind === 'action') { runAction(hit); return }
               services.openSession(hit.id)
             },
           },
-          React.createElement('span', { style: WS_TITLE }, hit.kind === 'workspace' ? '⌂ ' + hit.title : hit.title),
-          React.createElement('span', { style: SWITCHER_HINT }, hit.kind === 'workspace' ? 'workspace' : hit.workspace)))))), document.body)
+          React.createElement('span', { style: WS_TITLE }, hit.kind === 'workspace' ? '\u2302 ' + hit.title : (hit.kind === 'action' ? '\u25B8 ' + hit.title : hit.title)),
+          React.createElement('span', { style: SWITCHER_HINT }, hit.kind === 'workspace' ? 'workspace' : (hit.kind === 'action' ? 'action' : hit.workspace))))))), document.body)
     : null
 
   const children = []

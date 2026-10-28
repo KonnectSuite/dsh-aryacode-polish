@@ -1,3 +1,11 @@
+## [0.37.0] - 2026-10-28
+
+### Added
+
+- Ctrl-K is a palette, not only a jumper: every workspace contributes a "New session in <workspace>"
+  action, so the same box that finds work can start it. Actions are marked with a caret and their
+  hint reads `action`.
+
 ## [0.36.0] - 2026-10-28
 
 ### Added

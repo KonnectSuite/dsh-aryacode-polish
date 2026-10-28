@@ -2,6 +2,7 @@ import assert from 'node:assert/strict'
 import { describe, it } from 'node:test'
 
 import {
+  actionEntries,
   highlightParts,
   folderLookOf,
   withFolderLook,
@@ -736,4 +737,16 @@ it('highlights the filtered part of a title, and only the first one', () => {
   assert.deepEqual(highlightParts('Build', 'zz'), { before: 'Build', hit: '', after: '' })
   assert.deepEqual(highlightParts('Build', '   '), { before: 'Build', hit: '', after: '' })
   assert.deepEqual(highlightParts(undefined, 'x'), { before: '', hit: '', after: '' })
+})
+
+it('the palette offers a new session per workspace', () => {
+  const rows = [
+    { workspace: { workspaceId: 'w1', title: 'Work/Alpha' }, sessions: [] },
+    { workspace: { workspaceId: 'w2', title: 'Beta' }, sessions: [] },
+  ]
+  const entries = actionEntries(rows)
+  assert.deepEqual(entries.map((entry) => entry.id), ['new:w1', 'new:w2'])
+  assert.deepEqual(entries.map((entry) => entry.title), ['New session in Work/Alpha', 'New session in Beta'])
+  assert.ok(entries.every((entry) => entry.kind === 'action' && entry.workspaceId))
+  assert.deepEqual(actionEntries(undefined), [])
 })

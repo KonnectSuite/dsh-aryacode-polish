@@ -20,6 +20,12 @@ const manifest = JSON.parse(read('package.json'))
 const declaration = JSON.parse(read('client/switches.json'))
 const bundle = read('lib/client.js')
 
+test('the palette can act, not only jump', () => {
+  assert.match(workspaceSource, /actionEntries\(/)
+  assert.match(workspaceSource, /'data-polish-switcher-action'/)
+  assert.match(workspaceSource, /services\.startSession\(hit\.workspaceId\)/)
+})
+
 test('the filter says how many rows survived it, and marks the part that matched', () => {
   assert.match(workspaceSource, /'data-polish-ws-matches'/)
   assert.match(workspaceSource, /'data-polish-hit': 'true'/)
