@@ -1,3 +1,9 @@
+## [0.94.0]
+
+- Hide subagent sessions using the Host link that actually exists: the session list carries parentSessionId\n  for every child, so POST api/polish.sessions answers the parent links and the tree merges them with
+  whatever the summary projections already say. 0.93.4 looked only at projections, which are empty on a
+  profile whose subagents were never resumed.
+
 ## [0.93.4]
 
 - Hide subagent sessions from the tree, with a menu row to list them again. Derived from each session row’s own summary projections (subagent, subagentCatalog) — no host route, so nothing to go wrong between the two halves.

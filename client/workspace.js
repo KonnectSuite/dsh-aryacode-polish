@@ -2248,6 +2248,7 @@ export function BetterWorkspace(props) {
   const { ctx, slots } = services
   const standard = { wide: props.wide === true, expandSidebar: props.expandSidebar }
   const [showSubagents, setShowSubagents] = React.useState(() => readShowSubagents(window.localStorage))
+  const [linked, setLinked] = React.useState(() => new Set())
   const [expanded, setExpanded] = React.useState(() => readFolded().workspaces)
   const [folderOrder, setFolderOrder] = React.useState(() => readFolderOrder(window.localStorage))
   const [starred, setStarred] = React.useState(() => readStarred(window.localStorage))
@@ -2461,7 +2462,38 @@ export function BetterWorkspace(props) {
   const [viewDraft, setViewDraft] = React.useState('')
   const metrics = DENSITY_METRICS[densityOf(density)]
   const archiveSet = new Set((workspaceState && workspaceState.archivedSessionIds) || [])
-  const subagents = React.useMemo(() => subagentIds(sessionList), [sessionList])
+  React.useEffect(() => {
+    let live = true
+    const read = async () => {
+      try {
+        const answer = await fetch('api/polish.sessions', {
+          method: 'POST',
+          headers: { 'content-type': 'application/json' },
+          body: '{}',
+        })
+        if (!answer.ok) return
+        const body = await answer.json()
+        const ids = Array.isArray(body && body.items) ? body.items : []
+        const next = new Set()
+        ids.forEach((entry) => {
+          if (entry && typeof entry.id === 'string' && entry.id !== '') next.add(entry.id)
+        })
+        if (live) setLinked(next)
+      } catch {
+        /* the route answers empty when it cannot read the controller */
+      }
+    }
+    read()
+    return () => {
+      live = false
+    }
+  }, [sessionList.length])
+
+  const subagents = React.useMemo(() => {
+    const found = subagentIds(sessionList)
+    linked.forEach((id) => found.add(id))
+    return found
+  }, [sessionList, linked])
   const visibleSessions = React.useMemo(
     () => (showSubagents ? sessionList : sessionList.filter((row) => row && !subagents.has(row.id))),
     [sessionList, showSubagents, subagents],

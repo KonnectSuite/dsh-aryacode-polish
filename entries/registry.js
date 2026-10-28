@@ -26,6 +26,7 @@
 import { mountCost } from './cost.js'
 import { mountFolders } from './folders.js'
 import { mountGithub } from './github.js'
+import { mountSessions } from './sessions.js'
 
 /**
  * Every feature this bundle ships. Spelling corrections are investigated and
@@ -73,6 +74,7 @@ export const features = [
     label: 'Better workspace',
     description: 'Replace the sidebar workspace list with our own tree, with a right-click menu on every workspace.',
     defaultOn: true,
+    mount: mountSessions,
   },
   {
     id: 'panelScreenshot',

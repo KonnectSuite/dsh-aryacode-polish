@@ -1641,3 +1641,13 @@ it('subagentIds reads the summary projections, not a route', () => {
   assert.equal(ids.has('plain'), false)
   assert.equal(subagentIds(undefined).size, 0)
 })
+
+it('the linked ids join the projection set', () => {
+  const fromRows = subagentIds([{ id: 'child-a', projections: { values: { subagent: { label: 'x' } } } }])
+  assert.deepEqual([...fromRows], ['child-a'])
+  // the route answer is merged by the component; ids it alone knows must still hide
+  const merged = new Set(fromRows)
+  const linked = new Set(['child-b'])
+  linked.forEach((id) => merged.add(id))
+  assert.deepEqual([...merged].sort(), ['child-a', 'child-b'])
+})
