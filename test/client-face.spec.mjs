@@ -538,3 +538,9 @@ test('the tree marks what you have not looked at', () => {
     assert.ok(workspaceSource.includes(marker), 'bundle should carry ' + marker)
   }
 })
+
+test('the New chip filters by what changed', () => {
+  for (const marker of ["token: 't:new'", 'unread: (row) => isUnread(row, seen)']) {
+    assert.ok(workspaceSource.includes(marker), 'bundle should carry ' + marker)
+  }
+})

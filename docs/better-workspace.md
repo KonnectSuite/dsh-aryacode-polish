@@ -529,3 +529,15 @@ whole tree at once.
 The honest limitation: the slot gives the tree no "current session", so the marker means "not
 opened from here since it changed", not "never read anywhere". A session opened elsewhere keeps
 its dot until you open it here or mark all read — which is why the menu row exists.
+
+
+## New filter
+
+`t:new` (and the **New** chip) keeps only the sessions that still carry an unread dot, so the
+marker has a destination instead of being decoration. `filterTree` asks the caller — `unread:
+(row) => isUnread(row, seen)` — rather than reading storage itself, which keeps the pure filter
+testable.
+
+The header tooltip reports the count too ("6 sessions in 2 workspaces · 4 priced · 5 new"), and
+because the chip, the dots and the tooltip all read the same map, opening a row under the New
+filter drops it from the list, the dots and the count in one step.

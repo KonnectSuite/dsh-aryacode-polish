@@ -1162,3 +1162,15 @@ it('a session is unread until you open it here', () => {
   ]
   assert.deepEqual(unreadIds(rows, { a: 100, b: 0 }), ['b', 'c'])
 })
+
+it('t:new keeps only what you have not opened here', () => {
+  assert.equal(parseQuery('t:new').age, 'new')
+  const rows = [
+    { workspace: { workspaceId: 'a', title: 'Work' }, sessions: [
+      { id: 'read', updatedAt: 100 },
+      { id: 'fresh', updatedAt: 100 },
+    ] },
+  ]
+  const kept = filterTree(rows, 't:new', new Set(), { unread: (row) => row.id === 'fresh' })
+  assert.deepEqual(kept.flatMap((g) => g.sessions.map((s) => s.id)), ['fresh'])
+})

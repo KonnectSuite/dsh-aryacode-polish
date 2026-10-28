@@ -1,3 +1,13 @@
+## [0.56.0]
+
+The unread dots got a filter of their own.
+
+### Added
+- A **New** chip and a `t:new` token that keep only sessions you have not opened here since they
+  changed, wired through a new `unread` option on `filterTree`.
+- The header tooltip now reports how many sessions are new (`6 sessions in 2 workspaces · 4 priced
+  · 2 new`).
+
 ## [0.55.0]
 
 Sessions you have not looked at since they changed say so.

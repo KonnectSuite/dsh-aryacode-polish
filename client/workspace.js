@@ -346,6 +346,7 @@ export function parseQuery(query) {
     else if (token === '#') flagged = true
     else if (token === 't:today') age = 'today'
     else if (token === 't:week') age = 'week'
+    else if (token === 't:new') age = 'new'
     else if (token.charAt(0) === '@') { if (token.length > 1) scope = token.slice(1).toLowerCase() }
     else words.push(token)
   })
@@ -576,6 +577,7 @@ export function filterTree(rows, query, pinned, options) {
   const isRunning = (options && options.isRunning) || ((row) => row && row.running === true)
   const flaggedIds = (options && options.flagged) || new Set()
   const now = (options && typeof options.now === 'number' && Number.isFinite(options.now)) ? options.now : Date.now()
+  const unread = (options && options.unread) || ((row) => row && row.running === false && false)
   const needle = parsed.text
   const ordered = rows.map(({ workspace, sessions }) => {
     const hoisted = []
@@ -593,6 +595,7 @@ export function filterTree(rows, query, pinned, options) {
     if (parsed.flagged && !flaggedIds.has(row.id)) return false
     if (parsed.age === 'today' && !(Number(row.updatedAt) >= startOfToday(now))) return false
     if (parsed.age === 'week' && !(Number(row.updatedAt) >= now - 7 * 24 * 60 * 60 * 1000)) return false
+    if (parsed.age === 'new' && !unread(row)) return false
     return true
   }
   const matched = []
@@ -1958,9 +1961,10 @@ export function BetterWorkspace(props) {
     Object.keys(marks || {}).forEach((id) => { if (marks[id] && marks[id].flag === true) ids.add(id) })
     return ids
   }, [marks])
-  const rows = filterTree(sortRows(allRows, sort, (group) => sumCost(group.sessions, sessionState)), query, pinned, { isRunning, flagged: flaggedIds })
+  const rows = filterTree(sortRows(allRows, sort, (group) => sumCost(group.sessions, sessionState)), query, pinned, { isRunning, flagged: flaggedIds, unread: (row) => isUnread(row, seen) })
   const totals = React.useMemo(() => treeTotals(allRows, sessionState), [allRows, sessionState])
   const totalsLabel = costLabel({ usd: totals.usd, cny: totals.cny })
+  const unreadTotal = React.useMemo(() => unreadIds(allRows, seen).length, [allRows, seen])
   const folderOf = (workspace) => folderKey(workspace)
   const orderedRows = React.useMemo(() => applyFolderOrder(rows, folderOrder), [rows, folderOrder])
   const visibleRows = orderedRows.filter((group) => {
@@ -3262,7 +3266,8 @@ export function BetterWorkspace(props) {
         'aria-label': 'Totals for this tree',
         title: totals.sessions + (totals.sessions === 1 ? ' session in ' : ' sessions in ') + totals.workspaces
           + (totals.workspaces === 1 ? ' workspace' : ' workspaces')
-          + (totals.priced > 0 ? ' \u00b7 ' + totals.priced + ' priced' : ''),
+          + (totals.priced > 0 ? ' \u00b7 ' + totals.priced + ' priced' : '')
+          + (unreadTotal > 0 ? ' \u00b7 ' + unreadTotal + ' new' : ''),
         style: {
           fontSize: 'calc(var(--dsh-content-font-size-secondary, 13px) - 3px)',
           color: 'var(--dsw-alias-label-quaternary, #8a8a8a)',
@@ -3343,6 +3348,7 @@ export function BetterWorkspace(props) {
     { id: 'running', label: 'Running', token: '!' },
     { id: 'flagged', label: 'Flagged', token: '#' },
     { id: 'today', label: 'Today', token: 't:today' },
+    { id: 'new', label: 'New', token: 't:new' },
   ]
   children.push(React.createElement('div', {
     key: 'chips',
