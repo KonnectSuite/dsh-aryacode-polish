@@ -12,6 +12,7 @@ import {
   writeFolders,
   folderNamesOf,
   fileUnder,
+  unfiled,
   rankMatches,
   readFolded,
   writeFolded,
@@ -391,5 +392,19 @@ describe('folders that exist before their content', () => {
     assert.deepEqual(folderNamesOf(rows, ['Team', 'Work']), ['Work', 'Team'])
     assert.deepEqual(folderNamesOf([], ['Solo']), ['Solo'])
     assert.deepEqual(folderNamesOf(rows, []), ['Work'])
+  })
+})
+
+describe('lifting a workspace back out of a folder', () => {
+  it('drops the folder prefix and nothing else', () => {
+    assert.equal(unfiled('Work/Alpha'), 'Alpha')
+    assert.equal(unfiled('A/B/Gamma'), 'Gamma')
+    assert.equal(unfiled('Alpha'), 'Alpha')
+    assert.equal(unfiled(''), '')
+    assert.equal(unfiled('/'), '')
+  })
+
+  it('round-trips with fileUnder', () => {
+    assert.equal(fileUnder(unfiled('Work/Alpha'), 'Team'), 'Team/Alpha')
   })
 })

@@ -335,3 +335,11 @@ test('a folder can exist before it holds a workspace', () => {
   assert.ok(workspaceSource.includes("'data-polish-folder-remove'"), 'an empty folder can be removed')
   assert.ok(workspaceSource.includes('folderNamesOf('), 'declared folders join the ones the workspaces imply')
 })
+
+test('a workspace can leave its folder, and a folder can be renamed', () => {
+  assert.ok(workspaceSource.includes("'data-polish-ws-unfile'"), 'the workspace menu can lift a workspace out')
+  assert.ok(workspaceSource.includes('unfiled('), 'lifting uses the prefix helper')
+  assert.ok(workspaceSource.includes("'data-polish-folder-edit'"), 'a folder header carries a rename action')
+  assert.ok(workspaceSource.includes("'data-polish-folder-edit-input'"), 'the new name is typed into a field')
+  assert.ok(workspaceSource.includes('fileUnder(workspaceLabel(workspace), target)'), 'renaming a folder refiles each member')
+})

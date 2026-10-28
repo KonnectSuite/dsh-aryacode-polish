@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.19.0] - 2026-10-28
+
+### Added
+- **Move to top level** in a workspace menu drops the folder prefix, so filing is reversible.
+- **Rename a folder** from its header: every workspace inside is refiled under the new
+  prefix through the Host rename, and the declared/empty list follows the folder.
+
+
 ## [0.18.0] - 2026-10-28
 
 ### Added
