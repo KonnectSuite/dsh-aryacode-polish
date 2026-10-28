@@ -417,3 +417,11 @@ test('a folder can grow a workspace, and the menus are reachable from the keyboa
   assert.ok(bundle.includes("'F10' && event.shiftKey"))
   assert.ok(bundle.includes("fileUnder(workspaceLabel(created), into)"))
 })
+
+
+test('a folder shows a running dot, and Alt folds the others', () => {
+  const bundle = read('lib/client.js')
+  assert.ok(bundle.includes("'data-polish-folder-running'"))
+  assert.ok(bundle.includes('folderHasRunning('))
+  assert.ok(bundle.includes('event.altKey === true'))
+})

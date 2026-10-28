@@ -358,3 +358,9 @@ and when the flow returns a folder the newly created workspace is renamed into t
 Shift+F10 (or the keyboard's menu key) on a focused row opens exactly the menu a right-click opens —
 the workspace menu for a workspace row, the shipped session menu for a session row. The anchor is the
 row's own rectangle, so the menu lands where the row is, not at the tree's corner.
+
+## Folding the others
+
+Alt+click a folder header to fold (or unfold) every other folder in one gesture — the "show me just
+this folder" move. The same header carries a success dot while any session filed under it is running,
+so a busy folder is visible without expanding it.

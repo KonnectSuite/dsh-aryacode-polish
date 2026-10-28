@@ -57,7 +57,7 @@ import {
   splitArchived,
   splitPinned,
   costOf,
-  costLabel, sumCost, sumCostLabel,
+  costLabel, sumCost, folderHasRunning, sumCostLabel,
   GLYPHS,
 } from '../client/workspace.js'
 
@@ -652,4 +652,21 @@ it('sumCost says nothing when no session is priced', () => {
   assert.equal(sumCost([], {}), undefined)
   assert.equal(sumCost([{ id: 'a' }], { projectionsBySession: {} }), undefined)
   assert.equal(sumCostLabel([{ id: 'a' }], undefined), '')
+})
+
+
+describe('a folder knows when something inside is running', () => {
+  it('is true when any filed session is running', () => {
+    const inside = [
+      { sessions: [{ running: false }, { running: true }] },
+      { sessions: [{ running: false }] },
+    ]
+    assert.equal(folderHasRunning(inside), true)
+  })
+
+  it('is false when nothing runs, and for an empty folder', () => {
+    assert.equal(folderHasRunning([{ sessions: [{ running: false }] }]), false)
+    assert.equal(folderHasRunning([]), false)
+    assert.equal(folderHasRunning(undefined), false)
+  })
 })

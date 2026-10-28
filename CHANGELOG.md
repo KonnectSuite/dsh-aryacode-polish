@@ -1,3 +1,10 @@
+## [0.30.0] - 2026-10-28
+
+Added: a folder header shows a small success dot when any session filed under it is running
+(`folderHasRunning`), and Alt+click on a folder folds or unfolds every other folder at once.
+
+Fixed: the flagged-session glyph had been mojibaked again by a PowerShell patch; it is \u2691.
+
 ## [0.29.0] - 2026-10-28
 
 Added: every folder header has its own `+` that opens the add-workspace flow and files the newly

@@ -718,6 +718,11 @@ export function costLabel(cost) {
   return approx + symbol + shown
 }
 
+/** True when any session filed under these workspaces is running right now. */
+export function folderHasRunning(inside) {
+  return (inside || []).some((entry) => (entry.sessions || []).some((row) => row && row.running === true))
+}
+
 export function sumCost(sessions, snapshot) {
   let usd = 0
   let cny = 0
@@ -2194,7 +2199,21 @@ export function BetterWorkspace(props) {
             ? 'var(--dsw-alias-interactive-bg-hover, rgba(0, 0, 0, 0.05))'
             : undefined,
         }),
-        onClick: () => setFolders((prev) => Object.assign({}, prev, { [folder]: prev[folder] !== true })),
+        onClick: (event) => {
+          const collapseSiblings = event.altKey === true
+          setFolders((prev) => {
+            const next = Object.assign({}, prev)
+            if (!collapseSiblings) {
+              next[folder] = prev[folder] !== true
+              return next
+            }
+            const folding = prev[folder] !== true
+            folderNames.forEach((name) => { if (name !== folder) next[name] = folding })
+            next[folder] = prev[folder] !== true
+            return next
+          })
+          if (collapseSiblings) setNotice('Alt+click folds the other folders too.')
+        },
         onDragOver: (event) => {
           if (!drag || drag.kind !== 'workspace') return
           if (folderOf(rows.find((entry) => entry.workspace.workspaceId === drag.id)?.workspace) === folder) return
@@ -2231,6 +2250,9 @@ export function BetterWorkspace(props) {
         },
       }, '✎'),
       React.createElement('span', { style: WS_COUNT }, [String(inside.reduce((sum, entry) => sum + entry.sessions.length, 0)), folderCostNode(inside, sessionState, folder),
+      folderHasRunning(inside)
+        ? React.createElement('span', { 'data-polish-folder-running': folder, title: 'A session inside is running', style: WS_DOT })
+        : null,
       React.createElement('button', {
         type: 'button',
         key: 'folder-add',
