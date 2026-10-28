@@ -396,6 +396,77 @@ export function treeTotals(rows, snapshot) {
   }
 }
 
+/** The order the folders were dragged into, with any new folder appended alphabetically. */
+export function orderFolders(names, order) {
+  const ahead = []
+  const rest = []
+  const list = order || []
+  ;(names || []).forEach((name) => {
+    if (list.indexOf(name) >= 0) ahead.push(name)
+    else rest.push(name)
+  })
+  ahead.sort((left, right) => list.indexOf(left) - list.indexOf(right))
+  rest.sort((left, right) => left.localeCompare(right))
+  return ahead.concat(rest)
+}
+
+/** Re-groups the tree so folders stand in the order the person chose. */
+export function applyFolderOrder(rows, order) {
+  const list = rows || []
+  const names = []
+  list.forEach((group) => {
+    const key = folderKey(group.workspace)
+    if (key !== undefined && names.indexOf(key) < 0) names.push(key)
+  })
+  if (names.length < 2) return list
+  const ordered = orderFolders(names, order)
+  const buckets = {}
+  ordered.forEach((name) => { buckets[name] = [] })
+  const unfiled = []
+  list.forEach((group) => {
+    const key = folderKey(group.workspace)
+    if (key === undefined) unfiled.push(group)
+    else buckets[key].push(group)
+  })
+  return ordered.reduce((all, name) => all.concat(buckets[name]), []).concat(unfiled)
+}
+
+/** Moves one folder up or down in the order, leaving the rest alone. */
+export function moveFolder(order, names, name, delta) {
+  const current = orderFolders(names || [], order)
+  const at = current.indexOf(name)
+  if (at < 0) return current
+  const to = at + delta
+  if (to < 0 || to >= current.length) return current
+  const next = current.slice()
+  next.splice(at, 1)
+  next.splice(to, 0, name)
+  return next
+}
+
+export const FOLDER_ORDER_KEY = 'aryacode-polish:folderorder.v1'
+
+export function readFolderOrder(storage) {
+  try {
+    const raw = storage.getItem(FOLDER_ORDER_KEY)
+    const parsed = raw ? JSON.parse(raw) : []
+    if (!Array.isArray(parsed)) return []
+    return parsed.filter((entry) => typeof entry === 'string' && entry.length > 0)
+  } catch {
+    return []
+  }
+}
+
+export function writeFolderOrder(order, storage) {
+  try {
+    const list = (order || []).filter((entry) => typeof entry === 'string' && entry.length > 0)
+    if (list.length === 0) storage.removeItem(FOLDER_ORDER_KEY)
+    else storage.setItem(FOLDER_ORDER_KEY, JSON.stringify(list))
+  } catch {
+    /* a browser that refuses storage simply keeps the default order */
+  }
+}
+
 /** "1 session" / "2 sessions", so a notice never reads like a template. */
 export function plural(count, one, many) {
   return count + ' ' + (count === 1 ? one : many)
@@ -1631,6 +1702,7 @@ export function BetterWorkspace(props) {
   const { ctx, slots } = services
   const standard = { wide: props.wide === true, expandSidebar: props.expandSidebar }
   const [expanded, setExpanded] = React.useState(() => readFolded().workspaces)
+  const [folderOrder, setFolderOrder] = React.useState(() => readFolderOrder(window.localStorage))
   const [menu, setMenu] = React.useState(null)
   const [armed, setArmed] = React.useState(null)
   const [adding, setAdding] = React.useState(false)
@@ -1804,7 +1876,8 @@ export function BetterWorkspace(props) {
   const totals = React.useMemo(() => treeTotals(rows, sessionState), [rows, sessionState])
   const totalsLabel = costLabel({ usd: totals.usd, cny: totals.cny })
   const folderOf = (workspace) => folderKey(workspace)
-  const visibleRows = rows.filter((group) => {
+  const orderedRows = React.useMemo(() => applyFolderOrder(rows, folderOrder), [rows, folderOrder])
+  const visibleRows = orderedRows.filter((group) => {
     const key = folderOf(group.workspace)
     return key === undefined || folders[key] !== true
   })
@@ -2291,6 +2364,7 @@ export function BetterWorkspace(props) {
           closeMenu()
           try {
             await services.unarchiveSession(row.id)
+            offerUndo({ kind: 'unarchive', ids: [row.id] })
             setNotice('Restored that session.')
           } catch {
             setNotice('Could not restore that session.')
@@ -2497,6 +2571,53 @@ export function BetterWorkspace(props) {
           onClick: () => paint({ strong: !current.strong }),
         }, current.strong ? 'Weight: bold \u2713' : 'Weight: normal'),
         React.createElement('div', { style: WS_MENU_HINT }, 'Colour, glyph and weight for this folder'),
+        React.createElement('button', {
+          type: 'button',
+          'data-polish-folder-up': menu.folder,
+          style: WS_MENU_ITEM,
+          onClick: () => {
+            const name = menu.folder
+            const names = folderNames
+            const next = moveFolder(folderOrder, names, name, -1)
+            closeMenu()
+            if (next === folderOrder || next.join('|') === orderFolders(names, folderOrder).join('|')) {
+              setNotice('That folder is already first.')
+              return
+            }
+            setFolderOrder(next)
+            writeFolderOrder(next, window.localStorage)
+            setNotice('Moved ' + name + ' up.')
+          },
+        }, 'Move this folder up'),
+        React.createElement('button', {
+          type: 'button',
+          'data-polish-folder-down': menu.folder,
+          style: WS_MENU_ITEM,
+          onClick: () => {
+            const name = menu.folder
+            const names = folderNames
+            const next = moveFolder(folderOrder, names, name, 1)
+            closeMenu()
+            if (next.join('|') === orderFolders(names, folderOrder).join('|')) {
+              setNotice('That folder is already last.')
+              return
+            }
+            setFolderOrder(next)
+            writeFolderOrder(next, window.localStorage)
+            setNotice('Moved ' + name + ' down.')
+          },
+        }, 'Move this folder down'),
+        React.createElement('button', {
+          type: 'button',
+          'data-polish-folder-order': 'alphabetical',
+          style: WS_MENU_ITEM,
+          onClick: () => {
+            closeMenu()
+            setFolderOrder([])
+            writeFolderOrder([], window.localStorage)
+            setNotice('Folders are alphabetical again.')
+          },
+        }, 'Alphabetical order'),
         React.createElement('button', {
           type: 'button',
           'data-polish-folder-collapse': menu.folder,
@@ -3209,13 +3330,19 @@ export function BetterWorkspace(props) {
         setNotice('Flags put back.')
         return
       }
+      const count = payload.ids.length
       let back = 0
-      for (let at = 0; at < payload.ids.length; at += 1) {
-        try { await services.unarchiveSession(payload.ids[at]); back += 1 } catch { /* keep going */ }
+      for (let at = 0; at < count; at += 1) {
+        try {
+          if (payload.kind === 'unarchive') await services.archiveSession(payload.ids[at])
+          else await services.unarchiveSession(payload.ids[at])
+          back += 1
+        } catch { /* keep going */ }
       }
-      setNotice(back === payload.ids.length
-        ? 'Restored ' + plural(back, 'session', 'sessions') + '.'
-        : 'Restored ' + back + ' of ' + plural(payload.ids.length, 'session', 'sessions') + '.')
+      const verb = payload.kind === 'unarchive' ? 'Archived' : 'Restored'
+      setNotice(back === count
+        ? verb + ' ' + plural(back, 'session', 'sessions') + ' again.'
+        : verb + ' ' + back + ' of ' + plural(count, 'session', 'sessions') + ' again.')
     }
     children.push(React.createElement('div', { key: 'notice', 'data-polish-ws': 'notice', style: WS_NOTICE },
       notice,
@@ -3416,7 +3543,7 @@ export function BetterWorkspace(props) {
       : null)
   }
 
-  rows.forEach((group) => {
+  orderedRows.forEach((group) => {
     const workspace = group.workspace
     const sessions = group.sessions
     const folder = folderOf(workspace)

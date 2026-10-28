@@ -485,3 +485,22 @@ follows a bulk **Archive** or **Flag** carries an **Undo** (`button[data-polish-
   unset flags one by one (a session may have had a note too).
 - The offer expires on a timer and on unmount; `plural(count, one, many)` keeps the notice
   reading like English ("Archived 1 session.").
+
+
+## Folder order
+
+A folder is a title prefix, so its position used to be alphabetical by accident. The folder menu
+now carries **Move this folder up**, **Move this folder down** and **Alphabetical order**, backed by
+`FOLDER_ORDER_KEY` (`aryacode-polish:folderorder.v1`) and three pure helpers: `orderFolders`
+(kept names in their recorded sequence, everything else alphabetical), `applyFolderOrder`
+(re-groups the tree into that sequence, unfiled workspaces last) and `moveFolder` (a clamped
+one-step move).
+
+The order is applied to the rows the tree renders, so the visible list and the keyboard walk
+agree; a new folder simply lands alphabetically until it is moved. An empty order removes the
+key, which is what **Alphabetical order** does.
+
+Verified live: with `Home` and `Work` present, moving `Work` up produced `Work, Home` in the DOM
+and `["Work","Home"]` in storage; moving the first folder up reported "That folder is already
+first." and left the order untouched; **Alphabetical order** restored `Home, Work` and cleared the
+stored key.

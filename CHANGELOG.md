@@ -1,3 +1,15 @@
+## [0.53.0]
+
+The undo reaches the row menus, and folders can stand in the order you keep them.
+
+### Added
+- Undo after a single **Unarchive** too (the inverse is archiving it again), so the offer is
+  no longer limited to bulk actions.
+- `orderFolders`, `applyFolderOrder`, `moveFolder`, `readFolderOrder`, `writeFolderOrder` and
+  `FOLDER_ORDER_KEY` (`aryacode-polish:folderorder.v1`): the tree re-groups folders into a
+  hand-kept order, appending any new folder alphabetically.
+- Folder menu rows **Move this folder up**, **Move this folder down** and **Alphabetical order**.
+
 ## [0.52.0]
 
 A bulk action you regret is now a bulk action you can take back.

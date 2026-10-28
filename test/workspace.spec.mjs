@@ -21,6 +21,9 @@ import {
   selectionLabel,
   countMatches,
   treeTotals,
+  orderFolders,
+  moveFolder,
+  applyFolderOrder,
   flattenRows,
   moveBefore,
   folderKey,
@@ -1098,4 +1101,21 @@ it('the header totals count work and money without inventing either', () => {
     usd: undefined,
     cny: undefined,
   })
+})
+
+it('folders can stand in a hand-kept order', () => {
+  assert.deepEqual(orderFolders(['Work', 'Home', 'Zeta'], ['Zeta', 'Home']), ['Zeta', 'Home', 'Work'])
+  assert.deepEqual(orderFolders(['B', 'A'], []), ['A', 'B'], 'no order means alphabetical')
+
+  const rows = [
+    { workspace: { workspaceId: 'a', title: 'Work/one' }, sessions: [] },
+    { workspace: { workspaceId: 'b', title: 'Home/two' }, sessions: [] },
+    { workspace: { workspaceId: 'c', title: 'loose' }, sessions: [] },
+  ]
+  assert.deepEqual(applyFolderOrder(rows, ['Home', 'Work']).map((r) => r.workspace.workspaceId), ['b', 'a', 'c'])
+  assert.deepEqual(applyFolderOrder(rows, []).map((r) => r.workspace.workspaceId), ['b', 'a', 'c'], 'alphabetical when unset')
+
+  assert.deepEqual(moveFolder([], ['A', 'B', 'C'], 'B', -1), ['B', 'A', 'C'])
+  assert.deepEqual(moveFolder([], ['A', 'B', 'C'], 'A', -1), ['A', 'B', 'C'], 'the first stays first')
+  assert.deepEqual(moveFolder(['C', 'B', 'A'], ['A', 'B', 'C'], 'B', 1), ['C', 'A', 'B'])
 })
