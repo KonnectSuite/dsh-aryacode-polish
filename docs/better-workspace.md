@@ -577,3 +577,17 @@ it is simply sorted first, so nothing appears twice and no id has two rows.
 
 Unstarring returns it to where the folder order puts it, and the section header disappears with the
 last star.
+
+
+## Day grouping
+
+**Group sessions by day** in the header menu (checked while on, remembered in
+`aryacode-polish:daygroups.v1`) buckets each open workspace's sessions under Today / Yesterday /
+Previous 7 days / Older, from the same `updatedAt` stamps the ages use (`dayBucket`, `groupByDay`).
+
+Two decisions worth knowing:
+
+- The headings appear whenever the toggle is on, even when everything is Today — a grouping you
+  asked for should not silently do nothing. A young workspace shows one "Today" heading.
+- Rows whose stamp cannot be read are never dropped: if the buckets do not account for every
+  session, the workspace renders as a plain list instead.

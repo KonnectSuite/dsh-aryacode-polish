@@ -1,3 +1,13 @@
+## [0.60.0]
+
+Long session lists read as history.
+
+### Added
+- **Group sessions by day** in the header menu buckets each workspace's sessions under Today /
+  Yesterday / Previous 7 days / Older (`dayBucket`, `groupByDay`), stored in
+  `aryacode-polish:daygroups.v1`. The headings only appear when a workspace actually spans more than
+  one bucket, so a young workspace looks exactly as it did.
+
 ## [0.59.0]
 
 Star the workspaces you live in; they rise above the folders.

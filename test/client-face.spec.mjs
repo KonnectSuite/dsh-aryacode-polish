@@ -562,3 +562,9 @@ test('a workspace can be starred to the top', () => {
     assert.ok(workspaceSource.includes(marker), 'bundle should carry ' + marker)
   }
 })
+
+test('the tree can group sessions by day', () => {
+  for (const marker of ['groupByDay(shown, clock)', "'data-polish-ws-day'", "'data-polish-tree-daygroups'"]) {
+    assert.ok(workspaceSource.includes(marker), 'bundle should carry ' + marker)
+  }
+})

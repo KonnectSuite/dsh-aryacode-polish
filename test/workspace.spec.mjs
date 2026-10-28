@@ -16,6 +16,9 @@ import {
   unreadIds,
   unreadInside,
   workspaceRecap,
+  dayBucket,
+  groupByDay,
+  DAY_GROUPS,
   orderStarred,
   toggleStarred,
   readStarred,
@@ -1220,4 +1223,25 @@ it('a starred workspace floats to the top without being duplicated', () => {
   const store = { getItem: () => null, setItem() {}, removeItem() {} }
   assert.deepEqual(readStarred(store), [])
   writeStarred([], store)
+})
+
+it('sessions can be bucketed by how old they are', () => {
+  const now = Date.parse('2026-10-28T12:00:00-04:00')
+  const hour = 60 * 60 * 1000
+  assert.equal(dayBucket(now - hour, now), 'today')
+  assert.equal(dayBucket(now - 24 * hour, now), 'yesterday')
+  assert.equal(dayBucket(now - 3 * 24 * hour, now), 'week')
+  assert.equal(dayBucket(now - 30 * 24 * hour, now), 'older')
+  assert.equal(dayBucket(undefined, now), '')
+  assert.equal(dayBucket(0, now), '')
+  const sections = groupByDay([
+    { id: 'a', updatedAt: now - hour },
+    { id: 'b', updatedAt: now - 24 * hour },
+    { id: 'c', updatedAt: now - 30 * 24 * hour },
+    { id: 'd', updatedAt: undefined },
+  ], now)
+  assert.deepEqual(sections.map((s) => s.bucket), ['today', 'yesterday', 'older'])
+  assert.deepEqual(sections.map((s) => s.title), ['Today', 'Yesterday', 'Older'])
+  assert.deepEqual(sections[0].sessions.map((r) => r.id), ['a'])
+  assert.deepEqual(DAY_GROUPS, ['today', 'yesterday', 'week', 'older'])
 })
