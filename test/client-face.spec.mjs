@@ -57,6 +57,43 @@ test('the cost pill wears the composer stat skin instead of a widget of its own'
   assert.ok(bundle.includes('--dsw-elevation-prominent'), 'the card takes the harness dialog elevation')
 })
 
+test('every portaled panel paints an opaque surface of its own', () => {
+  assert.ok(
+    bundle.includes("backgroundColor: 'Canvas'"),
+    'the panel carries an opaque base: a plugin portal sits outside the themed tree, and the AryaCode desktop build does not composite backdrop-filter',
+  )
+  assert.ok(
+    bundle.includes('linear-gradient(var(--dsw-specific-menu'),
+    'the harness menu fill is layered as a tint over that base rather than used as the background itself',
+  )
+  assert.ok(
+    bundle.includes('var(--dsw-menu-backdrop-filter'),
+    'the blur is still requested where the platform honours it',
+  )
+})
+
+test('the GitHub dialog can sign the CLI in and out from inside the app', () => {
+  assert.ok(bundle.includes("'Sign in with GitHub'"), 'a signed-out machine is offered the sign-in')
+  assert.ok(bundle.includes("'Sign out'"), 'a signed-in machine is offered the way out')
+  assert.ok(bundle.includes("githubCall('login')"), 'sign-in starts the CLI device flow through the Host')
+  assert.ok(bundle.includes("githubCall('loginStatus')"), 'the flow is polled rather than assumed')
+  assert.ok(bundle.includes("githubCall('loginCancel')"), 'a pending flow can be abandoned')
+  assert.ok(bundle.includes("githubCall('logout')"), 'sign-out goes through the Host')
+  assert.ok(bundle.includes("'data-polish-github': 'code'"), 'the one-time code is shown verbatim')
+  assert.ok(bundle.includes('https://github.com/login/device'), 'the device page is linked')
+})
+
+test('a sign-out says which account is signed in afterwards', () => {
+  // `gh auth logout --user` only removes the account it names; the CLI then makes
+  // another keyring account active, so silence would be a lie.
+  assert.ok(bundle.includes("githubCall('logoutAll')"), 'every account can be signed out at once')
+  assert.ok(bundle.includes("'data-polish-github': 'signoutall'"), 'the multi-account sign-out is reachable')
+  assert.ok(bundle.includes('The GitHub CLI is now signed in as'), 'a fallback account is named, not hidden')
+  assert.ok(bundle.includes("'data-polish-github': 'notice'"), 'the outcome is shown in the dialog')
+  assert.ok(bundle.includes('githubStatusStore.set(status)'), 'the footer follows a status the dialog read')
+  assert.ok(bundle.includes('React.useSyncExternalStore(githubStatusStore.subscribe, githubStatusStore.get)'), 'the footer subscribes to that store')
+})
+
 test('every switch has a label and a description', () => {
   for (const entry of declaration.switches) {
     assert.equal(typeof entry.key, 'string')
@@ -86,8 +123,12 @@ test('the Workspaces "+" menu offers both sources and honours the flow contract'
   assert.ok(bundle.includes("'On this PC'"), 'the source menu names the machine')
   assert.ok(bundle.includes("'GitHub repository…'"), 'the source menu names GitHub')
   assert.ok(
+    bundle.includes('__DSH_DIRECTORY_PICKER__'),
+    'in the desktop app the machine source must open the real OS chooser through the preload bridge',
+  )
+  assert.ok(
     bundle.includes("foldersCall({ action: 'roots' })"),
-    'the machine source asks this bundle\'s own route for the roots, not the Host chooser',
+    'a browser has no OS chooser bridge, so the flow lists folders instead of waiting on one',
   )
   assert.ok(
     bundle.includes("foldersCall({ action: 'ls', path })"),
@@ -96,7 +137,7 @@ test('the Workspaces "+" menu offers both sources and honours the flow contract'
   assert.equal(
     bundle.includes('directoryPicker'),
     false,
-    'a composed picker serves one capability and the browser build composes the one whose chooser cannot open, so the flow must not depend on it',
+    'the Remote picker is not used: it hangs in a browser, and the preload bridge already covers the app',
   )
   for (const handedBack of ['props.onPicked(path)', 'props.onCancel()']) {
     assert.ok(

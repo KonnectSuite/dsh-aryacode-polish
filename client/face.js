@@ -252,6 +252,24 @@ const PILL_STYLE = {
 /** The label half of the pill, cut with an ellipsis rather than wrapped. */
 const PILL_LABEL_STYLE = { minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }
 
+/**
+ * The menu skin of the harness, made opaque on purpose.
+ *
+ * `--dsw-specific-menu` is a translucent fill (`#f8f9fa94`) that only reads as a
+ * solid surface because the harness pairs it with `backdrop-filter`. A plugin
+ * face has to portal its panels to `document.body`, and in the AryaCode desktop
+ * build that blur does not composite: the panel then showed the page behind it
+ * through a 58% fill. So the token stays as a tint over an opaque backdrop
+ * colour, and the blur is kept only where the platform actually honours it.
+ */
+const PANEL_SURFACE = {
+  backgroundColor: 'Canvas',
+  backgroundImage:
+    'linear-gradient(var(--dsw-specific-menu, rgba(248, 249, 250, 0.94)), var(--dsw-specific-menu, rgba(248, 249, 250, 0.94)))',
+  backdropFilter: 'var(--dsw-menu-backdrop-filter, none)',
+  border: '0.5px solid var(--dsw-alias-border-l2, rgba(0, 0, 0, 0.12))',
+}
+
 /** The dialog surface, copied from the harness `stat-dialog.module.css` skin. */
 const PANEL_STYLE = {
   position: 'fixed',
@@ -261,10 +279,8 @@ const PANEL_STYLE = {
   minWidth: 'min(300px, calc(100vw - 24px))',
   maxWidth: 'min(440px, calc(100vw - 24px))',
   padding: '16px',
-  border: 0,
   borderRadius: 'var(--dsw-radius-lg, 12px)',
-  background: 'var(--dsw-specific-menu, Canvas)',
-  backdropFilter: 'var(--dsw-menu-backdrop-filter, none)',
+  ...PANEL_SURFACE,
   boxShadow: 'var(--dsw-elevation-prominent, 0 10px 30px rgba(0, 0, 0, 0.18))',
   fontSize: '12px',
   lineHeight: '18px',
@@ -663,6 +679,29 @@ const githubStore = (() => {
 })()
 
 /**
+ * The last GitHub status anyone read, shared by the dialog and the footer line.
+ *
+ * The footer used to re-read only on window focus, so signing out in the dialog
+ * left `GitHub · KonnectSuite` on screen while the CLI was already signed out (or
+ * signed in as another account). One store, written by every read, keeps them equal.
+ */
+const githubStatusStore = (() => {
+  let value
+  const listeners = new Set()
+  return {
+    get: () => value,
+    subscribe(listener) {
+      listeners.add(listener)
+      return () => { listeners.delete(listener) }
+    },
+    set(next) {
+      value = next
+      for (const listener of listeners) listener()
+    },
+  }
+})()
+
+/**
  * Post one action to the GitHub route.
  * @param action - `status`, `repos` or `clone`.
  * @param extra - fields the action needs.
@@ -731,6 +770,20 @@ const GITHUB_LIST_STYLE = {
   borderTop: '0.5px solid var(--dsw-alias-border-l2, rgba(0,0,0,0.12))',
 }
 
+/** A secondary button in the sign-in block, sized like the harness's own. */
+const GITHUB_BUTTON_STYLE = {
+  display: 'inline-flex',
+  alignItems: 'center',
+  justifyContent: 'center',
+  padding: '4px 10px',
+  border: '0.5px solid var(--dsw-alias-border-l2, rgba(0, 0, 0, 0.16))',
+  borderRadius: 'var(--dsw-radius-sm, 6px)',
+  background: 'transparent',
+  color: 'inherit',
+  font: 'inherit',
+  cursor: 'pointer',
+}
+
 const GITHUB_ROW_STYLE = {
   display: 'flex',
   alignItems: 'center',
@@ -746,8 +799,7 @@ const GITHUB_ROW_STYLE = {
   borderBottom: '0.5px solid var(--dsw-alias-border-l2, rgba(0,0,0,0.08))',
 }
 
-const GITHUB_INPUT_STYLE = {
-  width: '100%',
+const GITHUB_INPUT_STYLE = {  width: '100%',
   boxSizing: 'border-box',
   padding: '6px 8px',
   font: 'inherit',
@@ -777,6 +829,33 @@ function GitHubPanel(props) {
   const [query, setQuery] = React.useState('')
   const [error, setError] = React.useState('')
   const [busy, setBusy] = React.useState('')
+  const [signIn, setSignIn] = React.useState({ state: 'idle', code: '', url: '', reason: '' })
+  const [confirmOut, setConfirmOut] = React.useState(false)
+  const [confirmAll, setConfirmAll] = React.useState(false)
+  const [notice, setNotice] = React.useState('')
+  const [copied, setCopied] = React.useState(false)
+
+  /** Put the one-time code on the clipboard, so it can be pasted in the browser. */
+  const copyCode = () => {
+    const clipboard = typeof navigator === 'undefined' ? undefined : navigator.clipboard
+    if (clipboard === undefined || typeof clipboard.writeText !== 'function') return
+    Promise.resolve(clipboard.writeText(signIn.code))
+      .then(() => {
+        setCopied(true)
+        setTimeout(() => setCopied(false), 2000)
+      })
+      .catch(() => setCopied(false))
+  }
+
+  /** Re-read the session, and the repository list when it is signed in. */
+  const refresh = () => Promise.resolve()
+    .then(() => githubCall('status'))
+    .then(status => {
+      setAccount(status)
+      githubStatusStore.set(status)
+      if (status.signedIn !== true) return undefined
+      return githubCall('repos').then(list => setRepos(Array.isArray(list.repos) ? list.repos : []))
+    })
 
   React.useEffect(() => {
     if (!open || !enabled) return undefined
@@ -785,17 +864,9 @@ function GitHubPanel(props) {
     setError('')
     setBusy('')
     setQuery('')
-    Promise.resolve()
-      .then(() => githubCall('status'))
-      .then(status => {
-        if (!live) return undefined
-        setAccount(status)
-        if (status.signedIn !== true) return undefined
-        return githubCall('repos').then(list => {
-          if (!live) return
-          setRepos(Array.isArray(list.repos) ? list.repos : [])
-        })
-      })
+    setConfirmOut(false)
+    setSignIn({ state: 'idle', code: '', url: '', reason: '' })
+    refresh()
       .then(() => { if (live) setPhase('ready') })
       .catch(reason => {
         if (!live) return
@@ -804,6 +875,29 @@ function GitHubPanel(props) {
       })
     return () => { live = false }
   }, [open, enabled])
+
+  // The device flow is a long poll: ask the Host what the CLI child reports.
+  // `starting` has to be polled too — the Host answers `starting` the moment the
+  // child is spawned and only reports the code a tick later, so polling on
+  // `pending` alone left the dialog asking for a code that had already arrived.
+  React.useEffect(() => {
+    if (!open || (signIn.state !== 'pending' && signIn.state !== 'starting')) return undefined
+    const timer = setInterval(() => {
+      Promise.resolve()
+        .then(() => githubCall('loginStatus'))
+        .then(answer => {
+          setSignIn({ state: answer.state, code: answer.code ?? '', url: answer.url ?? '', reason: answer.reason ?? '' })
+          if (answer.state === 'succeeded') {
+            setPhase('loading')
+            return refresh().then(() => setPhase('ready'))
+          }
+          if (answer.state === 'failed' || answer.state === 'cancelled') setError(answer.reason ?? 'Sign-in did not finish.')
+          return undefined
+        })
+        .catch(reason => setError(reason instanceof Error ? reason.message : String(reason)))
+    }, 2000)
+    return () => clearInterval(timer)
+  }, [open, signIn.state])
 
   React.useEffect(() => {
     if (!open) return undefined
@@ -849,6 +943,78 @@ function GitHubPanel(props) {
       })
   }
 
+  /**
+   * Start the CLI's device flow. The Host runs it, so this dialog only renders
+   * the code the CLI printed and the page it wants opened.
+   */
+  const beginSignIn = () => {
+    setError('')
+    setSignIn({ state: 'starting', code: '', url: '', reason: '' })
+    Promise.resolve()
+      .then(() => githubCall('login'))
+      .then(answer => setSignIn({
+        state: answer.state ?? 'failed',
+        code: answer.code ?? '',
+        url: answer.url ?? '',
+        reason: answer.reason ?? '',
+      }))
+      .catch(reason => {
+        setSignIn({ state: 'failed', code: '', url: '', reason: '' })
+        setError(reason instanceof Error ? reason.message : String(reason))
+      })
+  }
+
+  const cancelSignIn = () => {
+    Promise.resolve()
+      .then(() => githubCall('loginCancel'))
+      .then(() => setSignIn({ state: 'idle', code: '', url: '', reason: '' }))
+      .catch(() => setSignIn({ state: 'idle', code: '', url: '', reason: '' }))
+  }
+
+  /** Sign the CLI out, which is what every read in this feature depends on. */
+  const signOutNow = () => {
+    setConfirmOut(false)
+    setBusy('sign-out')
+    setError('')
+    setNotice('')
+    Promise.resolve()
+      .then(() => githubCall('logout'))
+      .then(answer => {
+        const remaining = typeof answer.remaining === 'string' ? answer.remaining : ''
+        setAccount(undefined)
+        setRepos([])
+        setSignIn({ state: 'idle', code: '', url: '', reason: '' })
+        setNotice(remaining === ''
+          ? `Signed out of ${String(answer.login)}.`
+          : `Signed out of ${String(answer.login)}. The GitHub CLI is now signed in as ${remaining}.`)
+        return refresh()
+      })
+      .catch(reason => setError(reason instanceof Error ? reason.message : String(reason)))
+      .then(() => setBusy(''))
+  }
+
+  /** Sign every account in the CLI's keyring out, so no silent fallback is left. */
+  const signOutAllNow = () => {
+    setConfirmAll(false)
+    setBusy('sign-out-all')
+    setError('')
+    setNotice('')
+    Promise.resolve()
+      .then(() => githubCall('logoutAll'))
+      .then(answer => {
+        const logins = Array.isArray(answer.logins) ? answer.logins.map(String) : []
+        setAccount(undefined)
+        setRepos([])
+        setSignIn({ state: 'idle', code: '', url: '', reason: '' })
+        setNotice(logins.length === 0
+          ? 'No GitHub account was signed in.'
+          : `Signed out of ${logins.join(', ')}.`)
+        return refresh()
+      })
+      .catch(reason => setError(reason instanceof Error ? reason.message : String(reason)))
+      .then(() => setBusy(''))
+  }
+
   const rows = visible.slice(0, 200).map(repo => React.createElement('button', {
     key: repo.fullName,
     type: 'button',
@@ -876,18 +1042,45 @@ function GitHubPanel(props) {
     React.createElement('div', { style: GITHUB_CARD_STYLE, role: 'dialog', 'aria-label': 'Add a workspace from GitHub' },
       React.createElement('div', { style: { ...PANEL_TITLE_STYLE, marginBottom: '4px' } },
         React.createElement('span', null, 'Add a workspace from GitHub'),
-        React.createElement('button', {
-          type: 'button',
-          onClick: () => githubStore.set(false),
-          style: { border: 'none', background: 'transparent', color: 'inherit', font: 'inherit', cursor: 'pointer', opacity: 0.7 },
-          'aria-label': 'Close',
-        }, '×')),
+        React.createElement('span', { style: { display: 'flex', alignItems: 'center', gap: '10px' } },
+          signedIn && (Array.isArray(account?.accounts) ? account.accounts.length : 0) > 1
+            ? React.createElement('button', {
+              type: 'button',
+              'data-polish-github': 'signoutall',
+              disabled: busy === 'sign-out-all',
+              onClick: () => { if (confirmAll) signOutAllNow(); else setConfirmAll(true) },
+              title: 'Sign every GitHub account in the CLI out of this machine',
+              style: { border: 'none', background: 'transparent', color: 'inherit', font: 'inherit', cursor: 'pointer', opacity: 0.7, padding: 0 },
+            }, busy === 'sign-out-all' ? 'Signing out…' : confirmAll ? 'Sign out all now?' : 'Sign out all')
+            : null,
+          signedIn
+            ? React.createElement('button', {
+              type: 'button',
+              'data-polish-github': 'signout',
+              disabled: busy === 'sign-out',
+              onClick: () => { if (confirmOut) signOutNow(); else setConfirmOut(true) },
+              title: 'Sign the GitHub CLI out of this machine',
+              style: { border: 'none', background: 'transparent', color: 'inherit', font: 'inherit', cursor: 'pointer', opacity: 0.7, padding: 0 },
+            }, busy === 'sign-out' ? 'Signing out…' : confirmOut ? 'Sign out now?' : 'Sign out')
+            : null,
+          React.createElement('button', {
+            type: 'button',
+            onClick: () => githubStore.set(false),
+            style: { border: 'none', background: 'transparent', color: 'inherit', font: 'inherit', cursor: 'pointer', opacity: 0.7 },
+            'aria-label': 'Close',
+          }, '×'))),
       React.createElement('div', { style: { opacity: 0.75, minHeight: '18px' } },
         phase === 'loading' && !signedIn ? 'Checking the GitHub CLI session…' : null,
         signedIn ? `Signed in as ${String(account.login)} · cloning into ${root}` : null,
         !signedIn && phase !== 'loading'
-          ? 'The GitHub CLI is not signed in. Run `gh auth login` in a terminal, then reopen this dialog.'
+          ? 'GitHub is not signed in on this machine. The sign-in below is the GitHub CLI device flow, so no token is ever typed here or stored by this plugin.'
           : null),
+      notice === ''
+        ? null
+        : React.createElement('div', {
+          'data-polish-github': 'notice',
+          style: { marginTop: '6px', opacity: 0.85 },
+        }, notice),
       signedIn
         ? React.createElement('input', {
           style: { ...GITHUB_INPUT_STYLE, marginTop: '10px' },
@@ -900,6 +1093,48 @@ function GitHubPanel(props) {
         : null,
       error !== ''
         ? React.createElement('div', { style: { marginTop: '10px', color: 'var(--dsw-alias-label-error, #b42318)' } }, error)
+        : null,
+      !signedIn && phase !== 'loading'
+        ? React.createElement('div', { style: { marginTop: '12px' } },
+          signIn.state === 'pending' || signIn.state === 'starting'
+            ? React.createElement('div', null,
+              React.createElement('div', { style: { marginBottom: '8px' } },
+                signIn.state === 'starting' ? 'Asking the GitHub CLI for a code…' : 'Approve this one-time code in your browser:'),
+              signIn.code === ''
+                ? null
+                : React.createElement('div', {
+                  'data-polish-github': 'code',
+                  style: {
+                    fontFamily: 'ui-monospace, SFMono-Regular, Menlo, Consolas, monospace',
+                    fontSize: '18px',
+                    letterSpacing: '2px',
+                    padding: '8px 10px',
+                    borderRadius: 'var(--dsw-radius-sm, 6px)',
+                    border: '0.5px solid var(--dsw-alias-border-l2, rgba(0,0,0,0.12))',
+                  },
+                }, signIn.code),
+              React.createElement('div', { style: { display: 'flex', gap: '8px', marginTop: '10px', flexWrap: 'wrap' } },
+                React.createElement('button', { type: 'button', onClick: copyCode, style: GITHUB_BUTTON_STYLE, 'data-polish-github': 'copy' },
+                  copied ? 'Copied' : 'Copy code'),
+                React.createElement('a', {
+                  href: signIn.url === '' ? 'https://github.com/login/device' : signIn.url,
+                  target: '_blank',
+                  rel: 'noreferrer',
+                  style: { ...GITHUB_BUTTON_STYLE, textDecoration: 'none', display: 'inline-flex', alignItems: 'center' },
+                }, 'Open the device page'),
+                React.createElement('button', { type: 'button', onClick: cancelSignIn, style: GITHUB_BUTTON_STYLE, 'data-polish-github': 'cancel' }, 'Cancel')))
+            : React.createElement('div', null,
+              React.createElement('button', {
+                type: 'button',
+                onClick: beginSignIn,
+                // The attribute belongs on the element: inside `style` it is ignored,
+                // which is exactly why the first verification could not find this button.
+                'data-polish-github': 'signin',
+                style: GITHUB_BUTTON_STYLE,
+              }, 'Sign in with GitHub'),
+              signIn.state === 'failed' && signIn.reason !== ''
+                ? React.createElement('div', { style: { marginTop: '8px', color: 'var(--dsw-alias-label-error, #b42318)' } }, signIn.reason)
+                : null))
         : null,
       signedIn
         ? React.createElement('div', { style: GITHUB_LIST_STYLE, 'data-polish-github-list': String(visible.length) },
@@ -945,6 +1180,9 @@ const FOOT_ROW_STYLE = {
  */
 function GithubStatus(props) {
   const enabled = useSwitch(props.configForms, 'githubWorkspace', true)
+  // The dialog publishes every status it reads, so a sign-out in the dialog lands
+  // in this line immediately instead of waiting for the next window focus.
+  const shared = React.useSyncExternalStore(githubStatusStore.subscribe, githubStatusStore.get)
   const [status, setStatus] = React.useState(undefined)
   React.useEffect(() => {
     if (!enabled) return undefined
@@ -952,7 +1190,11 @@ function GithubStatus(props) {
     const read = () => {
       Promise.resolve()
         .then(() => githubCall('status'))
-        .then(next => { if (live) setStatus(next) })
+        .then(next => {
+          if (!live) return
+          setStatus(next)
+          githubStatusStore.set(next)
+        })
         .catch(() => { if (live) setStatus({ signedIn: false }) })
     }
     read()
@@ -964,15 +1206,16 @@ function GithubStatus(props) {
     }
   }, [enabled])
   if (!enabled) return null
-  const signedIn = status !== undefined && status.signedIn === true
-  const label = status === undefined
+  const current = shared === undefined ? status : shared
+  const signedIn = current !== undefined && current.signedIn === true
+  const label = current === undefined
     ? 'GitHub · checking…'
-    : signedIn ? `GitHub · ${String(status.login)}` : 'GitHub · signed out'
+    : signedIn ? `GitHub · ${String(current.login)}` : 'GitHub · signed out'
   return React.createElement('div', { style: { padding: '2px 8px 0', minWidth: 0 } },
     React.createElement('button', {
       type: 'button',
       'data-polish-github': 'status',
-      'data-polish-github-state': signedIn ? 'in' : status === undefined ? 'checking' : 'out',
+      'data-polish-github-state': signedIn ? 'in' : current === undefined ? 'checking' : 'out',
       title: signedIn
         ? 'Add a workspace from GitHub'
         : 'Sign in with the GitHub CLI (gh auth login), then add a repository as a workspace',
@@ -1064,16 +1307,33 @@ function WorkspaceSourceFlow(props) {
   }
 
   /**
-   * Start the folder browser at the machine's roots.
+   * Hand folder choice to the Host.
    *
-   * This deliberately does not call the Host's directory picker: a composed
-   * picker serves either `browse` or `native`, never both, and the browser build
-   * composes the one whose chooser cannot open there — a `pick` call would wait
-   * for a dialog that never appears. Our own listing behaves the same in the app
-   * and in the browser, and hands the chosen path back through `onPicked`.
+   * In the desktop app the preload exposes the real OS chooser as
+   * `__DSH_DIRECTORY_PICKER__.pick()` — the same bridge the shipped native
+   * picker uses — so the flow opens the Windows folder dialog and behaves like
+   * the stock picker it stands in for. In a browser there is no such bridge, and
+   * the composed picker's `pick` waits on a dialog that cannot open, so the flow
+   * lists folders itself instead of hanging.
    */
   const chooseOnPc = () => {
     if (busy) return
+    const bridge = typeof globalThis === 'undefined' ? undefined : globalThis.__DSH_DIRECTORY_PICKER__
+    if (bridge !== undefined && typeof bridge.pick === 'function') {
+      setBusy(true)
+      setError('')
+      Promise.resolve()
+        .then(() => bridge.pick())
+        .then(path => {
+          if (typeof path === 'string' && path !== '') {
+            land(path)
+            return
+          }
+          setBusy(false)
+        })
+        .catch(reason => fail(messageOf(reason)))
+      return
+    }
     setBusy(true)
     setError('')
     Promise.resolve()
@@ -1189,7 +1449,7 @@ function WorkspaceSourceFlow(props) {
         padding: '6px',
         overflowY: 'auto',
         borderRadius: 'var(--dsw-radius-lg, 12px)',
-        background: 'var(--dsw-specific-menu, Canvas)',
+        ...PANEL_SURFACE,
         boxShadow: 'var(--dsw-elevation-prominent, 0 8px 24px rgba(0,0,0,0.18))',
         fontSize: '12px',
         lineHeight: '18px',

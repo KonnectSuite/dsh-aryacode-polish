@@ -1,5 +1,54 @@
 # Changelog
 
+## [0.7.3] - 2026-10-28
+
+### Fixed
+
+- **A sign-out that only looked like one.** gh auth logout --user removes the
+  account it names, and a machine with a second account in the CLI keyring makes
+  that one active, so the dialog quietly carried on as somebody else while the
+  sidebar still named the old account. Signing out now reports the account the
+  CLI fell back to, offers **Sign out all** when more than one account exists,
+  and the footer line follows the dialog immediately instead of waiting for the
+  next window focus.
+
+## [0.7.0] - 2026-10-28
+
+### Added
+
+- **Sign in and sign out of GitHub from the dialog.** Sign-in is still the GitHub
+  CLI's own session — this bundle stores no token — but it no longer sends the
+  owner to a terminal: the dialog runs `gh auth login --web`, shows the one-time
+  code it prints with a copy button and the device page, and refreshes the
+  repository list as soon as the CLI reports success. A signed-in machine gets a
+  two-step **Sign out** (`gh auth logout --hostname github.com --user <login>`),
+  and a pending sign-in can be cancelled. The footer row shows which state the
+  machine is in, so the answer to "am I signed in?" is visible without opening
+  anything.
+
+## [0.6.2] - 2026-10-28
+
+### Fixed
+
+- **The "+" menu and the GitHub dialog are opaque again in the desktop app.**
+  Both are portaled to `document.body`, which puts them outside the themed tree,
+  and they painted themselves with the harness menu fill `--dsw-specific-menu`
+  (`#f8f9fa94`, 58% alpha) relying on `backdrop-filter` to make that read solid.
+  The AryaCode desktop build does not composite that blur, so the page showed
+  through the panel. Every portaled surface now lays that fill over an opaque
+  `Canvas` base and keeps the blur only where the platform honours it.
+
+## [0.6.1] - 2026-10-28
+
+### Fixed
+
+- **"On this PC" opens the real Windows folder dialog in the desktop app again.**
+  The desktop preload exposes the OS chooser as `__DSH_DIRECTORY_PICKER__.pick()`
+  — the same bridge the shipped native picker uses — and the flow now calls it
+  directly, so picking a folder behaves exactly like the picker it stands in for.
+  The in-app folder list is now only the browser fallback, where no such bridge
+  exists and the composed picker's `pick` would wait on a dialog that cannot open.
+
 ## [0.6.0] - 2026-10-28
 
 ### Changed

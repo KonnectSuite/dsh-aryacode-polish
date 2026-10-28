@@ -31,6 +31,30 @@ server rejects a bearer token for clone, which is why the header carries
 `x-access-token` basic auth. Every line of git output is scrubbed of the token
 before it can reach the browser, and the route answers `cache-control: no-store`.
 
+## Signing in and out
+
+The session belongs to the GitHub CLI, and both directions stay inside the app:
+
+- **Sign in** runs `gh auth login --hostname github.com --git-protocol https
+  --web --clipboard --skip-ssh-key` on the Host. With piped stdio that command
+  needs no terminal: it prints `! One-time code (XXXX-XXXX) copied to clipboard`
+  and `https://github.com/login/device`, then polls GitHub until the code is
+  approved. The dialog shows exactly that code with a copy button and the device
+  page, polls `loginStatus` every two seconds, and refreshes the repository list
+  the moment the CLI reports success. A flow that is never approved is killed
+  after five minutes, and cancelling it kills the child immediately; the child
+  also dies with the feature, because a pending sign-in is a live process.
+- **Sign out** runs `gh auth logout --hostname github.com --user <login>` after a
+  second confirming click, then re-reads the session. "not logged in" counts as
+  success, because that is the state the click asked for.
+- **Where you see it** is the sidebar foot: `GitHub · <login>` or
+  `GitHub · signed out`, on the same line as the balance. The dialog repeats it,
+  and the footer row re-reads on window focus so a `gh auth login` run in a
+  terminal shows up without a restart.
+
+Nothing about this stores a credential of its own: the code is a one-time device
+code, and the token never leaves the CLI's own credential store.
+
 ## How the entry point works
 
 The "+" menu's **Add workspace…** entry only appears when something occupies
@@ -38,7 +62,11 @@ The "+" menu's **Add workspace…** entry only appears when something occupies
 takes it stands in for the folder picker. This bundle takes it and offers the
 two sources the owner asked for:
 
-- **On this PC** — a folder browser driven by this bundle's own route
+- **On this PC** — the OS folder dialog. The desktop preload exposes it as
+  `window.__DSH_DIRECTORY_PICKER__.pick()`, the same bridge the shipped native
+  picker uses, so the flow calls it directly and behaves exactly like the picker
+  it stands in for. Where that bridge is absent (the web build) the flow falls
+  back to a folder browser driven by this bundle's own route
   (`api/polish.folders`, actions `roots` and `ls`): roots, a `..` row for going
   back, directories only, hidden and system entries filtered out, and **Use this
   folder** hands the current path to the flow's `onPicked`.
@@ -46,15 +74,14 @@ two sources the owner asked for:
   flow, so a finished clone hands its path back through the flow's `onPicked`,
   and the Shell creates the workspace exactly as it does for a picked folder.
 
-### Why the browser does not borrow the Host's chooser
+### Why the fallback exists at all
 
 A composed directory picker serves exactly one capability: `browse` answers
 `list` and `createDirectory`, `native` answers `pick`. The web profile composes
 the picker whose chooser cannot open there, so `directoryPicker.pick()` waits on
-a dialog that never appears — the first build of this flow did exactly that and
-the row spun forever. Owning the listing keeps one behaviour in the app and in
-the browser, needs no capability guess, and does not break when a profile mounts
-a different picker.
+a dialog that never appears — an earlier build of this flow did exactly that and
+the row spun forever. The preload bridge is the reliable door in the app; the
+listing is what a browser gets instead of a spinner.
 
 The tray of the foot keeps the sign-in state (`GitHub · <login>`, or
 `GitHub · signed out`) next to the balance, so the account is visible without

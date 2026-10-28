@@ -115,6 +115,189 @@ export async function ghToken(run = runCommand) {
 }
 
 /**
+ * Pull the one-time code out of what `gh auth login --web` prints.
+ *
+ * The CLI writes `! One-time code (AE22-76C7) copied to clipboard` to stderr —
+ * the dash is the one the browser form accepts, so it is kept verbatim.
+ * @param text - captured output.
+ * @returns the code, or undefined when the line has not arrived yet.
+ */
+export function parseDeviceCode(text) {
+  const match = /one-time code \(([A-Z0-9]{4}-[A-Z0-9]{4})\)/i.exec(String(text))
+  return match === null ? undefined : match[1].toUpperCase()
+}
+
+/**
+ * Pull the verification URL out of what `gh auth login --web` prints.
+ * @param text - captured output.
+ * @returns the URL, defaulting to GitHub's device page.
+ */
+export function parseDeviceUrl(text) {
+  const match = /(https:\/\/github\.com\/login\/device)/.exec(String(text))
+  return match === null ? 'https://github.com/login/device' : match[1]
+}
+
+/** The single sign-in this process is running, if any. */
+let loginSession
+
+/** Default ceiling on a pending sign-in: the CLI polls until the code is used. */
+export const LOGIN_TIMEOUT_MS = 5 * 60 * 1000
+
+/**
+ * Start the GitHub CLI's device flow for this machine.
+ *
+ * `gh auth login --web` needs no terminal: with piped stdio it prints the
+ * one-time code and then polls GitHub until the code is approved, which is
+ * exactly the shape a dialog can render. The child is kept alive here so the
+ * browser can poll for the outcome, and killed when the flow is cancelled,
+ * times out, or the feature is disposed.
+ * @param options - spawn override plus the timeout.
+ * @returns the code and URL to show, or the reason it could not start.
+ */
+export function startLogin(options = {}) {
+  if (loginSession !== undefined && loginSession.state === 'pending') {
+    return { ok: true, value: { state: 'pending', code: loginSession.code, url: loginSession.url } }
+  }
+  const spawnImpl = options.spawn ?? spawn
+  const timeoutMs = options.timeoutMs ?? LOGIN_TIMEOUT_MS
+  const session = { state: 'starting', code: undefined, url: 'https://github.com/login/device', reason: '', child: undefined, timer: undefined }
+  let text = ''
+  const read = chunk => {
+    text += chunk.toString()
+    const code = parseDeviceCode(text)
+    if (code !== undefined && session.code === undefined) {
+      session.code = code
+      session.url = parseDeviceUrl(text)
+      session.state = 'pending'
+    }
+  }
+  try {
+    const child = spawnImpl('gh', ['auth', 'login', '--hostname', 'github.com', '--git-protocol', 'https', '--web', '--clipboard', '--skip-ssh-key'], {
+      stdio: ['pipe', 'pipe', 'pipe'],
+      windowsHide: true,
+      env: { ...process.env, GIT_TERMINAL_PROMPT: '0', GH_PROMPT_DISABLED: '' },
+    })
+    session.child = child
+    child.stdout?.setEncoding?.('utf8')
+    child.stderr?.setEncoding?.('utf8')
+    child.stdout?.on?.('data', read)
+    child.stderr?.on?.('data', read)
+    child.on?.('error', error => {
+      session.state = 'failed'
+      session.reason = error instanceof Error ? error.message : 'the GitHub CLI could not be started'
+    })
+    child.on?.('close', code => {
+      if (session.state === 'cancelled') return
+      if (code === 0) {
+        session.state = 'succeeded'
+        session.reason = ''
+        return
+      }
+      session.state = 'failed'
+      const parsed = parseDeviceCode(text)
+      session.reason = parsed === undefined
+        ? 'the GitHub CLI stopped before showing a one-time code'
+        : 'the one-time code was not approved'
+    })
+    session.timer = setTimeout(() => {
+      if (session.state !== 'pending' && session.state !== 'starting') return
+      session.state = 'failed'
+      session.reason = 'the one-time code expired before it was approved'
+      session.child?.kill?.()
+    }, timeoutMs)
+    session.timer?.unref?.()
+    loginSession = session
+    return { ok: true, value: { state: session.state, code: session.code, url: session.url } }
+  } catch (error) {
+    session.state = 'failed'
+    session.reason = error instanceof Error ? error.message : 'the GitHub CLI could not be started'
+    loginSession = session
+    return { ok: false, error: session.reason }
+  }
+}
+
+/**
+ * Report the sign-in this process is running.
+ * @returns the state, plus the code and URL while it is pending.
+ */
+export function loginStatus() {
+  if (loginSession === undefined) return { state: 'idle', code: undefined, url: 'https://github.com/login/device', reason: '' }
+  return { state: loginSession.state, code: loginSession.code, url: loginSession.url, reason: loginSession.reason }
+}
+
+/**
+ * Stop a pending sign-in and forget it.
+ * @returns the state after cancelling.
+ */
+export function cancelLogin() {
+  if (loginSession === undefined) return { state: 'idle', code: undefined, url: 'https://github.com/login/device', reason: '' }
+  if (loginSession.timer !== undefined) clearTimeout(loginSession.timer)
+  try {
+    loginSession.child?.kill?.()
+  } catch {
+    // A child that already exited is the normal case here.
+  }
+  loginSession.state = 'cancelled'
+  loginSession.reason = 'sign-in was cancelled'
+  return { state: loginSession.state, code: loginSession.code, url: loginSession.url, reason: loginSession.reason }
+}
+
+/**
+ * Sign the GitHub CLI out, which is what this feature's sign-in state reads.
+ * @param login - the account to remove; the CLI prompts without it.
+ * @param run - command runner, injected by tests.
+ * @returns ok when the account is gone (including when it was never there).
+ */
+export async function signOut(login, run = runCommand) {
+  const args = ['auth', 'logout', '--hostname', 'github.com']
+  if (typeof login === 'string' && login !== '') args.push('--user', login)
+  const answer = await run('gh', args)
+  if (answer.code === 0) return { ok: true }
+  const text = `${answer.stdout}${answer.stderr}`.trim()
+  if (/not logged in/i.test(text)) return { ok: true }
+  return { ok: false, error: text === '' ? 'the GitHub CLI could not sign out' : text }
+}
+
+/**
+ * Read every account the GitHub CLI holds for github.com.
+ *
+ * A machine can carry more than one account in the CLI keyring, and `gh auth
+ * logout --user` only removes the one it names — the CLI then makes another one
+ * active, which is why a sign-out can appear to do nothing.
+ *
+ * @param run - command runner, injected by tests.
+ * @returns the accounts in the CLI's own order, the active one first when known.
+ */
+export async function listAccounts(run = runCommand) {
+  const answer = await run('gh', ['auth', 'status'])
+  const text = `${answer.stdout}${answer.stderr}`
+  const logins = []
+  const pattern = /Logged in to github\.com account ([^\s]+)/g
+  let match = pattern.exec(text)
+  while (match !== null) {
+    if (logins.indexOf(match[1]) === -1) logins.push(match[1])
+    match = pattern.exec(text)
+  }
+  return logins
+}
+
+/**
+ * Sign every account out of the GitHub CLI.
+ * @param logins - accounts to remove.
+ * @param run - command runner, injected by tests.
+ * @returns ok when no account is left, else the first failure.
+ */
+export async function signOutAll(logins, run = runCommand) {
+  const removed = []
+  for (const login of logins) {
+    const answer = await signOut(login, run)
+    if (answer.ok !== true) return { ok: false, error: answer.error, removed }
+    removed.push(login)
+  }
+  return { ok: true, removed }
+}
+
+/**
  * Read the login that owns a token.
  * @param token - GitHub access token.
  * @param fetchImpl - HTTP implementation.
@@ -257,19 +440,49 @@ export async function cloneRepo(owner, name, token, options = {}) {
  */
 export async function handleRequest(body, deps = {}) {
   const action = body?.action
+  // Sign-in is reachable while signed out: it is how a machine gets there.
+  if (action === 'login') return (deps.startLogin ?? startLogin)()
+  if (action === 'loginStatus') return { ok: true, value: (deps.loginStatus ?? loginStatus)() }
+  if (action === 'loginCancel') return { ok: true, value: (deps.cancelLogin ?? cancelLogin)() }
+  // Signing everything out is reachable while signed in, so it belongs above the
+  // token gate together with the sign-in verbs.
+  if (action === 'logoutAll') {
+    const accounts = await (deps.accounts ?? listAccounts)()
+    if (accounts.length === 0) return { ok: true, value: { logins: [] } }
+    const answer = await (deps.signOutAll ?? signOutAll)(accounts)
+    if (answer.ok !== true) return { ok: false, error: answer.error }
+    return { ok: true, value: { logins: answer.removed } }
+  }
   const token = await (deps.token ?? ghToken)()
   if (action === 'status') {
+    const accounts = await (deps.accounts ?? listAccounts)().catch(() => [])
     if (token === undefined) {
       return {
         ok: true,
-        value: { signedIn: false, login: '', root: cloneRoot(deps.home), reason: 'The GitHub CLI is missing or not signed in: run `gh auth login` in a terminal.' },
+        value: {
+          signedIn: false,
+          login: '',
+          accounts: [],
+          root: cloneRoot(deps.home),
+          reason: 'The GitHub CLI is not signed in on this machine. Sign in from this dialog, or run `gh auth login` in a terminal.',
+        },
       }
     }
     const login = await (deps.login ?? fetchLogin)(token)
-    return { ok: true, value: { signedIn: true, login, root: cloneRoot(deps.home), reason: '' } }
+    return { ok: true, value: { signedIn: true, login, accounts, root: cloneRoot(deps.home), reason: '' } }
   }
   if (token === undefined) {
-    return { ok: false, error: 'Sign in with the GitHub CLI first: run `gh auth login` in a terminal, then try again.' }
+    return { ok: false, error: 'Sign in to GitHub first: use Sign in here, or run `gh auth login` in a terminal.' }
+  }
+  if (action === 'logout') {
+    const login = await (deps.login ?? fetchLogin)(token)
+    const answer = await (deps.signOut ?? signOut)(login)
+    if (answer.ok !== true) return { ok: false, error: answer.error }
+    // The CLI may fall back to another account in its keyring; report which one,
+    // so the dialog can say what is signed in now instead of going silent.
+    const after = await (deps.token ?? ghToken)().catch(() => undefined)
+    const remaining = after === undefined ? '' : await (deps.login ?? fetchLogin)(after).catch(() => '')
+    return { ok: true, value: { login, remaining } }
   }
   if (action === 'repos') {
     const repos = await (deps.repos ?? fetchRepos)(token)
@@ -307,6 +520,8 @@ export const githubFeature = {
   name: 'polish-github',
   inject: ['connection'],
   apply(ctx, config = {}) {
+    // A pending device flow holds a child process: it must die with the feature.
+    ctx.effect(() => () => { cancelLogin() })
     ctx.effect(() => ctx.connection.fetch.register({
       path: GITHUB_ROUTE,
       // Without a method list the platform would only route GET, which is why the

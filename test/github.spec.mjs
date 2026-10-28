@@ -7,13 +7,21 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import {
   assertSegment,
+  cancelLogin,
   cloneDestination,
   cloneRepo,
   ghToken,
   handleRequest,
   json,
+  loginStatus,
+  listAccounts,
+  parseDeviceCode,
+  parseDeviceUrl,
   scrubToken,
+  signOut,
+  signOutAll,
   sameOrigin,
+  startLogin,
 } from '../entries/github.js'
 
 async function scratch() {
@@ -127,6 +135,145 @@ test('an unknown action is an error, not a silent success', async () => {
   const answer = await handleRequest({ action: 'delete-everything' }, { token: async () => 'gho_token' })
   assert.equal(answer.ok, false)
   assert.match(answer.error, /unknown GitHub action/)
+})
+
+test('the one-time code and device page are read out of what the CLI prints', () => {
+  const printed = '! One-time code (ae22-76c7) copied to clipboard\nOpen this URL to continue in your web browser: https://github.com/login/device\n'
+  assert.equal(parseDeviceCode(printed), 'AE22-76C7', 'the code is upper-cased and keeps its dash')
+  assert.equal(parseDeviceUrl(printed), 'https://github.com/login/device')
+  assert.equal(parseDeviceCode('nothing here'), undefined)
+  assert.equal(parseDeviceUrl('nothing here'), 'https://github.com/login/device', 'the page is a constant fallback')
+})
+
+test('a sign-in surfaces the code the CLI printed, then reports the outcome', async () => {
+  const listeners = { stdout: [], stderr: [], close: [], error: [] }
+  const child = {
+    stdout: { setEncoding() {}, on(_event, handler) { listeners.stdout.push(handler) } },
+    stderr: { setEncoding() {}, on(_event, handler) { listeners.stderr.push(handler) } },
+    on(event, handler) { listeners[event]?.push(handler) },
+    kill() { listeners.close.forEach(handler => handler(null)) },
+  }
+  const spawned = []
+  const started = startLogin({ spawn: (command, args) => { spawned.push({ command, args }); return child }, timeoutMs: 50 })
+  assert.equal(started.ok, true)
+  assert.equal(spawned[0].command, 'gh')
+  assert.deepEqual(spawned[0].args.slice(0, 3), ['auth', 'login', '--hostname'])
+  assert.ok(spawned[0].args.includes('--web'))
+
+  listeners.stderr.forEach(handler => handler(Buffer.from('! One-time code (AE22-76C7) copied to clipboard\n')))
+  assert.equal(loginStatus().state, 'pending')
+  assert.equal(loginStatus().code, 'AE22-76C7')
+
+  listeners.close.forEach(handler => handler(0))
+  assert.equal(loginStatus().state, 'succeeded')
+  cancelLogin()
+  assert.equal(loginStatus().state, 'cancelled')
+})
+
+test('a sign-in that is never approved fails instead of hanging forever', async () => {
+  const child = {
+    stdout: { setEncoding() {}, on() {} },
+    stderr: { setEncoding() {}, on(_event, handler) { this.handler = handler; handler(Buffer.from('! One-time code (AAAA-1111) copied to clipboard\n')) } },
+    on() {},
+    kill() {},
+  }
+  startLogin({ spawn: () => child, timeoutMs: 10 })
+  assert.equal(loginStatus().state, 'pending')
+  await new Promise(resolve => setTimeout(resolve, 60))
+  assert.equal(loginStatus().state, 'failed')
+  assert.match(loginStatus().reason, /expired/)
+  cancelLogin()
+})
+
+test('signing out removes that account from the CLI and tolerates an absent one', async () => {
+  const calls = []
+  const gone = await signOut('KonnectSuite', async (command, args) => { calls.push({ command, args }); return { code: 0, stdout: '', stderr: '' } })
+  assert.deepEqual(gone, { ok: true })
+  assert.deepEqual(calls[0].args, ['auth', 'logout', '--hostname', 'github.com', '--user', 'KonnectSuite'])
+
+  const absent = await signOut('KonnectSuite', async () => ({ code: 1, stdout: '', stderr: 'not logged in to github.com' }))
+  assert.deepEqual(absent, { ok: true }, 'already signed out is the state the caller wanted')
+
+  const failed = await signOut('KonnectSuite', async () => ({ code: 1, stdout: '', stderr: 'network is unreachable' }))
+  assert.equal(failed.ok, false)
+  assert.match(failed.error, /network is unreachable/)
+})
+
+test('sign-in and sign-out actions are reachable without a session, and routed by the Host', async () => {
+  const signedOut = { token: async () => undefined }
+  const login = await handleRequest({ action: 'login' }, { ...signedOut, startLogin: () => ({ ok: true, value: { state: 'pending', code: 'AE22-76C7', url: 'https://github.com/login/device' } }) })
+  assert.equal(login.value.code, 'AE22-76C7')
+  const poll = await handleRequest({ action: 'loginStatus' }, { ...signedOut, loginStatus: () => ({ state: 'pending', code: 'AE22-76C7', url: '', reason: '' }) })
+  assert.equal(poll.value.state, 'pending')
+  const cancelled = await handleRequest({ action: 'loginCancel' }, { ...signedOut, cancelLogin: () => ({ state: 'cancelled', code: '', url: '', reason: '' }) })
+  assert.equal(cancelled.value.state, 'cancelled')
+
+  const signedIn = await handleRequest({ action: 'logout' }, {
+    token: async () => 'gho_token',
+    login: async () => 'KonnectSuite',
+    signOut: async () => ({ ok: true }),
+  })
+  assert.deepEqual(signedIn.value, { login: 'KonnectSuite', remaining: 'KonnectSuite' })
+})
+
+test('a sign-out reports the account the CLI fell back to', async () => {
+  // The real surprise on a two-account machine: logout --user removes one account
+  // and the CLI silently makes the next one active.
+  let signedOut = false
+  const answer = await handleRequest({ action: 'logout' }, {
+    token: async () => (signedOut ? 'gho_other' : 'gho_token'),
+    login: async () => 'KonnectSuite',
+    signOut: async () => { signedOut = true; return { ok: true } },
+  })
+  assert.deepEqual(answer.value, { login: 'KonnectSuite', remaining: 'KonnectSuite' })
+
+  const lastOne = await handleRequest({ action: 'logout' }, {
+    // First read finds the session, the read after the sign-out finds nothing.
+    token: (() => { let calls = 0; return async () => { calls += 1; return calls === 1 ? 'gho_token' : undefined } })(),
+    login: async () => 'KonnectSuite',
+    signOut: async () => ({ ok: true }),
+  })
+  assert.deepEqual(lastOne.value, { login: 'KonnectSuite', remaining: '' })
+})
+
+test('the status names every account the CLI holds, and signing out all removes them', async () => {
+  const status = await handleRequest({ action: 'status' }, {
+    token: async () => 'gho_token',
+    login: async () => 'KonnectSuite',
+    accounts: async () => ['KonnectSuite', 'KphungFROMM'],
+  })
+  assert.deepEqual(status.value.accounts, ['KonnectSuite', 'KphungFROMM'])
+  assert.equal(status.value.signedIn, true)
+
+  const removed = []
+  const all = await handleRequest({ action: 'logoutAll' }, {
+    token: async () => 'gho_token',
+    accounts: async () => ['KonnectSuite', 'KphungFROMM'],
+    signOutAll: async logins => {
+      for (const login of logins) removed.push(login)
+      return { ok: true, removed: logins.slice() }
+    },
+  })
+  assert.deepEqual(removed, ['KonnectSuite', 'KphungFROMM'])
+  assert.deepEqual(all.value, { logins: ['KonnectSuite', 'KphungFROMM'] })
+
+  const none = await handleRequest({ action: 'logoutAll' }, { token: async () => undefined, accounts: async () => [] })
+  assert.deepEqual(none.value, { logins: [] })
+})
+
+test('the CLI account list is read from the status text it already prints', async () => {
+  const text = [
+    'github.com',
+    '  ✓ Logged in to github.com account KonnectSuite (keyring)',
+    '  - Active account: true',
+    '',
+    '  ✓ Logged in to github.com account KphungFROMM (keyring)',
+    '  - Active account: false',
+  ].join('\n')
+  const logins = await listAccounts(async () => ({ code: 1, stdout: text, stderr: '' }))
+  assert.deepEqual(logins, ['KonnectSuite', 'KphungFROMM'])
+  const empty = await listAccounts(async () => ({ code: 1, stdout: '', stderr: 'not logged in to any hosts' }))
+  assert.deepEqual(empty, [])
 })
 
 test('cloning spawns git with the token in the environment, never in the URL or arguments', async () => {
