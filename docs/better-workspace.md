@@ -439,3 +439,8 @@ component reads it and falls back to the row flag, so:
 - a folder shows a dot when any session inside it is busy,
 - the header shows `● n` only while n sessions are running, and clicking it clears the filter, unfolds
   the folder and expands the workspace holding the first busy session.
+
+
+## Bulk actions
+
+The folder menu can fold or unfold every workspace inside that folder in one click, and the Archived header has its own menu with "Restore all N archived" (sequential, and it reports how many came back rather than claiming success).

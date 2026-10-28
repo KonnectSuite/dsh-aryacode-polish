@@ -73,6 +73,7 @@ import {
   costOf,
   costLabel, sumCost, folderHasRunning, readHelp, writeHelp, sumCostLabel,
   GLYPHS,
+  restoreLabel,
 } from '../client/workspace.js'
 
 const session = (id, title, updatedAt) => ({ id, displayTitle: title, updatedAt })
@@ -935,4 +936,12 @@ it('the status store decides, not the row', () => {
   assert.deepEqual(firstRunning(rows, (row) => row.id === 's1'), { workspaceId: 'w1', sessionId: 's1', title: 'One' })
   assert.equal(firstRunning(rows, () => false), undefined)
   assert.equal(folderHasRunning([{ sessions: [{ id: 's9', running: false }] }], (row) => row.id === 's9'), true)
+})
+
+
+it('the bulk restore button says what it will do', () => {
+  assert.equal(restoreLabel(1), 'Restore the archived session')
+  assert.equal(restoreLabel(0), 'Restore the archived session')
+  assert.equal(restoreLabel(4), 'Restore all 4 archived')
+  assert.equal(restoreLabel('3'), 'Restore all 3 archived')
 })

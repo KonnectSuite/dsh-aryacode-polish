@@ -786,6 +786,13 @@ export function costLabel(cost) {
 }
 
 /** How long ago a stamp happened, in the shortest honest unit. */
+/** The one button a bulk restore needs, named for what it will actually do. */
+export function restoreLabel(count) {
+  const total = Number(count) || 0
+  if (total <= 1) return 'Restore the archived session'
+  return 'Restore all ' + total + ' archived'
+}
+
 export function ageLabel(stamp, now) {
   const at = Number(stamp)
   const current = Number.isFinite(Number(now)) ? Number(now) : Date.now()
@@ -2125,6 +2132,32 @@ export function BetterWorkspace(props) {
       }, 'Copy session id'))
     : null
 
+  const archiveHeadMenu = menu && menu.kind === 'archiveHead'
+    ? React.createElement(RowMenu, { anchor: menu.anchor, onClose: closeMenu },
+      React.createElement('button', {
+        type: 'button',
+        'data-polish-archive-restore-all': String(archivedSessions.length),
+        style: WS_MENU_ITEM,
+        onClick: async () => {
+          const total = archivedSessions.length
+          closeMenu()
+          let restored = 0
+          for (let at = 0; at < total; at += 1) {
+            try {
+              await services.unarchiveSession(archivedSessions[at].id)
+              restored += 1
+            } catch {
+              /* keep going: one refusal should not strand the rest */
+            }
+          }
+          if (restored === total) setNotice(restored === 1 ? 'Restored the archived session.' : 'Restored all ' + restored + ' archived sessions.')
+          else if (restored > 0) setNotice('Restored ' + restored + ' of ' + total + ' archived sessions.')
+          else setNotice('Could not restore the archived sessions.')
+        },
+      }, restoreLabel(archivedSessions.length)),
+      React.createElement('div', { style: WS_MENU_HINT }, 'Sessions come back to their own workspace.'))
+    : null
+
   const folderMenu = menu && menu.kind === 'folder'
     ? React.createElement(RowMenu, { anchor: menu.anchor, onClose: closeMenu },
       React.createElement('input', {
@@ -2245,6 +2278,38 @@ export function BetterWorkspace(props) {
           onClick: () => paint({ strong: !current.strong }),
         }, current.strong ? 'Weight: bold \u2713' : 'Weight: normal'),
         React.createElement('div', { style: WS_MENU_HINT }, 'Colour, glyph and weight for this folder'),
+        React.createElement('button', {
+          type: 'button',
+          'data-polish-folder-collapse': menu.folder,
+          style: WS_MENU_ITEM,
+          onClick: () => {
+            const name = menu.folder
+            closeMenu()
+            const inside = rows.filter((entry) => folderOf(entry.workspace) === name).map((entry) => entry.workspace.workspaceId)
+            setExpanded((prev) => {
+              const next = Object.assign({}, prev)
+              inside.forEach((id) => { next[id] = false })
+              return next
+            })
+            setNotice(inside.length === 1 ? 'Collapsed 1 workspace here.' : 'Collapsed ' + inside.length + ' workspaces here.')
+          },
+        }, 'Collapse workspaces here'),
+        React.createElement('button', {
+          type: 'button',
+          'data-polish-folder-expand': menu.folder,
+          style: WS_MENU_ITEM,
+          onClick: () => {
+            const name = menu.folder
+            closeMenu()
+            const inside = rows.filter((entry) => folderOf(entry.workspace) === name).map((entry) => entry.workspace.workspaceId)
+            setExpanded((prev) => {
+              const next = Object.assign({}, prev)
+              inside.forEach((id) => { next[id] = true })
+              return next
+            })
+            setNotice(inside.length === 1 ? 'Expanded 1 workspace here.' : 'Expanded ' + inside.length + ' workspaces here.')
+          },
+        }, 'Expand workspaces here'),
         React.createElement('button', {
           type: 'button',
           'data-polish-folder-look-rename': menu.folder,
@@ -3313,6 +3378,10 @@ export function BetterWorkspace(props) {
       'data-polish-ws-archived': 'head',
       style: WS_SECTION,
       onClick: () => setArchiveOpen((open) => !open),
+      onContextMenu: (event) => {
+        event.preventDefault()
+        setMenu({ kind: 'archiveHead', anchor: { top: event.clientY, left: event.clientX } })
+      },
     },
     React.createElement('span', { 'aria-hidden': 'true' }, archiveOpen ? '⌄' : '›'),
     React.createElement('span', { style: WS_TITLE }, 'Archived'),
@@ -3396,6 +3465,7 @@ export function BetterWorkspace(props) {
   sessionMenu,
   glyphMenu,
   noteMenu,
+  archiveHeadMenu,
   folderMenu,
   renameFolderMenu,
   markMenu,

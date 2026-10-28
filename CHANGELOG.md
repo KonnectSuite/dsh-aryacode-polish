@@ -1,3 +1,7 @@
+## [0.47.0] - 2026-10-28
+
+- Bulk actions in the tree: right-click a folder for "Collapse/Expand workspaces here", and right-click the Archived header to restore the whole shelf at once.
+
 ## [0.46.0] - 2026-10-28
 
 ### Added
