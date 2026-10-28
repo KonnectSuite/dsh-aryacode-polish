@@ -809,3 +809,13 @@ partial form, and offers the same Undo the bulk bar uses — so the whole move i
 
 Verified live: 26 session rows, `default-workspace` holding 11 → archive every → 15 rows, archived count
 1 → 12, Undo → 26 rows and archived back to 1.
+
+
+### A cap on long workspaces
+
+A workspace shows its first eight sessions and a **Show N more** row; clicking it reveals the rest for
+that workspace only (`capSessions(sessions, limit, showAll)` is pure, `SESSION_CAP = 8`). One busy workspace
+no longer buries every other one, and the day-grouped path is unaffected because grouping already shortens.
+
+Verified live: 21 rows with two `Show 3 more` / `Show 2 more` rows → opening one workspace's remaining
+sessions took the tree from 13 to 15 rows and removed that workspace's button.

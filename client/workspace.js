@@ -893,8 +893,17 @@ export function focusPlan(rows, workspaceId) {
   }
   return { expanded, folders }
 }
+/** The first `limit` sessions of a group, plus how many are left behind. */
+export function capSessions(sessions, limit, showAll) {
+  const list = Array.isArray(sessions) ? sessions : []
+  const cap = Number(limit) > 0 ? Number(limit) : 0
+  if (showAll || cap === 0 || list.length <= cap) return { shown: list, hidden: 0 }
+  return { shown: list.slice(0, cap), hidden: list.length - cap }
+}
 const ORDER_KEY = 'aryacode-polish:workspace-order.v1'
 const FOLD_KEY = 'aryacode-polish:folded.v1'
+/** How many sessions a folded-out workspace shows before offering "Show N more". */
+const SESSION_CAP = 8
 const DENSITY_KEY = 'aryacode-polish:density.v1'
 const FOLDER_KEY = 'aryacode-polish:folders.v1'
 const MARK_KEY = 'aryacode-polish:session-marks.v1'
@@ -2163,6 +2172,7 @@ export function BetterWorkspace(props) {
     try { return window.localStorage.getItem('aryacode-polish:hideempty.v1') === '1' } catch (error) { return false }
   })
   const [focusReturn, setFocusReturn] = React.useState(null)
+  const [showAllSessions, setShowAllSessions] = React.useState({})
   const paintHideEmpty = React.useCallback((next) => {
     setHideEmpty(next)
     try {
@@ -4673,10 +4683,20 @@ export function BetterWorkspace(props) {
           })
         })
       } else {
-        shown.forEach((row) => {
+        const capped = capSessions(shown, SESSION_CAP, showAllSessions[workspace.workspaceId] === true)
+        capped.shown.forEach((row) => {
           index += 1
           children.push(sessionRow(workspace, row, index, sessions))
         })
+        if (capped.hidden > 0) {
+          children.push(React.createElement('button', {
+            key: 'more:' + workspace.workspaceId,
+            type: 'button',
+            'data-polish-ws-more': workspace.workspaceId,
+            style: Object.assign({}, WS_MENU_ITEM, { width: 'auto', padding: '2px 6px', marginLeft: '18px' }),
+            onClick: () => setShowAllSessions((prev) => Object.assign({}, prev, { [workspace.workspaceId]: true })),
+          }, 'Show ' + capped.hidden + ' more'))
+        }
       }
     }
   })

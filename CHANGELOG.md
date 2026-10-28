@@ -1,3 +1,9 @@
+## [0.86.0]
+
+### Added
+- A workspace with more than eight sessions shows the first eight and a **Show N more** row, so one busy
+  workspace no longer buries every other one.
+
 ## [0.85.0]
 
 ### Added

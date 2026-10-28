@@ -2,6 +2,7 @@ import assert from 'node:assert/strict'
 import { describe, it } from 'node:test'
 
 import {
+  capSessions,
   focusPlan,
   folderNameOf,
   workspaceTaken,
@@ -1550,4 +1551,25 @@ it('focus from outside a folder folds every folder', () => {
 
   assert.deepEqual(plan.expanded, { w1: false, w2: true })
   assert.deepEqual(plan.folders, { Work: true })
+})
+
+it('a long workspace shows a cap and offers the rest', () => {
+  const sessions = Array.from({ length: 11 }, (unused, at) => ({ id: 's' + at }))
+
+  const capped = capSessions(sessions, 8)
+  assert.equal(capped.shown.length, 8)
+  assert.equal(capped.hidden, 3)
+
+  const opened = capSessions(sessions, 8, true)
+  assert.equal(opened.shown.length, 11)
+  assert.equal(opened.hidden, 0)
+
+  assert.deepEqual(capSessions(undefined, 8), { shown: [], hidden: 0 })
+  assert.equal(capSessions(sessions, 0).shown.length, 11)
+})
+
+it('a short workspace is never capped', () => {
+  const sessions = [{ id: 'a' }, { id: 'b' }]
+
+  assert.deepEqual(capSessions(sessions, 8), { shown: sessions, hidden: 0 })
 })
