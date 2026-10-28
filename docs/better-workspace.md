@@ -391,3 +391,11 @@ Right-clicking a folder header opens a panel with a colour, a glyph and a bold/w
 rename and (for a declared but still empty folder) remove. Folders are title prefixes, not Host
 objects, so the look is stored under `folder:<name>` in `aryacode-polish:workspace-appearance.v1`:
 one store, and a folder rename moves its entry with the members it renames.
+
+## Pinning by drag, and type-ahead
+
+Dragging a session onto the **Pinned** header pins it; dragging a pinned row onto a workspace releases
+it again. Both go through the same Host verbs the menus use, so nothing here can drift from them.
+
+Typing a printable key while the tree has focus jumps the cursor to the first title with that prefix —
+transient, 700 ms, so "bu" then "i" narrows to "Build the thing" instead of restarting.

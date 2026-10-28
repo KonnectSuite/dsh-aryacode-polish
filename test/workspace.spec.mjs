@@ -711,3 +711,20 @@ it('folder looks live beside workspace looks under a reserved prefix', () => {
   assert.equal(FOLDER_LOOK_PREFIX + 'Work' in map, false)
   assert.equal(appearanceOf(map, 'Work').tone, 'blue')
 })
+
+it('type-ahead matches the prefix of a session title', () => {
+  const rows = [
+    { workspace: { workspaceId: 'w1', title: 'Work' }, sessions: [{ id: 's1', displayTitle: 'Greeting' }, { id: 's2', displayTitle: 'Build the thing' }] },
+    { workspace: { workspaceId: 'w2', title: 'Play' }, sessions: [{ id: 's3', displayTitle: 'Garden' }] },
+  ]
+  const walk = flattenRows(rows, {}, '')
+  const titles = walk.map((entry) => {
+    const group = rows.find((item) => item.workspace.workspaceId === entry.workspaceId) || {}
+    if (entry.kind === 'workspace') return workspaceLabel(group.workspace)
+    const row = (group.sessions || []).find((item) => item.id === entry.id) || {}
+    return String(row.displayTitle || row.title || '')
+  })
+  const hit = titles.findIndex((title) => title.toLowerCase().startsWith('bu'))
+  assert.equal(titles[hit], 'Build the thing')
+  assert.equal(titles.findIndex((title) => title.toLowerCase().startsWith('z')), -1)
+})

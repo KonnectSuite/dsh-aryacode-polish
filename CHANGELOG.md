@@ -1,3 +1,11 @@
+## [0.35.0] - 2026-10-28
+
+Added: drop a dragged session on the Pinned header to pin it, and drag a pinned row onto a workspace to
+release it — the pinned section now takes sessions in and gives them back without a menu.
+
+Added: type-ahead. Typing a letter in the tree jumps the keyboard cursor to the first workspace or
+session whose title starts with what you typed, with a 700 ms window so a word refines the match.
+
 ## [0.34.0] - 2026-10-28
 
 Added: a folder carries its own colour, glyph and weight, set from its own menu (right-click a folder

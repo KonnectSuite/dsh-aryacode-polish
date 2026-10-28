@@ -20,6 +20,14 @@ const manifest = JSON.parse(read('package.json'))
 const declaration = JSON.parse(read('client/switches.json'))
 const bundle = read('lib/client.js')
 
+test('a session can be pinned by dropping it on the Pinned header', () => {
+  assert.match(workspaceSource, /dropping === 'pinned'/)
+  assert.match(workspaceSource, /kind: 'pinned'/)
+  assert.match(workspaceSource, /services\.pinSession\(moving\.id\)/)
+  assert.match(workspaceSource, /services\.unpinSession\(moving\.id\)/)
+  assert.match(workspaceSource, /typeBufferRef/)
+})
+
 test('a folder wears its own colour and glyph', () => {
   assert.match(workspaceSource, /'data-polish-folder-tone-pick'/)
   assert.match(workspaceSource, /'data-polish-folder-glyph-pick'/)

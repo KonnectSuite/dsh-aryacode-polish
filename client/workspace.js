@@ -1251,6 +1251,8 @@ export function BetterWorkspace(props) {
   const [notice, setNotice] = React.useState('')
   const [query, setQuery] = React.useState('')
   const [cursor, setCursor] = React.useState(-1)
+  const typeBufferRef = React.useRef('')
+  const typeTimerRef = React.useRef(null)
   const [hover, setHover] = React.useState(null)
   const [drag, setDrag] = React.useState(null)
   const [dropping, setDropping] = React.useState(null)
@@ -1470,6 +1472,13 @@ export function BetterWorkspace(props) {
     const moving = drag
     setDrag(null)
     setDropping(null)
+    if (moving && moving.kind === 'pinned') {
+      Promise.resolve()
+        .then(() => services.unpinSession(moving.id))
+        .then(() => setNotice('Unpinned that session.'))
+        .catch(() => setNotice('Could not unpin that session.'))
+      return
+    }
     if (!moving || moving.kind !== 'workspace' || moving.id === targetId) return
     const target = rows.find((entry) => entry.workspace.workspaceId === targetId)
     const source = rows.find((entry) => entry.workspace.workspaceId === moving.id)
@@ -1518,6 +1527,25 @@ export function BetterWorkspace(props) {
     if (event.key === '[' || event.key === ']') {
       event.preventDefault()
       hopWorkspace(event.key === ']' ? 1 : -1)
+      return
+    }
+    const typed = event.key
+    if (typed.length === 1 && typed !== ' ' && !event.ctrlKey && !event.metaKey && !event.altKey && walk.length > 0) {
+      event.preventDefault()
+      const next = (typeBufferRef.current + typed).toLowerCase()
+      typeBufferRef.current = next
+      if (typeTimerRef.current) clearTimeout(typeTimerRef.current)
+      typeTimerRef.current = setTimeout(() => { typeBufferRef.current = '' }, 700)
+      const found = walk.findIndex((entry) => {
+        const title = entry.kind === 'workspace'
+          ? workspaceLabel((rows.find((item) => item.workspace.workspaceId === entry.workspaceId) || {}).workspace || {})
+          : ((rows.find((item) => item.workspace.workspaceId === entry.workspaceId) || {}).sessions || [])
+            .filter((item) => item.id === entry.id)
+            .map((item) => String(item.displayTitle || item.title || ''))
+            .join('')
+        return String(title).toLowerCase().startsWith(next)
+      })
+      if (found >= 0) setCursor(found)
       return
     }
     if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
@@ -2559,7 +2587,13 @@ export function BetterWorkspace(props) {
       onMouseLeave: () => { setHover(null); setCard(null) },
       onDragStart: () => setDrag({ kind: 'workspace', id: workspace.workspaceId }),
       onDragOver: (event) => {
-        if (!drag || drag.kind !== 'workspace' || drag.id === workspace.workspaceId) return
+        if (!drag) return
+        if (drag.kind === 'pinned') {
+          event.preventDefault()
+          setDropping('workspace:' + workspace.workspaceId)
+          return
+        }
+        if (drag.kind !== 'workspace' || drag.id === workspace.workspaceId) return
         event.preventDefault()
         setDropping('workspace:' + workspace.workspaceId)
       },
@@ -2666,12 +2700,35 @@ export function BetterWorkspace(props) {
     if (!empty) continue
   }
 
-  if (pinnedSessions.length > 0) {
+  // The section materialises while a session is being dragged, so a drop target exists before the
+  // first pin — otherwise there is nowhere to drop the session that would create the section.
+  if (pinnedSessions.length > 0 || (drag && drag.kind === 'session')) {
     children.push(React.createElement('div', {
       key: 'pinned-head',
       'data-polish-ws-pinned': 'head',
-      style: WS_SECTION,
+      style: Object.assign({}, WS_SECTION, {
+        background: dropping === 'pinned'
+          ? 'var(--dsw-alias-interactive-bg-hover, rgba(0, 0, 0, 0.05))'
+          : undefined,
+      }),
       onClick: () => setPinOpen((open) => !open),
+      onDragOver: (event) => {
+        if (!drag || drag.kind !== 'session') return
+        event.preventDefault()
+        setDropping('pinned')
+      },
+      onDragLeave: () => setDropping(null),
+      onDrop: (event) => {
+        event.preventDefault()
+        setDropping(null)
+        if (!drag || drag.kind !== 'session') return
+        const moving = drag
+        setDrag(null)
+        Promise.resolve()
+          .then(() => services.pinSession(moving.id))
+          .then(() => setNotice('Pinned that session.'))
+          .catch(() => setNotice('Could not pin that session.'))
+      },
     },
     React.createElement('span', { 'aria-hidden': 'true' }, pinOpen ? '\u2304' : '\u203a'),
     React.createElement('span', { style: WS_TITLE }, 'Pinned'),
@@ -2683,6 +2740,8 @@ export function BetterWorkspace(props) {
         children.push(React.createElement('div', {
           key: 'pinned:' + row.id,
           'data-polish-ws-pinned-row': row.id,
+          draggable: true,
+          onDragStart: () => setDrag({ kind: 'pinned', id: row.id, workspaceId: group ? group.workspaceId : undefined }),
           onMouseEnter: () => setHover('pinned:' + row.id),
           onMouseLeave: () => setHover(null),
           title: 'Pinned session',

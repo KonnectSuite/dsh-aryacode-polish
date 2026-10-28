@@ -1,0 +1,7 @@
+﻿const fs = require('node:fs')
+const s = fs.readFileSync('client/workspace.js', 'utf8')
+const i = s.indexOf('const workspaceOfPinned')
+console.log(s.slice(i, i + 320))
+const j = s.indexOf("'data-polish-ws-pinned-row': row.id,")
+console.log('--- row props ---')
+console.log(s.slice(j, j + 420))
