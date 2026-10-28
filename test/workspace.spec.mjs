@@ -13,6 +13,11 @@ import {
   parseQuery,
   filterSummary,
   rangeWithin,
+  readViews,
+  writeViews,
+  upsertView,
+  removeView,
+  viewSummary,
   selectionLabel,
   countMatches,
   flattenRows,
@@ -1027,4 +1032,41 @@ it('a selection never announces itself when empty', () => {
   assert.equal(selectionLabel(4), '4 selected')
   assert.equal(selectionLabel(0), '')
   assert.equal(selectionLabel(undefined), '')
+})
+
+
+function fakeStore() {
+  const map = new Map()
+  return {
+    getItem: (key) => (map.has(key) ? map.get(key) : null),
+    setItem: (key, value) => map.set(key, String(value)),
+  }
+}
+
+it('a saved view survives a round trip and rejects nonsense', () => {
+  const store = fakeStore()
+  writeViews([{ name: 'Nightly', query: '! ', sort: 'recent', density: 'compact' }], store)
+  assert.deepEqual(readViews(store), [{ name: 'Nightly', query: '! ', sort: 'recent', density: 'compact' }])
+  store.setItem('aryacode-polish:views.v1', 'not json')
+  assert.deepEqual(readViews(store), [])
+  store.setItem('aryacode-polish:views.v1', JSON.stringify([{ name: '  ' }, { name: 'Ok', sort: 'nonsense', density: 'nonsense' }]))
+  assert.deepEqual(readViews(store), [{ name: 'Ok', query: '', sort: 'host', density: 'comfortable' }])
+})
+
+it('saving under the same name replaces, and twelve is the ceiling', () => {
+  let views = upsertView([], { name: 'A', query: 'x', sort: 'name', density: 'compact' })
+  views = upsertView(views, { name: 'A', query: 'y', sort: 'recent', density: 'folders' })
+  assert.equal(views.length, 1)
+  assert.equal(views[0].query, 'y')
+  assert.equal(upsertView(views, { name: '' }).length, 1)
+  let many = []
+  for (let at = 0; at < 15; at += 1) many = upsertView(many, { name: 'v' + at })
+  assert.equal(many.length, 12)
+  assert.deepEqual(removeView(views, 'A'), [])
+})
+
+it('a view summarises the knobs it would change', () => {
+  assert.equal(viewSummary({ query: '! ', sort: 'recent', density: 'compact' }), '! \u00b7 Recent first \u00b7 Compact')
+  assert.equal(viewSummary({ query: '', sort: 'host', density: 'comfortable' }), 'Host order')
+  assert.equal(viewSummary(undefined), '')
 })

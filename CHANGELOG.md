@@ -1,3 +1,7 @@
+## [0.50.0] - 2026-10-28
+
+- Saved views: the header menu can remember the filter, the sort and the density under a name, apply any of them in one click, and forget them again.
+
 ## [0.49.0] - 2026-10-28
 
 - Ctrl-click picks sessions, shift-click picks a span, and one bar acts on all of them: pin, flag, archive, copy ids. Escape clears; a plain click on a picked row clears without opening.

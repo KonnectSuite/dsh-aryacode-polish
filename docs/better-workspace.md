@@ -454,3 +454,8 @@ The folder menu can fold or unfold every workspace inside that folder in one cli
 ## Multi-selection
 
 Ctrl-click toggles a session, shift-click takes the span from the last picked row, and the bar under the filter acts on the whole set (pin, flag, archive, copy ids). Escape clears the selection, and a plain click on a picked row clears it instead of opening the session.
+
+
+## Saved views
+
+A view is the three knobs that decide what the tree shows — filter text (operators included), sort and density — stored under a name in `aryacode-polish:views.v1`. The header menu lists them, applies them in one click, and forgets them; saving under an existing name refines it in place, and twelve is the ceiling on purpose.

@@ -1171,6 +1171,60 @@ export function writeFolded(state, storage) {
  * The state a tree starts from. Reset uses it verbatim, and the test asserts it, because a "reset"
  * that quietly leaves one thing set is worse than no reset at all.
  */
+const VIEWS_KEY = 'aryacode-polish:views.v1'
+
+/** A saved view is the three knobs that decide what the tree shows. */
+export function readViews(storage) {
+  const store = storage || (typeof window !== 'undefined' ? window.localStorage : undefined)
+  if (!store) return []
+  try {
+    const parsed = JSON.parse(store.getItem(VIEWS_KEY) || '[]')
+    if (!Array.isArray(parsed)) return []
+    return parsed
+      .filter((entry) => entry && typeof entry.name === 'string' && entry.name.trim())
+      .map((entry) => ({
+        name: entry.name.trim().slice(0, 40),
+        query: typeof entry.query === 'string' ? entry.query : '',
+        sort: SORTS.indexOf(entry.sort) >= 0 ? entry.sort : 'host',
+        density: DENSITIES.indexOf(entry.density) >= 0 ? entry.density : 'comfortable',
+      }))
+      .slice(0, 12)
+  } catch {
+    return []
+  }
+}
+
+export function writeViews(views, storage) {
+  const store = storage || (typeof window !== 'undefined' ? window.localStorage : undefined)
+  if (!store) return
+  try { store.setItem(VIEWS_KEY, JSON.stringify((views || []).slice(0, 12))) } catch { /* a full store is not a crash */ }
+}
+
+/** Saving under an existing name replaces it, so a view can be refined in place. */
+export function upsertView(views, view) {
+  const name = String((view && view.name) || '').trim().slice(0, 40)
+  if (!name) return views || []
+  const next = (views || []).filter((entry) => entry.name !== name)
+  next.push({ name, query: String(view.query || ''), sort: view.sort || 'host', density: view.density || 'comfortable' })
+  return next.slice(0, 12)
+}
+
+export function removeView(views, name) {
+  return (views || []).filter((entry) => entry.name !== name)
+}
+
+/** What a saved view will do, in the menu, without opening it. */
+export const DENSITY_NAMES = { comfortable: 'Comfortable', compact: 'Compact', folders: 'Folders only' }
+
+export function viewSummary(view) {
+  if (!view) return ''
+  const parts = []
+  if (String(view.query || '').trim()) parts.push(String(view.query).trim())
+  parts.push(SORT_TITLES[view.sort] || 'Host order')
+  if (view.density && view.density !== 'comfortable') parts.push(DENSITY_NAMES[view.density] || view.density)
+  return parts.join(' · ')
+}
+
 export function treeDefaults() {
   return { query: '', expanded: {}, folders: {}, density: 'comfortable', sort: 'host' }
 }
@@ -1678,6 +1732,8 @@ export function BetterWorkspace(props) {
     [workspaceState],
   )
   const [sort, setSort] = React.useState(() => readSort())
+  const [views, setViews] = React.useState(() => readViews())
+  const [viewDraft, setViewDraft] = React.useState('')
   const metrics = DENSITY_METRICS[densityOf(density)]
   const archiveSet = new Set((workspaceState && workspaceState.archivedSessionIds) || [])
   const split = splitArchived(sessionList, archiveSet)
@@ -2218,6 +2274,33 @@ export function BetterWorkspace(props) {
       }, 'Copy session id'))
     : null
 
+  const saveViewMenu = menu && menu.kind === 'saveView'
+    ? React.createElement(RowMenu, { anchor: menu.anchor, onClose: () => setMenu(null) },
+      React.createElement('div', { 'data-polish-view-dialog': 'open' },
+      React.createElement('div', { style: WS_MENU_HINT }, 'Name this view'),
+      React.createElement('input', {
+        'data-polish-view-name': 'true',
+        type: 'text',
+        value: viewDraft,
+        autoFocus: true,
+        placeholder: 'Running · Recent first',
+        style: Object.assign({}, WS_NOTE_INPUT, { width: '100%' }),
+        onChange: (event) => setViewDraft(event.target.value),
+        onKeyDown: (event) => {
+          if (event.key === 'Escape') { event.stopPropagation(); setMenu(null) }
+          if (event.key !== 'Enter') return
+          saveViewNamed(viewDraft)
+        },
+      }),
+      React.createElement('div', { style: Object.assign({}, WS_MENU_HINT, { marginTop: '6px' }) }, viewSummary({ query, sort, density })),
+      React.createElement('button', {
+        type: 'button',
+        'data-polish-view-save-confirm': 'true',
+        style: WS_MENU_ITEM,
+        onClick: () => saveViewNamed(viewDraft),
+      }, 'Save this view')))
+    : null
+
   const archiveHeadMenu = menu && menu.kind === 'archiveHead'
     ? React.createElement(RowMenu, { anchor: menu.anchor, onClose: closeMenu },
       React.createElement('button', {
@@ -2686,6 +2769,16 @@ export function BetterWorkspace(props) {
       'Press ', React.createElement('kbd', null, '?'), ' for the shortcuts.')
     : null
 
+  const saveViewNamed = (raw) => {
+    const name = String(raw || '').trim()
+    if (!name) return
+    const next = upsertView(views, { name, query, sort, density })
+    setViews(next)
+    writeViews(next)
+    setMenu(null)
+    setNotice('Saved "' + name + '".')
+  }
+
   const treeMenuItems = () => {
     const items = []
     items.push(React.createElement('button', {
@@ -2722,6 +2815,50 @@ export function BetterWorkspace(props) {
         onClick: () => { setMenu(null); setSort(each); writeSort(each) },
       }, mark + (SORT_TITLES[each] || each)))
     })
+    views.forEach((view) => {
+      items.push(React.createElement('div', {
+        key: 'view:' + view.name,
+        style: Object.assign({}, WS_MENU_ITEM, { display: 'flex', alignItems: 'center', gap: '6px' }),
+      },
+      React.createElement('button', {
+        type: 'button',
+        'data-polish-view-apply': view.name,
+        style: Object.assign({}, WS_MENU_ITEM, { flex: '1 1 auto', width: 'auto', padding: '2px 4px' }),
+        title: viewSummary(view),
+        onClick: () => {
+          setMenu(null)
+          setQuery(view.query)
+          setSort(view.sort)
+          writeSort(view.sort)
+          setDensity(view.density)
+          writeDensity(view.density)
+          setCursor(-1)
+          setNotice('Applied "' + view.name + '".')
+        },
+      }, view.name),
+      React.createElement('button', {
+        type: 'button',
+        'data-polish-view-remove': view.name,
+        style: Object.assign({}, WS_MENU_ITEM, { width: 'auto', padding: '2px 6px' }),
+        title: 'Forget this view',
+        onClick: () => {
+          const next = removeView(views, view.name)
+          setViews(next)
+          writeViews(next)
+          setNotice('Forgot "' + view.name + '".')
+        },
+      }, '×')))
+    })
+    items.push(React.createElement('button', {
+      key: 'saveview',
+      type: 'button',
+      'data-polish-view-save': 'true',
+      style: WS_MENU_ITEM,
+      onClick: () => {
+        setViewDraft(viewSummary({ query, sort, density }) || 'Everything')
+        setMenu({ kind: 'saveView', anchor: menu.anchor })
+      },
+    }, 'Save this view…'))
     items.push(React.createElement('button', {
       key: 'reset',
       type: 'button',
@@ -3621,6 +3758,7 @@ export function BetterWorkspace(props) {
   sessionMenu,
   glyphMenu,
   noteMenu,
+  saveViewMenu,
   archiveHeadMenu,
   folderMenu,
   renameFolderMenu,
