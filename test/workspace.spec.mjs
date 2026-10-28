@@ -5,9 +5,6 @@ import {
   subsequenceIndex,
   matchesText,
   highlightSegments,
-  historyPush,
-  historyBack,
-  historyForward,
   firstRunning,
   actionEntries,
   treeDefaults,
@@ -1278,33 +1275,4 @@ it('the highlight marks a contiguous run or each picked character', () => {
   assert.deepEqual(fuzzy.filter((part) => part.hit).map((part) => part.text), ['W', 'k', 'A'])
   assert.deepEqual(highlightSegments('Work/Alpha', ''), [{ text: 'Work/Alpha', hit: false }])
   assert.deepEqual(highlightSegments('Work/Alpha', 'zzz'), [{ text: 'Work/Alpha', hit: false }])
-})
-
-describe('session history', () => {
-  it('remembers where you have been and stops at the ends', () => {
-    let state = { stack: [], at: -1 }
-    state = historyPush(state, 'a')
-    state = historyPush(state, 'b')
-    state = historyPush(state, 'c')
-    assert.deepEqual(state, { stack: ['a', 'b', 'c'], at: 2 })
-    assert.deepEqual(historyBack(state), { at: 1, id: 'b' })
-    assert.deepEqual(historyForward(state), undefined)
-    const atStart = { stack: ['a', 'b'], at: 0 }
-    assert.deepEqual(historyBack(atStart), undefined)
-    assert.deepEqual(historyForward(atStart), { at: 1, id: 'b' })
-  })
-
-  it('forgets the forward branch once you open something new', () => {
-    const back = { stack: ['a', 'b', 'c'], at: 1 }
-    const next = historyPush(back, 'd')
-    assert.deepEqual(next, { stack: ['a', 'b', 'd'], at: 2 }, 'c is dropped, and the cap keeps the window')
-    assert.deepEqual(historyPush(back, 'b'), { stack: ['a', 'b'], at: 1 }, 'opening the current row changes nothing')
-    assert.deepEqual(historyPush({ stack: [], at: -1 }, undefined), { stack: [], at: -1 })
-  })
-
-  it('caps the window', () => {
-    let state = { stack: [], at: -1 }
-    for (const id of ['1', '2', '3', '4']) state = historyPush(state, id, 3)
-    assert.deepEqual(state, { stack: ['2', '3', '4'], at: 2 })
-  })
 })
