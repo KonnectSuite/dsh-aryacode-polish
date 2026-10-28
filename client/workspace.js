@@ -3197,9 +3197,12 @@ export function BetterWorkspace(props) {
         onKeyDown: (event) => {
           if (event.key === 'Escape') { event.stopPropagation(); closeMenu(); return }
           if (event.key !== 'Enter') return
-          const next = addFolder(declared, folderDraft)
+          const name = String(folderDraft || '').trim()
           closeMenu()
-          if (next.length === declared.length) { setNotice('That folder already exists.'); return }
+          if (!name) { setNotice('Type a folder name first.'); return }
+          const added = addFolder(declared, name)
+          if (added.length === declared.length) { setNotice('That folder already exists.'); return }
+          const next = added
           setDeclared(next)
           setFolders((prev) => Object.assign({}, prev, { [next[next.length - 1]]: false }))
           setNotice('Folder added.')
@@ -3736,6 +3739,18 @@ export function BetterWorkspace(props) {
       style: WS_MENU_ITEM,
       onClick: () => { setMenu(null); copyTree() },
     }, 'Copy the tree'))
+    items.push(React.createElement('button', {
+      key: 'newfolder',
+      type: 'button',
+      'data-polish-tree-new-folder': 'open',
+      style: WS_MENU_ITEM,
+      onClick: () => {
+        const anchor = menu.anchor
+        closeMenu()
+        setFolderDraft('')
+        setMenu({ kind: 'folder', anchor })
+      },
+    }, 'New folder…'))
     items.push(React.createElement('button', {
       key: 'fold',
       type: 'button',
@@ -4317,6 +4332,7 @@ export function BetterWorkspace(props) {
       'data-polish-cursor': rowFocused ? 'true' : undefined,
       'data-polish-session-picked': picked.indexOf(row.id) >= 0 ? 'true' : undefined,
       'data-polish-session-unread': isUnread(row, seen) ? 'true' : undefined,
+      'data-polish-session-current': currentSessionId === row.id ? 'true' : undefined,
       title: sessionTip(row, { note: markOf(marks, row.id).note, cost: sessionCost, age: ageTitle(row.updatedAt) }),
       draggable: true,
       style: Object.assign({}, WS_ROW, {
@@ -4329,7 +4345,7 @@ export function BetterWorkspace(props) {
             : (rowFocused ? 'var(--dsw-alias-interactive-bg-hover, rgba(0, 0, 0, 0.04))' : undefined)),
         boxShadow: picked.indexOf(row.id) >= 0
           ? 'inset 2px 0 0 var(--dsw-alias-text-accent, #4d6bfe)'
-          : (rowFocused ? 'inset 0 0 0 1px var(--dsw-alias-border-l2, rgba(0, 0, 0, 0.12))' : undefined),
+          : (rowFocused ? 'inset 0 0 0 1px var(--dsw-alias-border-l2, rgba(0, 0, 0, 0.12))' : (currentSessionId === row.id ? 'inset 2px 0 0 var(--dsw-alias-text-accent, #4d6bfe)' : undefined)),
       }),
       onClick: (event) => {
         if (event.ctrlKey || event.metaKey) {

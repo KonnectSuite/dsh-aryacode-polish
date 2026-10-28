@@ -73,3 +73,17 @@ test('the handoff describes the shipped package, not a plan', () => {
     assert.ok(!handoff.includes(stale), `HANDOFF.md still claims "${stale}"`)
   }
 })
+
+test('the README lists every switch the row exposes', () => {
+  const readme = read('README.md')
+  const switches = JSON.parse(read('client/switches.json')).switches
+
+  switches.forEach((entry) => {
+    assert.ok(readme.includes(entry.label), 'the README is missing the ' + entry.label + ' switch')
+  })
+})
+
+test('the README has no stale feature count', () => {
+  const readme = read('README.md')
+  assert.doesNotMatch(readme, /\*\*(one|two|three|four|five|six|seven|eight|nine|ten) features shipped\*\*/i)
+})

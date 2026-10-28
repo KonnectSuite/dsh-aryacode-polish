@@ -1,3 +1,31 @@
+## [0.90.2]
+
+### Fixed
+- Creating a folder with an empty name said "That folder already exists."; it now says "Type a folder name first."
+
+## [0.90.1]
+
+### Fixed
+- **New folder** was only reachable from a folder's own menu, so the first folder could not be created from
+  the tree. The header menu now offers it too.
+
+## [0.90.0]
+
+### Added
+- The session you are in is marked in the tree, not just its workspace: an accent edge on the row, matching
+  the marker the workspace already carried.
+
+## [0.89.0]
+
+### Changed
+- The README now describes what the better-workspace tree actually does (structure, order, find, sort, read
+  state, money, bulk, navigation, keyboard) instead of one line, and stopped claiming a feature count it
+  could not keep true.
+
+### Added
+- Two docs specs: every switch in `client/switches.json` must appear in the README, and the README may not
+  claim an "N features shipped" number again.
+
 ## [0.88.0]
 
 ### Fixed

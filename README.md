@@ -7,8 +7,8 @@ installed into and patches nothing. It is one package, one Plugins row, and one
 switch per feature, so a refinement that turns out to be wrong for a machine can
 be turned off without uninstalling anything.
 
-Status: **eight features shipped.** The version is the package's, and the card
-header already shows it.
+Status: every shipped feature is listed under [Switches](#switches), and each one has
+its own off switch. The version is the package's, and the card header already shows it.
 
 ## What it is
 
@@ -58,6 +58,35 @@ The numbers come from the Host, never from the browser:
   `test/cost.spec.mjs` pins all twelve published numbers together with the two
   price pages they came from. When DeepSeek changes prices, append a period; do
   not edit history.
+
+## Better workspace
+
+The tree that replaces the shipped sidebar list is the largest thing in this bundle. What it does,
+all of it switchable by turning the **Better workspace** switch off:
+
+- **Structure.** Workspaces with their sessions, `/` in a workspace name to file it under a folder,
+  declared empty folders, and folders you can colour, glyph and bold.
+- **Order.** Drag a workspace onto another to reorder, drag it onto a folder header to file it, drag
+  it to the dashed top zone to lift it out, star one to the top, or hand-keep the folder order.
+- **Find.** One filter with operators (`!` running, `#` flagged, `@folder`, `t:today`, `t:week`,
+  `t:new`), fuzzy matching (`dcp` finds `dsh-aryacode-polish`), chips for the same operators, and
+  counts that say what they excluded.
+- **Sort.** Host order, A to Z, most spent first, recent first — applied to workspaces and to the
+  sessions inside them.
+- **Read state.** A dot on every session that changed since you opened it, the same dot rolled up onto
+  its workspace and folder so a folded row still tells you, `Alt+Up/Down` to jump to the next one,
+  and **Mark everything as read**.
+- **Money.** A cost per session, a running total per workspace and folder, a header total that opens
+  **Spend by workspace**, and a breakdown card behind every one of those numbers.
+- **Bulk.** Pick with `Space`/`Shift`, then pin, flag, mark read, archive or copy the selection, with
+  **Undo** for the two that change durable state. A workspace can also be archived whole.
+- **Navigation.** `Ctrl+K` palette, `Alt+Left/Right` history that survives a reload, focus mode for
+  the workspace you are in, and a marker on it so you can see where you are.
+- **Keyboard and screen readers.** `aria-tree` semantics with real `Left/Right` open-close, `F2` rename,
+  `Home/End`, type-ahead, and a `?` sheet listing every key.
+
+The design notes, including the parts the Host makes impossible, live in
+[Better workspace](docs/better-workspace.md).
 
 ## Declaring a feature
 
