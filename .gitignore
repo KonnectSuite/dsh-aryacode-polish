@@ -9,3 +9,6 @@ __pycache__/
 # `lib/` is deliberately NOT ignored: `lib/index.js` is the mount point the row
 # resolves and `lib/client.js` is the browser face the Shell loads. Both are
 # committed so `pnpm pack` produces the same bytes a reviewer can read.
+
+# scratch patch scripts
+tmp-*.cjs
