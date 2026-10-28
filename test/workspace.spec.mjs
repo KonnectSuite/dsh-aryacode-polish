@@ -2,6 +2,7 @@ import assert from 'node:assert/strict'
 import { describe, it } from 'node:test'
 
 import {
+  attachLoose,
   subsequenceIndex,
   matchesText,
   highlightSegments,
@@ -1306,5 +1307,31 @@ describe('session history', () => {
     let state = { stack: [], at: -1 }
     for (const id of ['1', '2', '3', '4']) state = historyPush(state, id, 3)
     assert.deepEqual(state, { stack: ['2', '3', '4'], at: 2 })
+  })
+})
+
+describe('attachLoose', () => {
+  const groups = () => [
+    { workspace: { workspaceId: 'w1', title: 'Alpha', path: 'C:\\Work\\Alpha' }, sessions: [] },
+    { workspace: { workspaceId: 'w2', title: 'Beta', path: 'C:\\Work\\Beta' }, sessions: [] },
+  ]
+
+  it('files a session into the workspace whose path matches its cwd', () => {
+    const rows = groups()
+    const out = attachLoose(rows, [{ id: 's1', cwd: 'c:\\work\\alpha' }])
+    assert.deepEqual(out.groups[0].sessions.map((row) => row.id), ['s1'])
+    assert.deepEqual(out.leftover, [])
+  })
+
+  it('leaves a session with no usable cwd, or an unknown one, for the caller', () => {
+    const rows = groups()
+    const out = attachLoose(rows, [{ id: 's1' }, { id: 's2', cwd: 'D:\\Elsewhere' }])
+    assert.deepEqual(out.leftover.map((row) => row.id), ['s1', 's2'])
+    assert.deepEqual(out.groups.map((group) => group.sessions.length), [0, 0])
+  })
+
+  it('survives rubbish input', () => {
+    assert.deepEqual(attachLoose(undefined, undefined), { groups: [], leftover: [] })
+    assert.equal(attachLoose([], [{ id: 's1', cwd: 'C:\\Work\\Alpha' }]).leftover.length, 1)
   })
 })

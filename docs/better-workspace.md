@@ -690,3 +690,13 @@ Two rules keep the list honest:
 **Alt+Left / Alt+Right** step through the sessions opened from the tree (`historyPush`, `historyBack`,
 `historyForward`, a 50-entry stack that drops the forward branch on a new open). The handler ignores the
 keys while an input, textarea or contenteditable has focus, so Alt+Arrow still moves the caret there.
+
+
+### Filing unfiled sessions
+
+A session that no workspace lists (its id is absent from every `workspace.sessionIds`) is filed by
+working directory: `attachLoose` compares the session's `cwd` with each workspace's `path`, the same
+rule the harness uses for matching a blank session to a workspace (`navigation.ts`:
+`summary.cwd === workspace.path`). Anything that still matches nothing stays under **Other sessions** —
+on this machine that is a session started in `C:\Users\KNPhu\.arya\github\KonnectSuite\AryaCode`,
+which is deliberately not a workspace.

@@ -27,6 +27,20 @@ export function sessionRank(a, b) {
 }
 
 /** Pair each workspace with the session summaries it owns, in display order. */
+export function attachLoose(groups, loose) {
+  const list = Array.isArray(groups) ? groups : []
+  const leftover = []
+  for (const row of Array.isArray(loose) ? loose : []) {
+    const cwd = String((row && row.cwd) || '').toLowerCase()
+    const home = cwd
+      ? list.filter((group) => String((group.workspace && group.workspace.path) || '').toLowerCase() === cwd)[0]
+      : undefined
+    if (home) (home.sessions = home.sessions || []).push(row)
+    else leftover.push(row)
+  }
+  return { groups: list, leftover }
+}
+
 export function workspaceRows(workspaces, sessions) {
   const byId = new Map()
   for (const session of sessions || []) {
@@ -2206,9 +2220,10 @@ export function BetterWorkspace(props) {
   const groupedRows = workspaceRows(workspaceList, byPin.rest)
   const attachedIds = new Set()
   groupedRows.forEach((group) => (group.sessions || []).forEach((row) => attachedIds.add(row.id)))
-  const looseSessions = byPin.rest.filter((row) => !attachedIds.has(row.id))
-  const allRows = looseSessions.length > 0
-    ? groupedRows.concat([{ workspace: { workspaceId: 'polish-loose', title: 'Other sessions' }, sessions: looseSessions }])
+  const unfiledSessions = byPin.rest.filter((row) => !attachedIds.has(row.id))
+  const loose = attachLoose(groupedRows, unfiledSessions)
+  const allRows = loose.leftover.length > 0
+    ? groupedRows.concat([{ workspace: { workspaceId: 'polish-loose', title: 'Other sessions' }, sessions: loose.leftover }])
     : groupedRows
   const archivedSessions = split.archived
   const flaggedIds = React.useMemo(() => {

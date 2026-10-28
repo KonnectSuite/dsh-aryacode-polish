@@ -1,3 +1,11 @@
+## [0.75.0]
+
+### Changed
+- Sessions that belong to no workspace's own session list are filed by working directory: a session
+  whose `cwd` matches a workspace's `path` appears in that workspace, and only the rest remain under
+  "Other sessions". This mirrors the harness's own rule for matching a blank session to a workspace
+  (`navigation.ts`: `summary.cwd === workspace.path`).
+
 ## [0.74.0]
 
 ### Added
