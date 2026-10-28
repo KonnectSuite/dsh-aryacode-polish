@@ -70,3 +70,26 @@ are M2/M3; the seat is already the right place for them.
 
 Still owed: "/"-in-title grouping, per-row appearance, workspace presets, and the same
 tree in the Hero picker.
+
+## Why a session cannot change workspace
+
+Drag reorder works inside a workspace and between workspaces, but a *session* cannot
+be dragged into a different workspace, and that is the Host's shape rather than an
+omission here:
+
+- `packages/api/workspace-controller/src/index.ts` exposes these remotes:
+  `create`, `initializeDefault`, `rename`, `delete`, `insertBefore`,
+  `insertSessionBefore`, `archiveSession`, `unarchiveSession`, `pinSession`,
+  `unpinSession` — and nothing that attaches or detaches a session.
+- `packages/api/workspace-controller/src/commands.ts:132` resolves the target workspace
+  and calls its own `insertSessionBefore(sessionId, beforeSessionId)`
+  (`packages/workspace/workspace/src/entity.ts:152`), which reorders that workspace's
+  `sessionIds`; `packages/workspace/workspace/tests/workspace.spec.ts:715` pins that a
+  session the workspace does not hold is rejected.
+- The entity does have `attachSession`/`detachSession`
+  (`packages/workspace/workspace/src/types.ts:134` region), but no remote surfaces them.
+
+So the tree refuses with "A session stays in its workspace; drag it within that
+workspace to reorder." rather than attempting a call that throws. If the Host ever
+exposes attach/detach, the gesture becomes a one-line change here — the drag payload
+already carries `{ kind: 'session', id, workspaceId }`.

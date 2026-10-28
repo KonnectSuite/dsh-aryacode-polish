@@ -1,5 +1,24 @@
 # Changelog
 
+## [0.11.2] - 2026-10-28
+
+### Verified
+
+- Drag reorder now has live proof, not just unit tests: with two workspaces in the
+  Dev AryaCode desktop, dropping the second workspace on the first reordered them
+  (`workspaces.insertBefore`), and the new order survived a full app restart.
+
+### Fixed
+
+- A session is never promised a move the Host cannot make. The remote workspace
+  namespace exposes `create`, `rename`, `delete`, `insertBefore`,
+  `insertSessionBefore`, `archiveSession`, `unarchiveSession`, `pinSession` and
+  `unpinSession` — and no `attachSession` or `detachSession` — while a workspace's own
+  `insertSessionBefore` only reorders the sessions already inside it (it rejects a
+  session it does not hold). So dropping a session on another workspace is refused
+  with a plain explanation instead of firing a call that fails, and the session menu
+  no longer offers "Move to <workspace>".
+
 ## [0.10.0] - 2026-10-28
 
 ### Added

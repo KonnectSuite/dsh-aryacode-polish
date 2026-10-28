@@ -533,7 +533,14 @@ export function BetterWorkspace(props) {
     setDrag(null)
     setDropping(null)
     if (!moving || moving.kind !== 'session' || moving.id === targetId) return
-    if (moving.workspaceId !== workspaceId) { setNotice('A session stays in the workspace it belongs to.'); return }
+    if (moving.workspaceId !== workspaceId) {
+      // A session cannot change workspace from a plugin: the Host's remote
+      // namespace exposes create/rename/delete/insertBefore/insertSessionBefore
+      // and no attachSession or detachSession, and a workspace's own
+      // insertSessionBefore only reorders the sessions already in it.
+      setNotice('A session stays in its workspace; drag it within that workspace to reorder.')
+      return
+    }
     void reorderSession(workspaceId, moving.id, targetId)
   }
 
@@ -605,7 +612,8 @@ export function BetterWorkspace(props) {
           runtime,
           workspacesSnapshot: workspaceState,
           session: { sessionId: menu.row.id, displayTitle: menu.row.displayTitle, session: menu.row },
-        }))))
+        }))),
+      null)
     : null
 
   const children = []
