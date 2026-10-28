@@ -1,5 +1,16 @@
 # Changelog
 
+## [0.14.0] - 2026-10-28
+
+### Added
+
+- **Quick switcher.** Ctrl/⌘-K (or Cmd-K) opens a palette over everything: every session
+  in every workspace, ranked so a prefix beats a mention, arrows to walk, Enter to open,
+  Escape to dismiss. Rows show the session title and the workspace it lives in.
+- **Folded state persists.** Which workspaces and which folders are collapsed is kept
+  under `aryacode-polish:folded.v1`, so reopening the app looks like it did on the way
+  out. A storage that refuses costs the memory and nothing else.
+
 ## [0.13.1] - 2026-10-28
 
 ### Added

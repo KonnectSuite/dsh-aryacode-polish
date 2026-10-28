@@ -6,6 +6,9 @@ import {
   flattenRows,
   moveBefore,
   folderKey,
+  rankMatches,
+  readFolded,
+  writeFolded,
   planReorder,
   readOrder,
   writeOrder,
@@ -231,5 +234,39 @@ describe('folders and order presets', () => {
     assert.deepEqual(readOrder(storage), ['a', 'b'])
     assert.deepEqual(readOrder({ getItem: () => '{"nope":1}', setItem: () => {} }), [])
     assert.deepEqual(readOrder(undefined), [])
+  })
+})
+
+describe('quick switcher and folded state', () => {
+  it('ranks prefix matches above contains matches, keeping arrival order inside a rank', () => {
+    const items = [
+      { id: 'a', title: 'Regression check' },
+      { id: 'b', title: 'Greeting' },
+      { id: 'c', title: 'gre' },
+    ]
+    // 'Greeting' and 'gre' both start with the query, so arrival order decides
+    // between them; 'Regression check' only mentions it later and falls behind.
+    assert.deepEqual(rankMatches(items, 'gre').map(i => i.id), ['b', 'c', 'a'])
+  })
+
+  it('returns the first rows for an empty query and nothing for a miss', () => {
+    const items = Array.from({ length: 50 }, (_, i) => ({ id: String(i), title: 'row ' + i }))
+    assert.equal(rankMatches(items, '').length, 40)
+    assert.deepEqual(rankMatches(items, 'zzz'), [])
+    assert.deepEqual(rankMatches(undefined, 'x'), [])
+  })
+
+  it('matches on the workspace label when a caller passes its own text', () => {
+    const items = [{ id: 'a', title: 'ok', workspace: 'KonnectSuite' }]
+    assert.deepEqual(rankMatches(items, 'konnect', item => item.workspace), items)
+  })
+
+  it('round-trips folded state and survives junk', () => {
+    const memory = new Map()
+    const storage = { getItem: k => (memory.has(k) ? memory.get(k) : null), setItem: (k, v) => memory.set(k, v) }
+    writeFolded({ workspaces: { w1: false }, folders: { Work: true } }, storage)
+    assert.deepEqual(readFolded(storage), { workspaces: { w1: false }, folders: { Work: true } })
+    assert.deepEqual(readFolded({ getItem: () => 'nope{', setItem: () => {} }), { workspaces: {}, folders: {} })
+    assert.deepEqual(readFolded(undefined), { workspaces: {}, folders: {} })
   })
 })

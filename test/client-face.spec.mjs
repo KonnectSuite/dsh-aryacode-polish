@@ -295,4 +295,6 @@ test('folders and saved orders ride the same workspace seat', () => {
   assert.ok(workspaceSource.includes('planReorder('), 'restoring walks an insertBefore plan')
   assert.ok(workspaceSource.includes("'data-polish-ws-rename': 'open'"), 'the menu can rename a workspace')
   assert.ok(workspaceSource.includes('workspaces.rename('), 'the rename is a Host call')
+  assert.ok(workspaceSource.includes('data-polish-switcher'), 'Ctrl-K opens a switcher')
+  assert.ok(workspaceSource.includes('aryacode-polish:folded'), 'the folded state has a storage key')
 })
