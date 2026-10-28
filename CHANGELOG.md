@@ -1,3 +1,12 @@
+## [0.26.0] - 2026-10-28
+
+Added: a session row shows what that session has cost so far, read from the `polishCost` projection the
+cost feature already writes. The number is hidden when nothing is priced, so a Shell without the cost
+feature shows no cost rather than a fake zero.
+
+Fixed: the "flagged" glyph on a session row had been written as mojibake by an earlier PowerShell
+patch and never rendered as a flag.
+
 ## [0.25.0] - 2026-10-28
 
 Added: pinned sessions are lifted into a Pinned section at the top of the tree, with their workspace

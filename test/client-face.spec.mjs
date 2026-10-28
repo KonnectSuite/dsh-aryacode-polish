@@ -388,3 +388,9 @@ test('a pinned session is lifted into its own section', () => {
     assert.ok(bundle.includes(marker), 'bundle is missing ' + marker)
   }
 })
+
+test('a session row can show what it has cost', () => {
+  for (const marker of ['data-polish-ws-cost', 'costLabel(costOf(sessionState', 'projectionsBySession']) {
+    assert.ok(bundle.includes(marker), 'bundle is missing ' + marker)
+  }
+})

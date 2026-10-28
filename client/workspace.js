@@ -690,6 +690,34 @@ export function writeDensity(value, storage) {
  */
 // Pinned sessions get their own section, exactly like archived ones, so a pin is
 // visible where you look for it instead of only as a star on a row you must find.
+// A session's priced view is written by the Host half of the cost feature
+// (`polishCost`). The tree asks the session list for it and hides the number when
+// it is missing, so a Shell that never ran the cost feature simply shows nothing.
+export function costOf(snapshot, sessionId) {
+  if (!snapshot || !snapshot.projectionsBySession) return undefined
+  const projection = snapshot.projectionsBySession[sessionId]
+  if (!projection || !projection.values) return undefined
+  const value = projection.values.polishCost
+  if (!value || typeof value !== 'object') return undefined
+  const usd = typeof value.costUsd === 'string' ? value.costUsd : undefined
+  const cny = typeof value.costCny === 'string' ? value.costCny : undefined
+  if (usd === undefined && cny === undefined) return undefined
+  return { usd: usd, cny: cny, incomplete: value.incomplete === true }
+}
+
+export function costLabel(cost) {
+  if (!cost) return ''
+  const yen = String.fromCharCode(165)
+  const dollar = String.fromCharCode(36)
+  const symbol = cost.usd === undefined ? yen : dollar
+  const text = cost.usd === undefined ? cost.cny : cost.usd
+  const amount = Number(text)
+  if (!Number.isFinite(amount)) return ''
+  const shown = amount >= 1 ? amount.toFixed(2) : amount >= 0.01 ? amount.toFixed(3) : amount.toPrecision(2)
+  const approx = cost.incomplete ? String.fromCharCode(126) : String.fromCharCode(8776)
+  return approx + symbol + shown
+}
+
 export function splitPinned(sessions, pinnedIds) {
   const pinned = new Set(pinnedIds || [])
   const pinnedSessions = []
@@ -1125,6 +1153,7 @@ const WS_PIN = {
 
 const WS_PIN_COUNT = WS_PIN
 
+const WS_COST = { flex: 'none', marginLeft: '6px', color: 'var(--dsw-alias-label-quaternary, #8a8a8a)', fontVariantNumeric: 'tabular-nums' }
 const WS_COUNT_NOTE = {
   margin: '2px 4px 0',
   fontSize: 'calc(var(--dsh-content-font-size-secondary, 13px) - 3px)',
@@ -1991,6 +2020,7 @@ export function BetterWorkspace(props) {
   const announced = {}
 
   const sessionRow = (workspace, row, groupIndex) => {
+    const sessionCost = costLabel(costOf(sessionState, row.id))
     const rowFocused = cursor === groupIndex
     const rowHovered = hover === 'session:' + row.id
     const lifted = dropping === 'session:' + row.id
@@ -2035,6 +2065,9 @@ export function BetterWorkspace(props) {
         fontStyle: markOf(marks, row.id).note ? 'italic' : undefined,
       }),
     }, row.displayTitle || row.id),
+    sessionCost
+      ? React.createElement('span', { 'data-polish-ws-cost': row.id, style: WS_COST }, sessionCost)
+      : null,
     rowHovered || rowFocused
       ? React.createElement('button', {
         type: 'button',

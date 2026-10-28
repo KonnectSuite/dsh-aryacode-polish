@@ -56,6 +56,8 @@ import {
   writeDensity,
   splitArchived,
   splitPinned,
+  costOf,
+  costLabel,
   GLYPHS,
 } from '../client/workspace.js'
 
@@ -583,5 +585,38 @@ describe('pinned sessions', () => {
 
   it('survives an undefined list', () => {
     assert.deepEqual(splitPinned(undefined, ['s1']), { pinned: [], rest: [] })
+  })
+})
+
+describe('per-session cost', () => {
+  const snapshot = {
+    projectionsBySession: {
+      s1: { values: { polishCost: { costUsd: '0.000096', incomplete: false } }, state: 'ready', error: null },
+      s2: { values: { polishCost: { costCny: '0.0042' } }, state: 'ready', error: null },
+      s3: { values: {}, state: 'idle', error: null },
+      s4: { values: { polishCost: { tokens: 10 } }, state: 'ready', error: null },
+    },
+  }
+
+  it('reads the priced view the Host writes', () => {
+    assert.deepEqual(costOf(snapshot, 's1'), { usd: '0.000096', cny: undefined, incomplete: false })
+    assert.deepEqual(costOf(snapshot, 's2'), { usd: undefined, cny: '0.0042', incomplete: false })
+  })
+
+  it('hides itself when there is nothing priced', () => {
+    assert.equal(costOf(snapshot, 's3'), undefined)
+    assert.equal(costOf(snapshot, 's4'), undefined)
+    assert.equal(costOf(snapshot, 'missing'), undefined)
+    assert.equal(costOf(undefined, 's1'), undefined)
+  })
+
+  it('formats dollars, yuan and sub-cent amounts', () => {
+    assert.equal(costLabel(costOf(snapshot, 's1')), '\u2248$0.000096')
+    assert.equal(costLabel(costOf(snapshot, 's2')), '\u2248\u00a50.0042')
+    assert.equal(costLabel({ usd: '1.5' }), '\u2248$1.50')
+    assert.equal(costLabel({ usd: '0.05' }), '\u2248$0.050')
+    assert.equal(costLabel({ usd: '0.9', incomplete: true }), '~$0.900')
+    assert.equal(costLabel(undefined), '')
+    assert.equal(costLabel({ usd: 'n/a' }), '')
   })
 })
