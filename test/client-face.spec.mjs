@@ -370,3 +370,9 @@ test('a row can start a session in its workspace and pin a session in one click'
     assert.ok(bundle.includes(marker), 'bundle is missing ' + marker)
   }
 })
+
+test('a look can be saved as a preset and applied elsewhere', () => {
+  for (const marker of ['data-polish-preset-apply', 'data-polish-preset-forget', 'withPreset(', 'aryacode-polish:workspace-presets']) {
+    assert.ok(bundle.includes(marker), 'bundle is missing ' + marker)
+  }
+})

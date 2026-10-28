@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.23.1] - 2026-10-28
+
+Fixed: 0.23.0 shipped the preset menu without its face spec, so nothing in the tests kept it in the bundle.
+
+## [0.23.0] - 2026-10-28
+
+Added: save a workspace look as a named preset and apply it to another workspace from its menu.
+
 ## [0.22.4] - 2026-10-28
 
 Fixed: the workspace navigation service is read from the plugin context, because the injected scope refuses property reads it did not name.

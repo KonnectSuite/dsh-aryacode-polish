@@ -14,6 +14,12 @@ import {
   fileUnder,
   unfiled,
   markOf,
+  lookOf,
+  withPreset,
+  withoutPreset,
+  presetNames,
+  readPresets,
+  writePresets,
   DENSITY_GLYPHS,
   DENSITY_METRICS,
   DENSITY_TITLES,
@@ -481,5 +487,33 @@ describe('folder density and workspace hopping', () => {
     assert.equal(DENSITY_METRICS.compact.sessions, true)
     assert.ok(DENSITY_GLYPHS.folders.length > 0)
     assert.ok(DENSITY_TITLES.folders.length > 0)
+  })
+})
+
+describe('appearance presets', () => {
+  it('keeps tone, weight and glyph but never the note', () => {
+    const look = lookOf({ w1: { tone: 'blue', strong: true, glyph: '🚀', note: 'private' } }, 'w1')
+    assert.deepEqual(look, { tone: 'blue', strong: true, glyph: '🚀' })
+  })
+
+  it('adds, replaces and forgets a preset by name', () => {
+    let map = withPreset({}, '  Rocket  ', { tone: 'rose', glyph: '🚀' })
+    assert.deepEqual(presetNames(map), ['Rocket'])
+    map = withPreset(map, 'Rocket', { tone: 'green' })
+    assert.deepEqual(map.Rocket, { tone: 'green', strong: false, glyph: undefined })
+    assert.deepEqual(withoutPreset(map, 'Rocket'), {})
+  })
+
+  it('refuses an empty look and an empty name', () => {
+    assert.deepEqual(withPreset({}, 'Nothing', {}), {})
+    assert.deepEqual(withPreset({}, '   ', { tone: 'blue' }), {})
+  })
+
+  it('round-trips presets and survives junk', () => {
+    const memory = new Map()
+    const storage = { getItem: k => (memory.has(k) ? memory.get(k) : null), setItem: (k, v) => memory.set(k, v) }
+    writePresets({ Rocket: { tone: 'blue' } }, storage)
+    assert.deepEqual(readPresets(storage), { Rocket: { tone: 'blue' } })
+    assert.deepEqual(readPresets({ getItem: () => '{oops', setItem: () => {} }), {})
   })
 })

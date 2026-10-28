@@ -400,6 +400,54 @@ export function moveBefore(list, movingId, beforeId) {
 }
 
 const LOOK_KEY = 'aryacode-polish:workspace-appearance.v1'
+const PRESET_KEY = 'aryacode-polish:workspace-presets.v1'
+
+/** The part of a look worth keeping: tone, weight and glyph, never the note. */
+export function lookOf(map, workspaceId) {
+  const look = appearanceOf(map, workspaceId)
+  return { tone: look.tone, strong: look.strong, glyph: look.glyph }
+}
+
+export function readPresets(storage) {
+  try {
+    const store = storage || (typeof localStorage === 'undefined' ? undefined : localStorage)
+    if (!store) return {}
+    const parsed = JSON.parse(store.getItem(PRESET_KEY) || '{}')
+    return parsed && typeof parsed === 'object' ? parsed : {}
+  } catch {
+    return {}
+  }
+}
+
+export function writePresets(map, storage) {
+  try {
+    const store = storage || (typeof localStorage === 'undefined' ? undefined : localStorage)
+    if (!store) return
+    store.setItem(PRESET_KEY, JSON.stringify(map || {}))
+  } catch {
+    /* a preset is a convenience */
+  }
+}
+
+/** Add or replace a preset; the name is trimmed and capped, and empty looks are refused. */
+export function withPreset(map, name, look) {
+  const key = String(name || '').trim().slice(0, 24)
+  if (!key) return map || {}
+  const clean = { tone: look && look.tone, strong: look && look.strong === true, glyph: look && look.glyph }
+  if (!clean.tone && !clean.glyph && !clean.strong) return map || {}
+  return Object.assign({}, map || {}, { [key]: clean })
+}
+
+export function withoutPreset(map, name) {
+  const next = Object.assign({}, map || {})
+  delete next[String(name || '').trim()]
+  return next
+}
+
+/** Preset names, newest last but stable, so the menu does not reorder itself. */
+export function presetNames(map) {
+  return Object.keys(map || {}).sort((a, b) => a.localeCompare(b))
+}
 const ORDER_KEY = 'aryacode-polish:workspace-order.v1'
 const FOLD_KEY = 'aryacode-polish:folded.v1'
 const DENSITY_KEY = 'aryacode-polish:density.v1'
@@ -1046,6 +1094,7 @@ export function BetterWorkspace(props) {
   const [declared, setDeclared] = React.useState(() => readFolders())
   const [folderDraft, setFolderDraft] = React.useState('')
   const [marks, setMarks] = React.useState(() => readMarks())
+  const [presets, setPresets] = React.useState(() => readPresets())
   const [markDraft, setMarkDraft] = React.useState('')
   const [switcher, setSwitcher] = React.useState(null)
   const [density, setDensity] = React.useState(() => readDensity())
@@ -1053,6 +1102,7 @@ export function BetterWorkspace(props) {
   React.useEffect(() => { writeFolded({ workspaces: expanded, folders }) }, [expanded, folders])
   React.useEffect(() => { writeFolders(declared) }, [declared])
   React.useEffect(() => { writeMarks(marks) }, [marks])
+  React.useEffect(() => { writePresets(presets) }, [presets])
   const [renaming, setRenaming] = React.useState(null)
   const commitRename = async () => {
     const draft = renaming
@@ -1334,6 +1384,47 @@ export function BetterWorkspace(props) {
               .catch(() => setNotice('Could not move that workspace.'))
           },
         }, 'Move to top level'),
+      React.createElement('button', {
+        type: 'button',
+        'data-polish-preset': 'save',
+        style: WS_MENU_ITEM,
+        onClick: () => {
+          const target = menu.workspace
+          const name = workspaceLabel(target)
+          const saved = lookOf(look, target.workspaceId)
+          closeMenu()
+          if (!saved.tone && !saved.glyph && !saved.strong) { setNotice('Give this workspace a look first.'); return }
+          setPresets((prev) => withPreset(prev, name, saved))
+          setNotice('Saved the look of ' + name + '.')
+        },
+      }, 'Save this look as a preset'),
+      presetNames(presets).map((name) => React.createElement('div', {
+        key: 'preset:' + name,
+        style: Object.assign({}, WS_MENU_ITEM, { display: 'flex', alignItems: 'center', gap: '4px', padding: 0 }),
+      },
+      React.createElement('button', {
+        type: 'button',
+        'data-polish-preset-apply': name,
+        style: Object.assign({}, WS_MENU_ITEM, { flex: '1 1 auto' }),
+        onClick: () => {
+          const target = menu.workspace
+          const preset = presets[name]
+          closeMenu()
+          paintLook(target.workspaceId, preset)
+          setNotice('Applied ' + name + '.')
+        },
+      }, 'Apply: ' + name),
+      React.createElement('button', {
+        type: 'button',
+        'data-polish-preset-forget': name,
+        title: 'Forget this preset',
+        'aria-label': 'Forget this preset',
+        style: Object.assign({}, WS_ROW_ACTION, { marginRight: '4px' }),
+        onClick: () => {
+          setPresets((prev) => withoutPreset(prev, name))
+          setNotice('Forgot ' + name + '.')
+        },
+      }, '\u00d7'))),
       React.createElement('button', {
         type: 'button',
         'data-polish-folder-new': 'open',
