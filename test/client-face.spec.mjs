@@ -550,3 +550,9 @@ test('new sessions are visible above a folded workspace', () => {
     assert.ok(workspaceSource.includes(marker), 'bundle should carry ' + marker)
   }
 })
+
+test('hovering a workspace explains it', () => {
+  for (const marker of ['workspaceRecap(group, sessionState', "'data-polish-card-lines'"]) {
+    assert.ok(workspaceSource.includes(marker), 'bundle should carry ' + marker)
+  }
+})

@@ -1,3 +1,12 @@
+## [0.58.0]
+
+Hovering a workspace now explains it.
+
+### Added
+- `workspaceRecap(group, snapshot, opts)` renders two lines — how many sessions and how many are
+  new, then what it has cost and how long ago it was last touched — shown in the existing hover
+  card (a hand-written note still takes precedence).
+
 ## [0.57.0]
 
 New work is visible without unfolding anything.

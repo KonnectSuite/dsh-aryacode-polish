@@ -554,3 +554,15 @@ accent-coloured, and neither can be mistaken for the other.
 
 `Alt+ArrowDown` / `Alt+ArrowUp` walk to the next or previous new session and wrap once, with
 "No new session that way." when the walk finds nothing — the keyboard equivalent of the New chip.
+
+
+## Hover recap
+
+Hovering a workspace row shows what it holds without opening it:
+
+   4 sessions · 2 new
+   ≈$0.012 · last 1h
+
+That is `workspaceRecap(group, snapshot, { now, isUnread })` — two lines, composed from the same
+cost projection, the same seen map and the same `updatedAt` stamps the rows already use. A note you
+typed on the workspace still wins, because a deliberate label outranks a derived one.

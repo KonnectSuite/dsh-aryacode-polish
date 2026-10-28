@@ -444,6 +444,25 @@ export function unreadIds(rows, seen) {
   return ids
 }
 
+/** One glance at a workspace: how much, how much it cost, how long ago, what is new. */
+export function workspaceRecap(group, snapshot, opts) {
+  if (!group || !group.workspace) return ''
+  const sessions = group.sessions || []
+  const options = opts || {}
+  const now = typeof options.now === 'number' && Number.isFinite(options.now) ? options.now : Date.now()
+  const isUnreadRow = typeof options.isUnread === 'function' ? options.isUnread : () => false
+  const parts = [sessions.length + (sessions.length === 1 ? ' session' : ' sessions')]
+  const fresh = unreadInside([{ sessions }], isUnreadRow)
+  if (fresh > 0) parts.push(fresh + ' new')
+  const cost = sumCostLabel(sessions, snapshot)
+  const stamps = sessions.map((row) => Number(row.updatedAt)).filter((stamp) => Number.isFinite(stamp) && stamp > 0)
+  const last = stamps.length > 0 ? Math.max.apply(null, stamps) : undefined
+  const age = last === undefined ? '' : ageLabel(last, now)
+  return [parts.join(' \u00b7 '), [cost, age ? 'last ' + age : ''].filter(Boolean).join(' \u00b7 ')]
+    .filter(Boolean)
+    .join('\n')
+}
+
 /** How many sessions inside a group still want attention. */
 export function unreadInside(inside, isUnreadRow) {
   let count = 0
@@ -2889,7 +2908,8 @@ export function BetterWorkspace(props) {
   const noteCard = card
     ? ReactDOM.createPortal(React.createElement('div', {
       'data-polish-note-card': 'true',
-      style: Object.assign({}, WS_NOTE_CARD, { top: card.top, left: card.left }),
+      'data-polish-card-lines': String(String(card.text).split('\n').length),
+      style: Object.assign({}, WS_NOTE_CARD, { top: card.top, left: card.left, whiteSpace: 'pre-line' }),
     }, card.text), document.body)
     : null
 
@@ -3870,9 +3890,11 @@ export function BetterWorkspace(props) {
       onMouseEnter: (event) => {
         setHover('workspace:' + workspace.workspaceId)
         const note = appearanceOf(look, workspace.workspaceId).note
-        if (!note) return
+        const recap = workspaceRecap(group, sessionState, { now: clock, isUnread: (row) => isUnread(row, seen) })
+        const text = note || recap
+        if (!text) return
         const box = event.currentTarget.getBoundingClientRect()
-        setCard({ text: note, top: box.bottom + 6, left: Math.max(8, box.left) })
+        setCard({ text, top: box.bottom + 6, left: Math.max(8, box.left) })
       },
       onMouseLeave: () => { setHover(null); setCard(null) },
       onDragStart: () => setDrag({ kind: 'workspace', id: workspace.workspaceId }),

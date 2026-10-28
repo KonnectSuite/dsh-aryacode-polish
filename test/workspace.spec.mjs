@@ -15,6 +15,7 @@ import {
   isUnread,
   unreadIds,
   unreadInside,
+  workspaceRecap,
   queryHasToken,
   withToken,
   filterSummary,
@@ -1181,4 +1182,20 @@ it('a group knows how many of its sessions want attention', () => {
   assert.equal(unreadInside([{ sessions: [] }], () => true), 0)
   assert.equal(unreadInside([{ sessions: [{ id: 'a' }, { id: 'b' }] }], (row) => row.id === 'a'), 1)
   assert.equal(unreadInside([{ sessions: [{ id: 'a' }] }, { sessions: [{ id: 'b' }] }], () => true), 2)
+})
+
+it('a workspace says how much, how much it cost and how long ago', () => {
+  const group = {
+    workspace: { workspaceId: 'w1', title: 'Work' },
+    sessions: [
+      { id: 'a', updatedAt: 1000 },
+      { id: 'b', updatedAt: 5000 },
+    ],
+  }
+  const snapshot = { projectionsBySession: { a: { values: { polishCost: { costUsd: '1.00000000' } } } } }
+  const lines = workspaceRecap(group, snapshot, { now: 5000 + 3 * 60 * 1000, isUnread: () => true }).split('\n')
+  assert.equal(lines[0], '2 sessions \u00b7 2 new')
+  assert.equal(lines[1], '\u2248' + '$1.00 \u00b7 last 3m')
+  assert.equal(workspaceRecap({ workspace: {}, sessions: [] }, {}, { now: 0 }), '0 sessions')
+  assert.equal(workspaceRecap(undefined, {}, {}), '')
 })
