@@ -387,6 +387,79 @@ const ORDER_KEY = 'aryacode-polish:workspace-order.v1'
 const FOLD_KEY = 'aryacode-polish:folded.v1'
 const DENSITY_KEY = 'aryacode-polish:density.v1'
 const FOLDER_KEY = 'aryacode-polish:folders.v1'
+const MARK_KEY = 'aryacode-polish:session-marks.v1'
+
+export function markOf(map, sessionId) {
+  const entry = (map && map[String(sessionId)]) || {}
+  return {
+    flag: entry.flag === true,
+    note: typeof entry.note === 'string' && entry.note.length > 0 ? entry.note : undefined,
+  }
+}
+
+export function withMark(map, sessionId, patch) {
+  const next = Object.assign({}, map || {})
+  const key = String(sessionId)
+  const merged = Object.assign({}, markOf(next, key), patch || {})
+  const entry = {}
+  if (merged.flag === true) entry.flag = true
+  if (merged.note) entry.note = merged.note
+  if (Object.keys(entry).length === 0) delete next[key]
+  else next[key] = entry
+  return next
+}
+
+export function readMarks(storage) {
+  try {
+    const store = storage || (typeof localStorage === 'undefined' ? undefined : localStorage)
+    if (!store) return {}
+    const parsed = JSON.parse(store.getItem(MARK_KEY) || '{}')
+    return parsed && typeof parsed === 'object' ? parsed : {}
+  } catch {
+    return {}
+  }
+}
+
+export function writeMarks(map, storage) {
+  try {
+    const store = storage || (typeof localStorage === 'undefined' ? undefined : localStorage)
+    if (!store) return
+    store.setItem(MARK_KEY, JSON.stringify(map || {}))
+  } catch {
+    /* a mark is a nicety */
+  }
+}
+
+/** The whole tree as indented text, for pasting into a prompt or an issue. */
+export function treeText(rows, folderNames, markOfSession) {
+  const lines = []
+  const seen = new Set()
+  const pushGroup = (folder) => {
+    if (seen.has(folder)) return
+    seen.add(folder)
+    lines.push(folder)
+    for (const row of rows || []) {
+      const name = folderKey(row.workspace)
+      if (name !== folder) continue
+      lines.push('  ' + workspaceLabel(row.workspace))
+      for (const session of row.sessions || []) {
+        const mark = typeof markOfSession === 'function' ? markOfSession(session.id) : { flag: false }
+        lines.push('    ' + (mark && mark.flag ? '⚑ ' : '') + String(session.displayTitle || session.title || session.id))
+      }
+    }
+  }
+  for (const folder of folderNames || []) pushGroup(folder)
+  for (const row of rows || []) {
+    const name = folderKey(row.workspace)
+    if (name !== undefined) continue
+    lines.push(workspaceLabel(row.workspace))
+    for (const session of row.sessions || []) {
+      const mark = typeof markOfSession === 'function' ? markOfSession(session.id) : { flag: false }
+      lines.push('  ' + (mark && mark.flag ? '⚑ ' : '') + String(session.displayTitle || session.title || session.id))
+    }
+  }
+  return lines.join('\n')
+}
 
 const cleanFolder = (name) => {
   const value = String(name || '').trim().replace(/^\/+|\/+$/g, '')
@@ -937,11 +1010,14 @@ export function BetterWorkspace(props) {
   const [folders, setFolders] = React.useState(folded.folders)
   const [declared, setDeclared] = React.useState(() => readFolders())
   const [folderDraft, setFolderDraft] = React.useState('')
+  const [marks, setMarks] = React.useState(() => readMarks())
+  const [markDraft, setMarkDraft] = React.useState('')
   const [switcher, setSwitcher] = React.useState(null)
   const [density, setDensity] = React.useState(() => readDensity())
   const [archiveOpen, setArchiveOpen] = React.useState(false)
   React.useEffect(() => { writeFolded({ workspaces: expanded, folders }) }, [expanded, folders])
   React.useEffect(() => { writeFolders(declared) }, [declared])
+  React.useEffect(() => { writeMarks(marks) }, [marks])
   const [renaming, setRenaming] = React.useState(null)
   const commitRename = async () => {
     const draft = renaming
@@ -1355,6 +1431,28 @@ export function BetterWorkspace(props) {
       React.createElement('div', { style: WS_MENU_HINT }, 'Renames every workspace inside it'))
     : null
 
+  const markMenu = menu && menu.kind === 'mark'
+    ? React.createElement(RowMenu, { anchor: menu.anchor, onClose: closeMenu },
+      React.createElement('input', {
+        'data-polish-mark-input': 'true',
+        type: 'text',
+        value: markDraft,
+        placeholder: 'A note for this session',
+        autoFocus: true,
+        style: WS_NOTE_INPUT,
+        onChange: (event) => setMarkDraft(event.target.value),
+        onKeyDown: (event) => {
+          if (event.key === 'Escape') { event.stopPropagation(); closeMenu(); return }
+          if (event.key !== 'Enter') return
+          const id = menu.row.id
+          const value = markDraft.trim()
+          closeMenu()
+          setMarks((prev) => withMark(prev, id, { note: value }))
+        },
+      }),
+      React.createElement('div', { style: WS_MENU_HINT }, 'Enter saves, Escape cancels'))
+    : null
+
   const glyphMenu = menu && menu.kind === 'glyph'
     ? React.createElement(RowMenu, { anchor: menu.anchor, onClose: closeMenu },
       React.createElement('div', { style: WS_GLYPH_GRID },
@@ -1463,7 +1561,29 @@ export function BetterWorkspace(props) {
           workspacesSnapshot: workspaceState,
           session: { sessionId: menu.row.id, displayTitle: menu.row.displayTitle, session: menu.row },
         }))),
-      null)
+      React.createElement('button', {
+        type: 'button',
+        'data-polish-session-flag': menu.row.id,
+        style: WS_MENU_ITEM,
+        onClick: () => {
+          const row = menu.row
+          const current = markOf(marks, row.id)
+          closeMenu()
+          setMarks((prev) => withMark(prev, row.id, { flag: !current.flag }))
+        },
+      }, markOf(marks, menu.row.id).flag ? 'Remove flag' : 'Flag this session'),
+      React.createElement('button', {
+        type: 'button',
+        'data-polish-session-note': menu.row.id,
+        style: WS_MENU_ITEM,
+        onClick: () => {
+          const row = menu.row
+          const anchor = menu.anchor
+          closeMenu()
+          setMarkDraft(markOf(marks, row.id).note || '')
+          setMenu({ kind: 'mark', row, anchor })
+        },
+      }, 'Session note…'))
     : null
 
   const switcherCard = switcher
@@ -1529,6 +1649,20 @@ export function BetterWorkspace(props) {
       style: WS_ADD,
       onClick: foldAll,
     }, allFolded ? '⌄' : '⌃'),
+    React.createElement('button', {
+      key: 'copy',
+      type: 'button',
+      'data-polish-ws-copy': 'tree',
+      title: 'Copy the tree as text',
+      'aria-label': 'Copy the tree as text',
+      style: WS_ADD,
+      onClick: () => {
+        const text = treeText(rows, folderNames, (id) => markOf(marks, id))
+        Promise.resolve(navigator.clipboard.writeText(text))
+          .then(() => setNotice('Tree copied.'))
+          .catch(() => setNotice('Could not copy the tree.'))
+      },
+    }, '⧉'),
     React.createElement('button', {
       key: 'density',
       type: 'button',
@@ -1638,8 +1772,14 @@ export function BetterWorkspace(props) {
       }),
       onClick: () => services.openSession(row.id),
       onContextMenu: (event) => openMenu(event, row, workspace),
-      onMouseEnter: () => setHover('session:' + row.id),
-      onMouseLeave: () => setHover(null),
+      onMouseEnter: (event) => {
+        setHover('session:' + row.id)
+        const note = markOf(marks, row.id).note
+        if (!note) return
+        const box = event.currentTarget.getBoundingClientRect()
+        setCard({ text: note, top: box.bottom + 6, left: Math.max(8, box.left) })
+      },
+      onMouseLeave: () => { setHover(null); setCard(null) },
       onDragStart: () => setDrag({ kind: 'session', id: row.id, workspaceId: workspace.workspaceId }),
       onDragOver: (event) => {
         if (!drag || drag.kind !== 'session' || drag.id === row.id) return
@@ -1651,7 +1791,14 @@ export function BetterWorkspace(props) {
     },
     row.running ? React.createElement('span', { style: WS_DOT, title: 'Running' }) : null,
     pinned.has(row.id) ? React.createElement('span', { style: WS_PIN, title: 'Pinned' }, '\u2605') : null,
-    React.createElement('span', { style: WS_TITLE }, row.displayTitle || row.id),
+    markOf(marks, row.id).flag
+      ? React.createElement('span', { 'data-polish-mark-flag': row.id, style: WS_PIN, title: 'Flagged' }, '⚑')
+      : null,
+    React.createElement('span', {
+      style: Object.assign({}, WS_TITLE, {
+        fontStyle: markOf(marks, row.id).note ? 'italic' : undefined,
+      }),
+    }, row.displayTitle || row.id),
     rowHovered || rowFocused
       ? React.createElement('button', {
         type: 'button',
@@ -1907,6 +2054,7 @@ export function BetterWorkspace(props) {
   noteMenu,
   folderMenu,
   renameFolderMenu,
+  markMenu,
   noteCard,
   archivedMenu,
   paintMenu,

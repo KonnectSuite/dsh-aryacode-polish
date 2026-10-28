@@ -1,5 +1,9 @@
 # Changelog
 
+## [0.20.0] - 2026-10-28
+
+Added: session flags and notes, shown on the row and on hover; the whole tree can be copied as indented text from the header.
+
 ## [0.19.0] - 2026-10-28
 
 ### Added

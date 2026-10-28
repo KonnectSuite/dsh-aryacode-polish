@@ -343,3 +343,18 @@ test('a workspace can leave its folder, and a folder can be renamed', () => {
   assert.ok(workspaceSource.includes("'data-polish-folder-edit-input'"), 'the new name is typed into a field')
   assert.ok(workspaceSource.includes('fileUnder(workspaceLabel(workspace), target)'), 'renaming a folder refiles each member')
 })
+
+test('the tree can flag a session, note it, and copy itself as text', () => {
+  for (const marker of [
+    'aryacode-polish:session-marks',
+    'data-polish-session-flag',
+    'data-polish-session-note',
+    'data-polish-mark-input',
+    'data-polish-mark-flag',
+    'data-polish-ws-copy',
+    'treeText(',
+    'navigator.clipboard.writeText',
+  ]) {
+    assert.ok(bundle.includes(marker), 'bundle is missing ' + marker)
+  }
+})
