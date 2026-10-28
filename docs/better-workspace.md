@@ -286,3 +286,17 @@ a preset: a note is about one workspace, a look is about a kind of work.
 
 Saving is refused when the workspace has no look yet ("Give this workspace a look first."), which is
 the honest answer rather than storing an empty preset nothing would visibly change.
+
+## Sorting
+
+The header's `↕` / `A→Z` control switches between the Host's own order and an alphabetical
+one, remembered in `aryacode-polish:sort.v1`. Alphabetical sorting is folder-aware: unfiled
+workspaces come first, then each folder's workspaces sorted by name, so a folder never splits in two.
+Sorting is a view concern only — it never renames or reorders anything on the Host.
+
+## Jumping to a workspace
+
+Ctrl/⌘-K lists workspaces as well as sessions: a workspace row carries `⌂` and the hint
+`workspace`, and choosing it unfolds its folder, opens the workspace and highlights the row
+("Jumped to <name>.") instead of opening a session. Sessions keep their existing behaviour: Enter
+opens the session.

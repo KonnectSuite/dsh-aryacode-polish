@@ -14,6 +14,10 @@ import {
   fileUnder,
   unfiled,
   markOf,
+  sortRows,
+  sortOf,
+  readSort,
+  writeSort,
   lookOf,
   withPreset,
   withoutPreset,
@@ -515,5 +519,38 @@ describe('appearance presets', () => {
     writePresets({ Rocket: { tone: 'blue' } }, storage)
     assert.deepEqual(readPresets(storage), { Rocket: { tone: 'blue' } })
     assert.deepEqual(readPresets({ getItem: () => '{oops', setItem: () => {} }), {})
+  })
+})
+
+describe('workspace sort modes', () => {
+  const rows = [
+    { workspace: { workspaceId: 'a', path: 'C:/zulu', title: 'zulu', sessionIds: [] }, sessions: [] },
+    { workspace: { workspaceId: 'b', path: 'C:/Work/alpha', title: 'Work/alpha', sessionIds: [] }, sessions: [] },
+    { workspace: { workspaceId: 'c', path: 'C:/mike', title: 'mike', sessionIds: [] }, sessions: [] },
+    { workspace: { workspaceId: 'd', path: 'C:/Work/bravo', title: 'Work/bravo', sessionIds: [] }, sessions: [] },
+  ]
+
+  it('leaves the host order alone unless asked', () => {
+    assert.deepEqual(sortRows(rows, 'host').map(r => r.workspace.workspaceId), ['a', 'b', 'c', 'd'])
+    assert.deepEqual(sortRows(rows, undefined).map(r => r.workspace.workspaceId), ['a', 'b', 'c', 'd'])
+  })
+
+  it('sorts unfiled workspaces first, then by folder, then by name', () => {
+    assert.deepEqual(sortRows(rows, 'name').map(r => r.workspace.workspaceId), ['c', 'a', 'b', 'd'])
+  })
+
+  it('keeps a folder group together', () => {
+    const ordered = sortRows(rows, 'name')
+    const folders = ordered.map(r => (r.workspace.title.includes('/') ? r.workspace.title.split('/')[0] : ''))
+    assert.deepEqual(folders, ['', '', 'Work', 'Work'])
+  })
+
+  it('falls back to host order for an unknown mode and round-trips storage', () => {
+    assert.equal(sortOf('sideways'), 'host')
+    const memory = new Map()
+    const storage = { getItem: k => (memory.has(k) ? memory.get(k) : null), setItem: (k, v) => memory.set(k, v) }
+    writeSort('name', storage)
+    assert.equal(readSort(storage), 'name')
+    assert.equal(readSort({ getItem: () => 'nonsense', setItem: () => {} }), 'host')
   })
 })

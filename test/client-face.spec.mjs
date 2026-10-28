@@ -376,3 +376,9 @@ test('a look can be saved as a preset and applied elsewhere', () => {
     assert.ok(bundle.includes(marker), 'bundle is missing ' + marker)
   }
 })
+
+test('the tree can sort A to Z and the switcher can jump to a workspace', () => {
+  for (const marker of ['data-polish-ws-sort', 'aryacode-polish:sort.v1', "'workspace:' + group.workspace.workspaceId", 'revealWorkspace(']) {
+    assert.ok(bundle.includes(marker), 'bundle is missing ' + marker)
+  }
+})

@@ -1,3 +1,8 @@
+## [0.24.0] - 2026-10-28
+
+Added: a sort control in the tree header (host order or A to Z, folders kept together), and workspace
+entries in the Ctrl-K switcher that reveal the workspace in the tree instead of opening a session.
+
 # Changelog
 
 ## [0.23.1] - 2026-10-28

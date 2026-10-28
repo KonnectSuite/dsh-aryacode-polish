@@ -612,6 +612,52 @@ export function densityOf(value) {
   return DENSITIES.indexOf(value) >= 0 ? value : 'comfortable'
 }
 
+export const SORT_KEY = 'aryacode-polish:sort.v1'
+export const SORTS = ['host', 'name']
+
+export function sortOf(value) {
+  return SORTS.indexOf(value) === -1 ? 'host' : value
+}
+
+export function readSort(storage) {
+  try {
+    const store = storage || globalThis.localStorage
+    const raw = store ? store.getItem(SORT_KEY) : null
+    return sortOf(raw === null || raw === undefined ? 'host' : raw)
+  } catch {
+    return 'host'
+  }
+}
+
+export function writeSort(value, storage) {
+  try {
+    const store = storage || globalThis.localStorage
+    if (store) store.setItem(SORT_KEY, sortOf(value))
+  } catch {}
+}
+
+// Folder membership is the primary key so a folder's workspaces stay together;
+// '' sorts before any folder name, which keeps unfiled workspaces on top.
+export function sortRows(rows, mode) {
+  if (sortOf(mode) !== 'name') return rows
+  const ranked = rows.map((group, index) => ({
+    group,
+    index,
+    folder: folderKey(group.workspace) || '',
+    label: workspaceLabel(group.workspace).toLowerCase(),
+  }))
+  ranked.sort((a, b) => {
+    if (a.folder !== b.folder) {
+      if (a.folder === '') return -1
+      if (b.folder === '') return 1
+      return a.folder < b.folder ? -1 : 1
+    }
+    if (a.label !== b.label) return a.label < b.label ? -1 : 1
+    return a.index - b.index
+  })
+  return ranked.map((entry) => entry.group)
+}
+
 export function nextDensity(value) {
   const list = DENSITIES
   return list[(list.indexOf(densityOf(value)) + 1) % list.length]
@@ -1137,12 +1183,13 @@ export function BetterWorkspace(props) {
     () => new Set((workspaceState && workspaceState.pinnedSessionIds) || []),
     [workspaceState],
   )
+  const [sort, setSort] = React.useState(() => readSort())
   const metrics = DENSITY_METRICS[densityOf(density)]
   const archiveSet = new Set((workspaceState && workspaceState.archivedSessionIds) || [])
   const split = splitArchived(sessionList, archiveSet)
   const allRows = workspaceRows(workspaceList, split.active)
   const archivedSessions = split.archived
-  const rows = filterTree(allRows, query, pinned)
+  const rows = filterTree(sortRows(allRows, sort), query, pinned)
   const folderOf = (workspace) => folderKey(workspace)
   const visibleRows = rows.filter((group) => {
     const key = folderOf(group.workspace)
@@ -1200,13 +1247,24 @@ export function BetterWorkspace(props) {
     const items = []
     allRows.forEach((group) => {
       const workspace = workspaceLabel(group.workspace)
+      items.push({ id: 'workspace:' + group.workspace.workspaceId, kind: 'workspace', workspaceId: group.workspace.workspaceId, title: workspace, workspace: '' })
       group.sessions.forEach((row) => {
-        items.push({ id: row.id, title: row.displayTitle || row.id, workspace })
+        items.push({ id: row.id, kind: 'session', title: row.displayTitle || row.id, workspace })
       })
     })
     return items
   }, [allRows])
   const switchHits = switcher ? rankMatches(switchItems, switcher.query) : []
+
+  const revealWorkspace = (workspaceId) => {
+    const group = allRows.find((row) => row.workspace.workspaceId === workspaceId)
+    if (!group) return
+    const key = folderKey(group.workspace)
+    if (key !== undefined) setFolders((prev) => Object.assign({}, prev, { [key]: false }))
+    setExpanded((prev) => Object.assign({}, prev, { [workspaceId]: true }))
+    setHover('workspace:' + workspaceId)
+    setNotice('Jumped to ' + workspaceLabel(group.workspace) + '.')
+  }
 
   const openMenu = (event, row, workspace) => {
     event.preventDefault()
@@ -1751,6 +1809,10 @@ export function BetterWorkspace(props) {
             if (!hit) return
             event.preventDefault()
             setSwitcher(null)
+            if (hit.kind === 'workspace') {
+              revealWorkspace(hit.workspaceId)
+              return
+            }
             services.openSession(hit.id)
           }
         },
@@ -1766,10 +1828,14 @@ export function BetterWorkspace(props) {
               background: at === switcher.index ? 'var(--dsw-alias-interactive-bg-hover, rgba(0,0,0,0.06))' : 'transparent',
             }),
             onPointerDown: (event) => event.preventDefault(),
-            onClick: () => { setSwitcher(null); services.openSession(hit.id) },
+            onClick: () => {
+              setSwitcher(null)
+              if (hit.kind === 'workspace') { revealWorkspace(hit.workspaceId); return }
+              services.openSession(hit.id)
+            },
           },
-          React.createElement('span', { style: WS_TITLE }, hit.title),
-          React.createElement('span', { style: SWITCHER_HINT }, hit.workspace)))))), document.body)
+          React.createElement('span', { style: WS_TITLE }, hit.kind === 'workspace' ? '⌂ ' + hit.title : hit.title),
+          React.createElement('span', { style: SWITCHER_HINT }, hit.kind === 'workspace' ? 'workspace' : hit.workspace)))))), document.body)
     : null
 
   const children = []
@@ -1799,6 +1865,18 @@ export function BetterWorkspace(props) {
           .catch(() => setNotice('Could not copy the tree.'))
       },
     }, '⧉'),
+    React.createElement('button', {
+      key: 'sort',
+      type: 'button',
+      'data-polish-ws-sort': sortOf(sort),
+      title: sortOf(sort) === 'name' ? 'Sort workspaces by host order' : 'Sort workspaces A to Z',
+      style: WS_ADD,
+      onClick: () => {
+        const next = sortOf(sort) === 'name' ? 'host' : 'name'
+        writeSort(next)
+        setSort(next)
+      },
+    }, sortOf(sort) === 'name' ? 'A→Z' : '↕'),
     React.createElement('button', {
       key: 'density',
       type: 'button',
