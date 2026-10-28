@@ -17,6 +17,14 @@ const declaration = JSON.parse(readFileSync(new URL('client/switches.json', root
 const money = readFileSync(new URL('client/money.js', root), 'utf8')
 const account = readFileSync(new URL('client/account.js', root), 'utf8')
 const face = readFileSync(new URL('client/face.js', root), 'utf8')
+/*
+ * html2canvas is the one third-party script the face needs: the right panel can
+ * only be captured by rasterising the DOM, because the Shell exposes no
+ * screenshot bridge (see docs/panel-screenshot.md). It is vendored rather than
+ * required because the Shell's module table answers react and react-dom only.
+ * The UMD build assigns itself to globalThis, which is where face.js reads it.
+ */
+const html2canvas = readFileSync(new URL('vendor/html2canvas.min.js', root), 'utf8')
 
 const id = manifest.name
 if (typeof id !== 'string' || !id.startsWith('@')) {
@@ -53,6 +61,10 @@ window.__ModuleLoader__.load({
   id: ${JSON.stringify(id)},
   factory: (require) => {
 ${indent(constants)}
+
+/* html2canvas 1.4.1 — MIT, vendored from vendor/html2canvas.min.js.
+ * A UMD build, so it assigns itself to globalThis; face.js reads it lazily. */
+${indent(html2canvas.trimEnd())}
 
 ${indent(money.trimEnd().replace(/^export /gm, ''))}
 

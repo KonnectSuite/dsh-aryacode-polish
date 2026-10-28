@@ -117,6 +117,51 @@ test('the face registers every surface it ships, each under its own key', () => 
   assert.match(bundle, /id: 'polish-balance'/)
   assert.match(bundle, /id: 'polish-open-folder'/)
   assert.match(bundle, /id: 'polish-github'/)
+  assert.match(bundle, /id: 'polish-shot'/)
+})
+
+test('the composer row can photograph the open right panel into the chat', () => {
+  assert.ok(
+    bundle.includes('html2canvas'),
+    'the rasteriser has to travel inside the bundle: the Shell answers react and react-dom only',
+  )
+  assert.ok(
+    bundle.includes('[data-sidebar-right-session][data-sidebar-right-open] [data-dockkit-pane-active]'),
+    'the capture targets the open right-panel tab, which is the same node for the Shell sidebar and better-sidebar',
+  )
+  assert.ok(
+    bundle.includes("'data-polish-shot-anchor': 'panel'"),
+    'the camera is drawn against the panel\'s own top-right corner, not the composer row',
+  )
+  assert.ok(
+    bundle.includes('function shotAnchor('),
+    'the corner is measured from the open panel, so it follows the panel wherever it lands',
+  )
+  assert.ok(
+    bundle.includes('data-sidebar-right-open'),
+    'the button re-measures when the panel opens, closes or swaps tabs',
+  )
+  assert.ok(
+    bundle.includes('shotStore.set('),
+    'the session-scoped composer props travel up to the root overlay through the store, because only a session slot receives them',
+  )
+  assert.ok(
+    !bundle.includes("'data-composer-stat': 'polish-shot'"),
+    'the composer row no longer carries the camera: the panel header does',
+  )
+  assert.ok(
+    bundle.includes('conversation.createDrafts('),
+    'the picture enters the chat through the conversation service draft intake, so it lands where a pasted image does',
+  )
+  assert.ok(
+    bundle.includes('addAttachments('),
+    'minting a draft is only half the job: the composer is what actually holds the image',
+  )
+  assert.ok(
+    bundle.includes("new ClipboardItem({ 'image/png': blob })"),
+    'the same picture goes to the clipboard',
+  )
+  assert.ok(bundle.includes("'data-polish-shot': phase"), 'the control reports its own state')
 })
 
 test('the Workspaces "+" menu offers both sources and honours the flow contract', () => {

@@ -1,6 +1,6 @@
 {
   "name": "@aryacode/dsh-aryacode-polish",
-  "version": "0.7.3",
+  "version": "0.8.1",
   "description": "AryaCode Polish: one install for the small things that make AryaCode feel finished. One Plugins row, one switch per quality-of-life feature.",
   "keywords": [
     "dsh",
@@ -33,6 +33,7 @@
     "lib/**/*",
     "locale/*.json",
     "docs/**/*",
+    "vendor/**/*",
     "README.md",
     "CHANGELOG.md",
     "LICENSE"
@@ -51,7 +52,7 @@
   "scripts": {
     "build:client": "node scripts/build-client.mjs",
     "prepack": "node scripts/build-client.mjs",
-    "test": "node --test test/patch.spec.mjs test/config.spec.mjs test/registry.spec.mjs test/cost.spec.mjs test/money.spec.mjs test/account.spec.mjs test/github.spec.mjs test/folders.spec.mjs test/docs.spec.mjs test/manifests.spec.mjs test/client-face.spec.mjs"
+    "test": "node --test test/patch.spec.mjs test/config.spec.mjs test/registry.spec.mjs test/cost.spec.mjs test/money.spec.mjs test/account.spec.mjs test/github.spec.mjs test/folders.spec.mjs test/docs.spec.mjs test/manifests.spec.mjs test/client-face.spec.mjs test/vendor.spec.mjs"
   },
   "dependencies": {
     "zod": "^4.4.3"
@@ -61,6 +62,7 @@
   },
   "devDependencies": {
     "@deepseek-ai/schemastery": "^3.18.5",
+    "html2canvas": "1.4.1",
     "js-yaml": "^4.1.0"
   },
   "exports": {

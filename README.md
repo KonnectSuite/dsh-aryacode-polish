@@ -7,7 +7,7 @@ installed into and patches nothing. It is one package, one Plugins row, and one
 switch per feature, so a refinement that turns out to be wrong for a machine can
 be turned off without uninstalling anything.
 
-Status: **five features shipped.** The version is the package's, and the card
+Status: **six features shipped.** The version is the package's, and the card
 header already shows it.
 
 ## What it is
@@ -35,6 +35,7 @@ Configure page automatically.
 | **Open workspace folder** (`openWorkspaceFolder`) | On | An **Open workspace folder** row in a Session's "…" menu that opens the Session's workspace in Explorer/Finder. Renders nothing when the Session has no workspace or the Host cannot open a path. See [Open a workspace folder](docs/workspace-folder.md) for why the request had to land here instead of on the workspace row itself. |
 | **Add a workspace from GitHub** (`githubWorkspace`) | On | Adds the GitHub half of the workspace sources: the dialog lists the repositories your GitHub CLI session can clone, and cloning one creates the workspace. The token never enters the browser — it is read on the Host, used only as git's http auth header, and never stored. The sidebar foot carries the sign-in state (`GitHub · <login>`). See [GitHub workspaces](docs/github-workspaces.md). |
 | **Add a workspace from this PC or GitHub** (`workspaceSources`) | On | The Workspaces **+** button gets a source menu: **On this PC** (the Host's OS chooser, or a folder list when the composition has no native chooser) and **GitHub repository…**. Off, the **+** button goes back to the shipped folder picker. |
+| **Right-panel screenshot** (`panelScreenshot`) | On | A camera button in the right panel's top-right corner photographs the open tab, copies the picture to the clipboard, and attaches it to the message being written. See [Right-panel screenshot](docs/panel-screenshot.md) for what it can and cannot capture. |
 
 ### How the cost is computed
 

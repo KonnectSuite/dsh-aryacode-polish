@@ -1,5 +1,31 @@
 # Changelog
 
+## [0.8.1] - 2026-10-28
+
+### Changed
+
+- The camera moved out of the composer row and into the open right panel's own
+  top-right corner, where the panel is what you are looking at. The composer
+  dock entry stays, invisibly, to publish the session context the button needs.
+
+## [0.8.0] - 2026-10-28
+
+### Added
+
+- **Right-panel screenshot.** A camera button in the composer row photographs the
+  right panel's open tab, copies the PNG to the clipboard, and attaches it to the
+  message being written — one click in place of a snip tool, for the panel rather
+  than the whole screen. The capture is a DOM rasterisation inside the page,
+  because the Shell exposes no capture bridge and no display-media source; the
+  browser tab and the HTML preview live in iframes and are the two surfaces it
+  cannot see. `docs/panel-screenshot.md` records the limits.
+
+### Changed
+
+- `html2canvas` 1.4.1 is vendored at `vendor/html2canvas.min.js` and inlined into
+  `lib/client.js` by `pnpm build:client`: the Shell's module table answers `react`
+  and `react-dom` only, so a rasteriser has to travel inside the bundle.
+
 ## [0.7.3] - 2026-10-28
 
 ### Fixed

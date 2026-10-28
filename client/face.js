@@ -1477,6 +1477,349 @@ function WorkspaceSourceFlow(props) {
   document.body)
 }
 
+/**
+ * Right-panel screenshot.
+ *
+ * The Shell offers no way to lift pixels out of itself: there is no capture
+ * bridge on the desktop preload, `getDisplayMedia` has no source to offer, and
+ * the Host has no route to the renderer's pixels. What a client face does have
+ * is the panel's own DOM in the same document, so the picture is rasterised in
+ * the page by the vendored rasteriser. docs/panel-screenshot.md records what
+ * that means for the two iframes and for the window around the app.
+ */
+const PANEL_TARGETS = [
+  '[data-sidebar-right-session][data-sidebar-right-open] [data-dockkit-pane-active]',
+  '[data-sidebar-right-session][data-sidebar-right-open]',
+  '[data-dsh-panel][data-dsh-bottom-panel]',
+]
+
+/**
+ * The element to photograph: the right panel's open tab, else the panel itself.
+ * @returns the element, or undefined when no panel is open.
+ */
+function panelTarget() {
+  for (const selector of PANEL_TARGETS) {
+    const node = document.querySelector(selector)
+    if (node === null) continue
+    const rect = node.getBoundingClientRect()
+    if (rect.width < 48 || rect.height < 48) continue
+    return node
+  }
+  return undefined
+}
+
+/**
+ * The first opaque background behind an element, so a transparent panel still
+ * reads as a surface instead of turning into a black or checkered square.
+ * @param node - element whose backdrop is wanted.
+ * @returns a CSS colour.
+ */
+function backgroundOf(node) {
+  for (let current = node; current !== null && current !== undefined; current = current.parentElement) {
+    const colour = window.getComputedStyle(current).backgroundColor
+    if (colour !== '' && colour !== 'transparent' && colour !== 'rgba(0, 0, 0, 0)') return colour
+  }
+  return '#ffffff'
+}
+
+/**
+ * Rasterise one element to a PNG blob.
+ * @param node - element to draw.
+ * @returns the PNG.
+ */
+async function capturePanel(node) {
+  const rasterise = globalThis.html2canvas
+  if (typeof rasterise !== 'function') throw new Error('the screenshot library did not load')
+  const canvas = await rasterise(node, {
+    backgroundColor: backgroundOf(node),
+    // Capped at 2: text stays legible on a HiDPI screen without quadrupling the
+    // file that gets uploaded with the message.
+    scale: Math.min(2, Math.max(1.5, window.devicePixelRatio || 1)),
+    logging: false,
+    useCORS: true,
+  })
+  return await new Promise((resolve, reject) => {
+    canvas.toBlob((value) => {
+      if (value === null) reject(new Error('the panel could not be rasterised'))
+      else resolve(value)
+    }, 'image/png')
+  })
+}
+
+/**
+ * Put a PNG on the clipboard.
+ * @param blob - the PNG.
+ * @returns whether the Shell allowed the write.
+ */
+async function copyImage(blob) {
+  if (typeof ClipboardItem !== 'function' || navigator.clipboard === undefined) return false
+  try {
+    await navigator.clipboard.write([new ClipboardItem({ 'image/png': blob })])
+    return true
+  } catch {
+    return false
+  }
+}
+
+/**
+ * A file name for the attachment, matching the chat's own timestamped names.
+ * @returns the name.
+ */
+function shotName() {
+  const now = new Date()
+  const pad = (value) => String(value).padStart(2, '0')
+  return 'right-panel-' + now.getFullYear() + pad(now.getMonth() + 1) + pad(now.getDate())
+    + '-' + pad(now.getHours()) + pad(now.getMinutes()) + pad(now.getSeconds()) + '.png'
+}
+
+const SHOT_GLYPH_STYLE = { width: '14px', height: '14px', flex: 'none', display: 'block' }
+
+/**
+ * Camera glyph, drawn here so the face depends on no icon package.
+ * @returns the svg element.
+ */
+function CameraGlyph() {
+  return React.createElement('svg', {
+    viewBox: '0 0 16 16',
+    width: 14,
+    height: 14,
+    fill: 'none',
+    stroke: 'currentColor',
+    strokeWidth: 1.2,
+    strokeLinecap: 'round',
+    strokeLinejoin: 'round',
+    'aria-hidden': 'true',
+    style: SHOT_GLYPH_STYLE,
+  },
+  React.createElement('path', { d: 'M2 5.5h2.2l1-1.5h5.6l1 1.5H14v7H2z' }),
+  React.createElement('circle', { cx: 8, cy: 9, r: 2.2 }))
+}
+
+/**
+ * Where the camera button is drawn: the panel's own top-right corner, just
+ * inside the frame and left of the Shell's expand/close controls.
+ */
+const SHOT_ANCHOR_EDGE = 8
+const SHOT_ANCHOR_BUTTON = 28
+const SHOT_ANCHOR_CONTROLS = 96
+
+/**
+ * Where the open right panel's header ends, in viewport coordinates.
+ * @returns the corner, or undefined when no panel is open.
+ */
+function shotAnchor() {
+  const panel = document.querySelector('[data-sidebar-right-session][data-sidebar-right-open]')
+  if (panel === null) return undefined
+  const rect = panel.getBoundingClientRect()
+  if (rect.width < 120 || rect.height < 120) return undefined
+  return {
+    top: rect.top + SHOT_ANCHOR_EDGE,
+    left: Math.max(rect.left + SHOT_ANCHOR_EDGE, rect.right - SHOT_ANCHOR_CONTROLS - SHOT_ANCHOR_BUTTON),
+  }
+}
+
+/**
+ * The composer context the overlay button attaches through.
+ *
+ * The camera button lives in a root overlay so it can sit in the panel header,
+ * but attaching an image needs the *session-scoped* composer props (`sessionId`
+ * and `inputActions`), which only a session slot receives. The composer dock is
+ * therefore kept as an invisible publisher and this store carries its context up
+ * to the overlay; with no open Session the store is empty and the button hides.
+ */
+const shotStore = (() => {
+  const listeners = new Set()
+  let value
+  return {
+    get: () => value,
+    set: (next) => {
+      value = next
+      listeners.forEach((listener) => listener())
+    },
+    subscribe: (listener) => {
+      listeners.add(listener)
+      return () => listeners.delete(listener)
+    },
+  }
+})()
+
+const SHOT_BUTTON_STYLE = {
+  position: 'fixed',
+  display: 'inline-flex',
+  alignItems: 'center',
+  justifyContent: 'center',
+  width: SHOT_ANCHOR_BUTTON + 'px',
+  height: SHOT_ANCHOR_BUTTON + 'px',
+  padding: '0',
+  border: 'none',
+  borderRadius: 'var(--dsw-radius-sm, 6px)',
+  background: 'transparent',
+  color: 'var(--dsw-alias-label-tertiary, #61666b)',
+  cursor: 'pointer',
+  zIndex: 40,
+}
+
+/**
+ * Invisible composer-dock entry that publishes the session context the overlay
+ * button needs, and nothing else.
+ * @param props - session slot props (`sessionId`, `inputActions`) plus the
+ * late `conversation` lookup.
+ * @returns null.
+ */
+function PanelShotContext(props) {
+  React.useEffect(() => {
+    shotStore.set({
+      sessionId: props.sessionId,
+      actions: props.inputActions,
+      conversation: props.conversation,
+    })
+    return () => shotStore.set(undefined)
+  }, [props.sessionId])
+  return null
+}
+
+/**
+ * Camera button pinned to the right panel's top-right corner: photographs the
+ * open tab, copies it, and attaches it to the message being written.
+ * @param props - slot props plus the late `conversation` lookup.
+ * @returns the button, or null while there is nothing to shoot or nowhere to
+ * attach.
+ */
+function PanelShotButton(props) {
+  const on = useSwitch(props.configForms, 'panelScreenshot', true)
+  const context = React.useSyncExternalStore(shotStore.subscribe, shotStore.get)
+  const [anchor, setAnchor] = React.useState(() => shotAnchor())
+  const [phase, setPhase] = React.useState('idle')
+  const [note, setNote] = React.useState('')
+  React.useEffect(() => {
+    const measure = () => setAnchor(shotAnchor())
+    measure()
+    // The panel opens, closes, splits and resizes without any event this
+    // component would otherwise hear, so watch the attribute and the geometry.
+    const observer = new MutationObserver(measure)
+    observer.observe(document.body, { attributes: true, subtree: true, attributeFilter: ['data-sidebar-right-open', 'data-dockkit-pane-active'] })
+    window.addEventListener('resize', measure)
+    return () => {
+      observer.disconnect()
+      window.removeEventListener('resize', measure)
+    }
+  }, [])
+  React.useEffect(() => {
+    if (note === '') return undefined
+    const timer = setTimeout(() => {
+      setNote('')
+      setPhase('idle')
+    }, 4000)
+    return () => clearTimeout(timer)
+  }, [note])
+  if (!on || context === undefined || anchor === undefined) return null
+  const take = async () => {
+    if (phase === 'busy') return
+    const node = panelTarget()
+    if (node === undefined) {
+      setPhase('failed')
+      setNote('open a panel on the right first')
+      return
+    }
+    setPhase('busy')
+    setNote('')
+    try {
+      const blob = await capturePanel(node)
+      const copied = await copyImage(blob)
+      const conversation = context.conversation()
+      if (conversation === undefined) throw new Error('the chat is not available')
+      // Two calls, because the Shell splits the job: `createDrafts` mints a
+      // draft attachment and starts its upload (it is not on the public
+      // `IConversation` type, but it is the only File -> id entry point and the
+      // product reaches it the same way), and the composer's own `inputActions`
+      // puts those ids in the message. Skipping the second call leaves the
+      // image uploaded but attached to nothing.
+      const drafts = conversation.createDrafts(
+        context.sessionId,
+        [new File([blob], shotName(), { type: 'image/png' })],
+        true,
+      )
+      if (drafts === undefined || drafts.length === 0) throw new Error('the chat refused the image')
+      const actions = context.actions
+      if (actions === undefined || typeof actions.addAttachments !== 'function') {
+        throw new Error('this Shell offers no composer to attach to')
+      }
+      if (!actions.addAttachments(drafts.map((draft) => draft.id))) {
+        throw new Error('the composer refused the image')
+      }
+      setPhase('done')
+      setNote(copied ? 'right panel copied and attached' : 'right panel attached, clipboard refused')
+    } catch (error) {
+      setPhase('failed')
+      setNote(error instanceof Error ? error.message : String(error))
+      console.warn('[aryacode-polish] panel screenshot failed:', error)
+    }
+  }
+  const label = phase === 'done' ? '✓' : phase === 'failed' ? '!' : '●'
+  return React.createElement(React.Fragment, null,
+    React.createElement('span', {
+      'data-polish-shot-anchor': 'panel',
+      style: { position: 'fixed', top: anchor.top + 'px', left: anchor.left + 'px', width: '0', height: '0' },
+    }),
+    React.createElement('button', {
+      type: 'button',
+      'data-polish-shot': phase,
+      title: note === '' ? 'Screenshot this panel into the chat (also copies it)' : note,
+      'aria-label': 'Screenshot this panel',
+      disabled: phase === 'busy',
+      onClick: () => { void take() },
+      onMouseEnter: (event) => { event.currentTarget.style.background = 'var(--dsw-alias-interactive-bg-hover, rgba(0,0,0,0.06))' },
+      onMouseLeave: (event) => { event.currentTarget.style.background = 'transparent' },
+      style: {
+        ...SHOT_BUTTON_STYLE,
+        top: anchor.top + 'px',
+        left: anchor.left + 'px',
+        color: phase === 'failed'
+          ? 'var(--dsw-alias-label-error, #b42318)'
+          : 'var(--dsw-alias-label-tertiary, #61666b)',
+        opacity: phase === 'busy' ? 0.5 : 1,
+        cursor: phase === 'busy' ? 'progress' : 'pointer',
+        fontSize: '11px',
+      },
+    },
+    phase === 'done' || phase === 'failed'
+      ? React.createElement('span', { 'aria-hidden': 'true' }, label)
+      : React.createElement(CameraGlyph, null)),
+    note === ''
+      ? null
+      : React.createElement('span', {
+        'data-polish-shot-note': phase,
+        style: {
+          position: 'fixed',
+          top: anchor.top + SHOT_ANCHOR_BUTTON + 6 + 'px',
+          left: Math.max(12, anchor.left - 140) + 'px',
+          maxWidth: '260px',
+          padding: '3px 8px',
+          borderRadius: 'var(--dsw-radius-sm, 6px)',
+          background: 'Canvas',
+          boxShadow: 'var(--dsw-elevation-prominent, 0 3px 8px rgba(0,0,0,0.12))',
+          color: phase === 'failed' ? 'var(--dsw-alias-label-error, #b42318)' : 'var(--dsw-alias-label-secondary, #61666b)',
+          fontSize: '12px',
+          lineHeight: '18px',
+          whiteSpace: 'nowrap',
+          zIndex: 41,
+        },
+      }, note))
+}
+
+/**
+ * Everything this bundle draws at the root: the GitHub dialog and the right
+ * panel's camera button. `shell.overlay` is a single slot, so both live in one
+ * registration instead of competing for it.
+ * @param props - overlay slot props (`configForms`, `createWorkspace`).
+ * @returns the fragment.
+ */
+function ShellOverlay(props) {
+  return React.createElement(React.Fragment, null,
+    React.createElement(GitHubPanel, props),
+    React.createElement(PanelShotButton, props))
+}
+
 return {
   inject: ['slots'],
   /**
@@ -1502,6 +1845,25 @@ return {
       order: 2,
       inject: () => ({ configForms }),
     }, CostPill))
+    // The camera button belongs to the panel header, which is a root surface, so
+    // the composer dock only publishes the session context it needs. The chat
+    // service is looked up late through ctx.get: it is a plain service, and a
+    // Shell without it simply reports "the chat is not available".
+    ctx.slots.inject('conversation.composer.dock', () => ctx.slots.register({
+      name: 'conversation.composer.dock',
+      id: 'polish-shot',
+      order: 3,
+      inject: () => ({
+        configForms,
+        conversation: () => {
+          try {
+            return ctx.get('conversation')
+          } catch {
+            return undefined
+          }
+        },
+      }),
+    }, PanelShotContext))
     // The account Remote namespace is optional: a Shell with no account still gets
     // the Configure page and the cost pill, and only loses the balance line.
     ctx.inject(['remote', 'remote.account'], (accountCtx) => {
@@ -1554,7 +1916,7 @@ return {
         name: 'shell.overlay',
         id: 'polish-github',
         inject: () => ({ configForms, createWorkspace }),
-      }, GitHubPanel))
+      }, ShellOverlay))
       // The footer keeps the sign-in state, not an add button: adding a
       // workspace belongs in the "+" menu, where the Shell says it does.
       githubCtx.slots.inject('sidebar.footer.action', () => githubCtx.slots.register({

@@ -30,6 +30,12 @@
       "label": "Add a workspace from this PC or GitHub",
       "description": "Put an On this PC / GitHub repository source menu behind the Workspaces + button.",
       "defaultOn": true
+    },
+    {
+      "key": "panelScreenshot",
+      "label": "Right-panel screenshot",
+      "description": "Copy the open right panel into the chat as an image, and onto the clipboard.",
+      "defaultOn": true
     }
   ]
 }

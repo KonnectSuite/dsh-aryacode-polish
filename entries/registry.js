@@ -68,6 +68,12 @@ export const features = [
     defaultOn: true,
     mount: mountFolders,
   },
+  {
+    id: 'panelScreenshot',
+    label: 'Right-panel screenshot',
+    description: 'Copy the open right panel into the chat as an image, and onto the clipboard.',
+    defaultOn: true,
+  },
 ]
 
 /**
