@@ -532,3 +532,9 @@ test('the filter offers chips for the operators it understands', () => {
     assert.ok(workspaceSource.includes(marker), 'bundle should carry ' + marker)
   }
 })
+
+test('the tree marks what you have not looked at', () => {
+  for (const marker of ["'data-polish-unread'", 'isUnread(row, seen)', 'writeSeen(next, window.localStorage)', "'data-polish-tree-mark-read'"]) {
+    assert.ok(workspaceSource.includes(marker), 'bundle should carry ' + marker)
+  }
+})

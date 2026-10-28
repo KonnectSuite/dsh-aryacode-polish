@@ -12,6 +12,8 @@ import {
   filterTree,
   parseQuery,
   startOfToday,
+  isUnread,
+  unreadIds,
   queryHasToken,
   withToken,
   filterSummary,
@@ -1144,4 +1146,19 @@ it('the chips and the date tokens speak the same language', () => {
   assert.deepEqual(today.flatMap((g) => g.sessions.map((s) => s.id)), ['fresh'])
   const week = filterTree(rows, 't:week', new Set(), { now: noon })
   assert.deepEqual(week.flatMap((g) => g.sessions.map((s) => s.id)), ['fresh', 'old'])
+})
+
+it('a session is unread until you open it here', () => {
+  const row = { id: 's1', updatedAt: 5000 }
+  assert.equal(isUnread(row, {}), true, 'never opened here')
+  assert.equal(isUnread(row, { s1: 4000 }), true, 'something happened after the last look')
+  assert.equal(isUnread(row, { s1: 5000 }), false, 'same stamp, already looked')
+  assert.equal(isUnread(row, { s1: 9000 }), false, 'looked after the change')
+  assert.equal(isUnread({ id: 's2' }, {}), false, 'no stamp means nothing to report')
+
+  const rows = [
+    { sessions: [{ id: 'a', updatedAt: 100 }, { id: 'b', updatedAt: 200 }] },
+    { sessions: [{ id: 'c', updatedAt: 300 }] },
+  ]
+  assert.deepEqual(unreadIds(rows, { a: 100, b: 0 }), ['b', 'c'])
 })

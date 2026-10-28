@@ -399,6 +399,50 @@ export function treeTotals(rows, snapshot) {
   }
 }
 
+export const SEEN_KEY = 'aryacode-polish:seen.v1'
+
+/** What this window has already shown you, per session id. */
+export function readSeen(storage) {
+  try {
+    const raw = storage.getItem(SEEN_KEY)
+    const parsed = raw ? JSON.parse(raw) : {}
+    if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) return {}
+    const kept = {}
+    Object.keys(parsed).forEach((id) => {
+      const at = Number(parsed[id])
+      if (Number.isFinite(at) && at > 0) kept[id] = at
+    })
+    return kept
+  } catch {
+    return {}
+  }
+}
+
+export function writeSeen(map, storage) {
+  try {
+    storage.setItem(SEEN_KEY, JSON.stringify(map || {}))
+  } catch {
+    /* a browser that refuses storage simply keeps everything marked read */
+  }
+}
+
+/** Something happened in this session after you last opened it here. */
+export function isUnread(row, seen) {
+  const at = Number(row && row.updatedAt)
+  if (!Number.isFinite(at) || at <= 0) return false
+  const mark = Number((seen || {})[row.id])
+  return !(Number.isFinite(mark) && mark >= at)
+}
+
+/** Every row that wants attention, in tree order. */
+export function unreadIds(rows, seen) {
+  const ids = []
+  ;(rows || []).forEach(({ sessions }) => {
+    ;(sessions || []).forEach((row) => { if (isUnread(row, seen)) ids.push(row.id) })
+  })
+  return ids
+}
+
 /** Midnight, local time, for "today". */
 export function startOfToday(now) {
   const at = new Date(typeof now === 'number' && Number.isFinite(now) ? now : Date.now())
@@ -1665,6 +1709,7 @@ const WS_PAINT_ROW = {
   padding: '6px 8px',
 }
 
+const WS_UNREAD = { color: 'var(--dsw-alias-text-accent, #4d6bfe)', fontSize: '14px', lineHeight: '1', marginRight: '2px' }
 const WS_CHIPS = { display: 'flex', gap: '4px', padding: '2px 8px 6px', flexWrap: 'wrap' }
 const WS_CHIP = { font: 'inherit', fontSize: 'calc(var(--dsh-content-font-size-secondary, 13px) - 4px)', padding: '2px 8px', borderRadius: '999px', border: '1px solid color-mix(in srgb, CanvasText 16%, transparent)', background: 'transparent', color: 'inherit', opacity: 0.7, cursor: 'pointer' }
 const WS_CHIP_ON = { opacity: 1, borderColor: 'color-mix(in srgb, CanvasText 34%, transparent)', background: 'color-mix(in srgb, CanvasText 10%, transparent)', fontWeight: 600 }
@@ -1733,6 +1778,17 @@ export function BetterWorkspace(props) {
   const standard = { wide: props.wide === true, expandSidebar: props.expandSidebar }
   const [expanded, setExpanded] = React.useState(() => readFolded().workspaces)
   const [folderOrder, setFolderOrder] = React.useState(() => readFolderOrder(window.localStorage))
+  const [seen, setSeen] = React.useState(() => readSeen(window.localStorage))
+  const markSeen = React.useCallback((row) => {
+    if (!row || !row.id) return
+    const at = Number(row.updatedAt) > 0 ? Number(row.updatedAt) : Date.now()
+    setSeen((previous) => {
+      const next = Object.assign({}, previous)
+      next[row.id] = at
+      writeSeen(next, window.localStorage)
+      return next
+    })
+  }, [])
   const [menu, setMenu] = React.useState(null)
   const [armed, setArmed] = React.useState(null)
   const [adding, setAdding] = React.useState(false)
@@ -2408,7 +2464,7 @@ export function BetterWorkspace(props) {
         onClick: () => {
           const row = menu.row
           closeMenu()
-          try { services.openSession(row.id) } catch { setNotice('Could not open that session.') }
+          try { markSeen(row); services.openSession(row.id) } catch { setNotice('Could not open that session.') }
         },
       }, 'Open session'),
       React.createElement('button', {
@@ -3073,6 +3129,25 @@ export function BetterWorkspace(props) {
       },
     }, 'Show the shortcuts'))
     items.push(React.createElement('button', {
+      key: 'mark-read',
+      type: 'button',
+      'data-polish-tree-mark-read': 'true',
+      style: WS_MENU_ITEM,
+      onClick: () => {
+        setMenu(null)
+        const next = Object.assign({}, seen)
+        allRows.forEach((group) => {
+          ;(group.sessions || []).forEach((row) => {
+            const at = Number(row.updatedAt) > 0 ? Number(row.updatedAt) : Date.now()
+            next[row.id] = at
+          })
+        })
+        setSeen(next)
+        writeSeen(next, window.localStorage)
+        setNotice('Marked everything as read.')
+      },
+    }, 'Mark everything as read'))
+    items.push(React.createElement('button', {
       key: 'reset',
       type: 'button',
       'data-polish-tree-reset': 'true',
@@ -3482,6 +3557,7 @@ export function BetterWorkspace(props) {
       'data-polish-ws-session': row.id,
       'data-polish-cursor': rowFocused ? 'true' : undefined,
       'data-polish-session-picked': picked.indexOf(row.id) >= 0 ? 'true' : undefined,
+      'data-polish-session-unread': isUnread(row, seen) ? 'true' : undefined,
       draggable: true,
       style: Object.assign({}, WS_ROW, {
         paddingLeft: '24px',
@@ -3512,6 +3588,7 @@ export function BetterWorkspace(props) {
           return
         }
         if (picked.length > 0) { setPicked([]); return }
+        markSeen(row)
         services.openSession(row.id)
       },
       onDoubleClick: (event) => {
@@ -3545,6 +3622,13 @@ export function BetterWorkspace(props) {
         title: 'Running for ' + runningFor(row.id) + ' (counted since this window opened)',
         style: WS_AGE,
       }, runningFor(row.id))
+      : null,
+    isUnread(row, seen)
+      ? React.createElement('span', {
+        'data-polish-unread': row.id,
+        title: 'Changed since you last opened it here',
+        style: WS_UNREAD,
+      }, '\u2022')
       : null,
     pinned.has(row.id) ? React.createElement('span', { style: WS_PIN, title: 'Pinned' }, '\u2605') : null,
     markOf(marks, row.id).flag

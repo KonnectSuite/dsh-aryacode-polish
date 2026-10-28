@@ -1,3 +1,13 @@
+## [0.55.0]
+
+Sessions you have not looked at since they changed say so.
+
+### Added
+- An unread dot on any session whose `updatedAt` is newer than the last time you opened it here
+  (`isUnread`, `readSeen`, `writeSeen`, `SEEN_KEY` — `aryacode-polish:seen.v1`), cleared when you
+  open it from the tree and by **Mark everything as read** in the header menu.
+- `unreadIds` for anything that wants to count them.
+
 ## [0.54.0]
 
 One-click filters, and a date you can filter by.

@@ -517,3 +517,15 @@ source of truth for "what is filtered".
 `updatedAt` against local midnight (`startOfToday(now)`) or seven days back. The header totals
 still describe the whole tree while a filter is on — `≈$0.012` with "6 sessions in 2 workspaces ·
 4 priced" even when only one row is showing — and the match line is what reports the filter.
+
+
+## Unread
+
+A session whose `updatedAt` is newer than the last time you opened it **from this tree** carries a
+dot (`isUnread`, `readSeen`/`writeSeen` under `aryacode-polish:seen.v1`). Opening the row marks
+it seen before `openSession` runs, and **Mark everything as read** in the header menu clears the
+whole tree at once.
+
+The honest limitation: the slot gives the tree no "current session", so the marker means "not
+opened from here since it changed", not "never read anywhere". A session opened elsewhere keeps
+its dot until you open it here or mark all read — which is why the menu row exists.
