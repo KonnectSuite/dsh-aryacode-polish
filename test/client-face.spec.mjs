@@ -568,3 +568,9 @@ test('the tree can group sessions by day', () => {
     assert.ok(workspaceSource.includes(marker), 'bundle should carry ' + marker)
   }
 })
+
+test('a session can be flagged straight from the row', () => {
+  for (const marker of ["'data-polish-session-flag'", 'withMark(prev, row.id, { flag: !on })']) {
+    assert.ok(workspaceSource.includes(marker), 'bundle should carry ' + marker)
+  }
+})

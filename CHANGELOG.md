@@ -1,3 +1,12 @@
+## [0.61.0]
+
+Flagging a session no longer needs the menu.
+
+### Added
+- A flag button appears on a hovered (or keyboard-focused) session row, next to the menu: one click
+  sets or clears the flag through the same `withMark` store the menu uses, so the `#` filter and the
+  Flagged chip see it immediately.
+
 ## [0.60.0]
 
 Long session lists read as history.

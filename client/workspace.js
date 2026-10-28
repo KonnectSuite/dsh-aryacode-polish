@@ -3855,6 +3855,21 @@ export function BetterWorkspace(props) {
     rowHovered || rowFocused
       ? React.createElement('button', {
         type: 'button',
+        'data-polish-session-flag': row.id,
+        title: markOf(marks, row.id).flag ? 'Unflag this session' : 'Flag this session',
+        'aria-label': markOf(marks, row.id).flag ? 'Unflag this session' : 'Flag this session',
+        style: WS_ROW_ACTION,
+        onClick: (event) => {
+          event.stopPropagation()
+          const on = markOf(marks, row.id).flag === true
+          setMarks((prev) => withMark(prev, row.id, { flag: !on }))
+          setNotice(on ? 'Unflagged that session.' : 'Flagged that session.')
+        },
+      }, markOf(marks, row.id).flag ? '\u2691' : '\u2690')
+      : null,
+    rowHovered || rowFocused
+      ? React.createElement('button', {
+        type: 'button',
         'data-polish-ws-menu': 'session',
         'aria-label': 'Session menu',
         style: WS_ROW_ACTION,

@@ -591,3 +591,11 @@ Two decisions worth knowing:
   asked for should not silently do nothing. A young workspace shows one "Today" heading.
 - Rows whose stamp cannot be read are never dropped: if the buckets do not account for every
   session, the workspace renders as a plain list instead.
+
+
+## Row quick actions
+
+A hovered (or keyboard-focused) session row shows three small controls: pin, flag, menu. The flag
+button writes through the same `withMark` store the menu row uses (`aryacode-polish:session-marks.v1`),
+so the `#` filter, the Flagged chip and the tree menu never disagree about what is flagged — there is
+only one place a flag can live.
