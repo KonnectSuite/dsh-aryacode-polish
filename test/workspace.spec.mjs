@@ -2,6 +2,7 @@ import assert from 'node:assert/strict'
 import { describe, it } from 'node:test'
 
 import {
+  HELP_ROWS,
   parentWorkspaceAt,
   capSessions,
   focusPlan,
@@ -1590,4 +1591,32 @@ it('a session row knows the workspace that owns it', () => {
   assert.equal(parentWorkspaceAt(walk, 0), 0)
   assert.equal(parentWorkspaceAt(walk, 99), -1)
   assert.equal(parentWorkspaceAt(undefined, 1), -1)
+})
+
+it('the shortcut sheet names every key the tree honours', () => {
+  const labels = HELP_ROWS.map((row) => row[0])
+
+  const expected = [
+    'Enter',
+    'Left / Right',
+    'Up / Down',
+    'Home / End',
+    'Shift+Home / End',
+    '[ / ]',
+    '/',
+    'Ctrl+K',
+    'Ctrl+Alt+Up / Down',
+    'Alt+Left / Right',
+    'Alt+Up / Down',
+    'F2',
+    'Space',
+    'Shift+F10',
+    '?',
+  ]
+
+  expected.forEach((label) => assert.ok(labels.includes(label), 'missing the ' + label + ' row'))
+  HELP_ROWS.forEach((row) => {
+    assert.equal(row.length, 2)
+    assert.ok(row[1].length > 0, 'the ' + row[0] + ' row needs a description')
+  })
 })

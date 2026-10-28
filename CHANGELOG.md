@@ -1,3 +1,9 @@
+## [0.88.0]
+
+### Fixed
+- The shortcut sheet was missing four keys the tree already honoured (Left/Right, Home/End, Shift+Home/End,
+  Alt+Up/Down). It is now a module-level table with a spec that fails when a key has no row.
+
 ## [0.87.0]
 
 ### Added

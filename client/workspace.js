@@ -2170,6 +2170,28 @@ const WS_COUNT_NOTE = {
   color: 'var(--dsw-alias-label-quaternary, #8a8a8a)',
 }
 
+/** Every keyboard move the tree offers, in the order the sheet shows them. */
+export const HELP_ROWS = [
+  ['Enter', 'open the highlighted session'],
+  ['Left / Right', 'close or open the focused workspace'],
+  ['Up / Down', 'walk the rows'],
+  ['Home / End', 'jump to the first or last row'],
+  ['Shift+Home / End', 'select from the focused session to an end'],
+  ['[ / ]', 'jump to the previous or next workspace'],
+  ['/', 'focus the filter; Escape clears it'],
+  ['Ctrl+K', 'jump to any session or workspace'],
+  ['Ctrl+Alt+Up / Down', 'move the focused workspace up or down'],
+  ['Alt+Left / Right', 'go back or forward between the sessions you opened'],
+  ['Alt+Up / Down', 'jump to the next session you have not read'],
+  ['F2', 'rename the focused workspace or session'],
+  ['Space', 'pick or unpick the focused session'],
+  ['Shift+F10', 'open the row menu'],
+  ['Alt+click', 'a folder, to fold every other folder'],
+  ['Double-click', 'a workspace or session, to rename it'],
+  ['Drag', 'a row onto another to move it there'],
+  ['?', 'this sheet'],
+]
+
 export function BetterWorkspace(props) {
   const services = props.services || {}
   const { ctx, slots } = services
@@ -3569,21 +3591,7 @@ export function BetterWorkspace(props) {
       }, 'Session note…'))
     : null
 
-  const HELP_ROWS = [
-    ['Enter', 'open the highlighted session'],
-    ['[ / ]', 'jump to the previous or next workspace'],
-    ['/', 'focus the filter; Escape clears it'],
-    ['Ctrl+K', 'jump to any session or workspace'],
-    ['Ctrl+Alt+Up / Down', 'move the focused workspace up or down'],
-    ['Alt+Left / Right', 'go back or forward between the sessions you opened'],
-    ['F2', 'rename the focused workspace or session'],
-    ['Space', 'pick or unpick the focused session'],
-    ['Shift+F10', 'open the row menu'],
-    ['Alt+click', 'a folder, to fold every other folder'],
-    ['Double-click', 'a workspace or session, to rename it'],
-    ['Drag', 'a row onto another to move it there'],
-    ['?', 'this sheet'],
-  ]
+
   const peekGroup = costPeek ? rows.find((group) => group.workspace.workspaceId === costPeek.workspaceId) : undefined
   const peekSessions = costPeek && costPeek.sessionId ? [{ id: costPeek.sessionId }] : (peekGroup ? peekGroup.sessions : undefined)
   const peekTotal = peekSessions ? sumCost(peekSessions, sessionState) : undefined

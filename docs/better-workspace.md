@@ -830,3 +830,13 @@ The notices say which happened (`Expanded AryaCode.`, `Collapsed AryaCode.`).
 This is the behaviour the `role="treeitem" / aria-expanded` markup in 0.65.0 promised and the arrow keys did
 not deliver: they moved the cursor like a flat list. `parentWorkspaceAt(walk, at)` answers which workspace
 owns a session row, which is what Left climbs to.
+
+
+### The shortcut sheet
+
+`HELP_ROWS` is a module-level table (18 rows) and the sheet renders it verbatim, so the help cannot drift
+away from the handler. It grew four rows that the tree already honoured but never documented: **Left/Right**
+(open/close), **Up/Down**, **Home/End**, **Shift+Home/End**, and **Alt+Up/Down** for the next unread session.
+
+A spec asserts that every expected key label is present and that each row carries a description, so adding a
+binding without its row fails the suite.
