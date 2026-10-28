@@ -1,3 +1,61 @@
+## [0.69.7]
+
+### Fixed
+- The sidebar remounts whenever a session is opened, and history lived in component state, so the
+  stack was empty by the time Alt+Left was pressed. History now lives in a module-level store that
+  survives the remount.
+
+## [0.69.6]
+
+### Fixed
+- The session-name ref was filled before `sessionList` existed, so the component threw
+  "Cannot access 'sessionList' before initialization" and the whole sidebar fell back to the stock
+  browser. The ref is now filled right after the list is built.
+
+## [0.69.5]
+
+### Fixed
+- The document-level handler closed over the first render's empty history, so it always answered
+  "Nothing to go back to." even after opening half a dozen sessions. The effect now re-registers
+  when the history changes, and session names are read through a ref so they stay current.
+
+## [0.69.4]
+
+### Fixed
+- Alt+Left / Alt+Right now work from anywhere, not only while the tree itself holds the focus —
+  clicking a row moves the focus to the main pane, so the shortcut used to do nothing right after
+  the click that made it useful.
+
+## [0.69.3]
+
+### Fixed
+- Opening a session swaps the main pane and takes the focus with it, so a second Alt+Left went
+  nowhere. The tree takes the focus back after a history jump, which makes repeated presses work.
+
+## [0.69.2]
+
+### Fixed
+- The plain row click (the multi-line handler that also marks a session read) now records history
+  too; the earlier fix had only reached the pinned row and the palette jump, so opening ordinary
+  rows still left Alt+Left with nowhere to go.
+
+## [0.69.1]
+
+### Fixed
+- The row click itself now records history. The first build only recorded the palette jump and the
+  archived-row open, so Alt+Left answered "Nothing to go back to." after opening rows by hand.
+
+## [0.69.0]
+
+Going back is a keystroke, not a hunt.
+
+### Added
+- **Alt+Left / Alt+Right** walk the sessions you have opened from the tree, in the order you opened
+  them, with the notice naming the destination (`Back to Documents.`).
+- Opening a session after going back forgets the forward branch, exactly like a browser — the window
+  keeps the last 50 stops.
+- Opening the row you are already on adds nothing to the history.
+
 ## [0.68.1]
 
 ### Fixed
