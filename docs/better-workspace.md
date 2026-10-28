@@ -700,3 +700,12 @@ rule the harness uses for matching a blank session to a workspace (`navigation.t
 `summary.cwd === workspace.path`). Anything that still matches nothing stays under **Other sessions** —
 on this machine that is a session started in `C:\Users\KNPhu\.arya\github\KonnectSuite\AryaCode`,
 which is deliberately not a workspace.
+
+
+### Making a folder a workspace
+
+A session whose `cwd` matches no workspace can become one: its row menu offers **Make this folder a
+workspace**, which calls the same `workspaces.create({ path })` the GitHub clone flow uses, then files the
+session into the result. Verified live: "Other sessions" held one session started in
+`C:\Users\KNPhu\.arya\github\KonnectSuite\AryaCode`; the menu said "Made AryaCode a workspace.", an
+`AryaCode` workspace appeared with that session, and the group disappeared because nothing was left in it.

@@ -2,6 +2,8 @@ import assert from 'node:assert/strict'
 import { describe, it } from 'node:test'
 
 import {
+  folderNameOf,
+  workspaceTaken,
   attachLoose,
   subsequenceIndex,
   matchesText,
@@ -1333,5 +1335,21 @@ describe('attachLoose', () => {
   it('survives rubbish input', () => {
     assert.deepEqual(attachLoose(undefined, undefined), { groups: [], leftover: [] })
     assert.equal(attachLoose([], [{ id: 's1', cwd: 'C:\\Work\\Alpha' }]).leftover.length, 1)
+  })
+})
+
+describe('folder helpers', () => {
+  it('names the last folder in a path, on either separator', () => {
+    assert.equal(folderNameOf('C:\\Work\\Alpha'), 'Alpha')
+    assert.equal(folderNameOf('C:/Work/Alpha/'), 'Alpha')
+    assert.equal(folderNameOf(''), '')
+    assert.equal(folderNameOf(undefined), '')
+  })
+
+  it('knows when a folder is already a workspace', () => {
+    const list = [{ path: 'C:\\Work\\Alpha' }, { path: 'C:\\Work\\Beta' }]
+    assert.equal(workspaceTaken('c:\\work\\beta', list), true)
+    assert.equal(workspaceTaken('C:\\Elsewhere', list), false)
+    assert.equal(workspaceTaken('', list), false)
   })
 })

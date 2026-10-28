@@ -41,6 +41,21 @@ export function attachLoose(groups, loose) {
   return { groups: list, leftover }
 }
 
+export function folderNameOf(path) {
+  const text = String(path || '').replace(/[\\/]+$/, '')
+  if (!text) return ''
+  const parts = text.split(/[\\/]/)
+  return parts[parts.length - 1] || ''
+}
+
+export function workspaceTaken(path, workspaces) {
+  const wanted = String(path || '').toLowerCase()
+  if (!wanted) return false
+  return (Array.isArray(workspaces) ? workspaces : []).some(
+    (workspace) => String((workspace && workspace.path) || '').toLowerCase() === wanted,
+  )
+}
+
 export function workspaceRows(workspaces, sessions) {
   const byId = new Map()
   for (const session of sessions || []) {
@@ -3281,6 +3296,26 @@ export function BetterWorkspace(props) {
 
   const sessionMenu = menu && menu.kind === 'session'
     ? React.createElement(RowMenu, { anchor: menu.anchor, onClose: closeMenu },
+      (() => {
+        const cwd = String((menu.row && menu.row.cwd) || '')
+        if (!cwd || workspaceTaken(cwd, workspaceList)) return null
+        return React.createElement('button', {
+          type: 'button',
+          'data-polish-session-make-workspace': menu.row.id,
+          style: WS_MENU_ITEM,
+          title: cwd,
+          onClick: async () => {
+            const row = menu.row
+            closeMenu()
+            try {
+              await services.createWorkspace(row.cwd)
+              setNotice('Made ' + folderNameOf(row.cwd) + ' a workspace.')
+            } catch (error) {
+              setNotice('Could not create that workspace.')
+            }
+          },
+        }, 'Make this folder a workspace')
+      })(),
       entries.map((entry, index) => React.createElement(RowBoundary, { key: (entry.options && entry.options.id) || index },
         React.createElement(ShippedMenuRow, {
           entry,

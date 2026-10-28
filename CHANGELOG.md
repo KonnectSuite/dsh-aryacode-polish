@@ -1,3 +1,15 @@
+## [0.76.1]
+
+- Fix the placement of the `Make this folder a workspace` row: it was appended to the workspace menu
+  instead of the session menu, so it never rendered.
+
+## [0.76.0]
+
+### Added
+- A session whose folder is not a workspace yet offers **Make this folder a workspace** in its row menu,
+  so "Other sessions" is a starting point rather than a dead end: the workspace is created from the
+  session's own `cwd` and the session files into it.
+
 ## [0.75.0]
 
 ### Changed
