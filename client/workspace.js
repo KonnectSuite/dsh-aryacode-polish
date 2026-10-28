@@ -371,6 +371,23 @@ export function flattenRows(rows, expanded, query) {
   return flat
 }
 
+/** Where the cursor lands when hopping to the next or previous workspace head. */
+export function jumpWorkspace(list, cursor, step) {
+  const flat = Array.isArray(list) ? list : []
+  const heads = []
+  flat.forEach((item, index) => {
+    if (item && item.kind === 'workspace') heads.push(index)
+  })
+  if (heads.length === 0) return -1
+  if (cursor === undefined || cursor < 0) return step > 0 ? heads[0] : heads[heads.length - 1]
+  if (step > 0) {
+    const after = heads.find(index => index > cursor)
+    return after === undefined ? heads[0] : after
+  }
+  const before = heads.filter(index => index < cursor)
+  return before.length === 0 ? heads[heads.length - 1] : before[before.length - 1]
+}
+
 export function moveBefore(list, movingId, beforeId) {
   const from = list.findIndex(item => item.id === movingId)
   const to = list.findIndex(item => item.id === beforeId)
@@ -522,16 +539,34 @@ export function folderNamesOf(rows, declared) {
   return seen
 }
 
-export const DENSITIES = ['comfortable', 'compact']
+export const DENSITIES = ['comfortable', 'compact', 'folders']
 
 /** Row height per density: the tree fits more rows without shrinking the text. */
 export const DENSITY_METRICS = {
-  comfortable: { row: '28px' },
-  compact: { row: '22px' },
+  comfortable: { row: '28px', sessions: true },
+  compact: { row: '22px', sessions: true },
+  folders: { row: '24px', sessions: false },
+}
+
+export const DENSITY_TITLES = {
+  comfortable: 'Use compact rows',
+  compact: 'Show folders only',
+  folders: 'Use comfortable rows',
+}
+
+export const DENSITY_GLYPHS = {
+  comfortable: '\u2263',
+  compact: '\u2261',
+  folders: '\u25a4',
 }
 
 export function densityOf(value) {
-  return value === 'compact' ? 'compact' : 'comfortable'
+  return DENSITIES.indexOf(value) >= 0 ? value : 'comfortable'
+}
+
+export function nextDensity(value) {
+  const list = DENSITIES
+  return list[(list.indexOf(densityOf(value)) + 1) % list.length]
 }
 
 export function readDensity(storage) {
@@ -1193,7 +1228,17 @@ export function BetterWorkspace(props) {
     if (item.kind === 'workspace') toggleWorkspace(item.workspaceId)
     else services.openSession(item.id)
   }
+  /** [ and ] hop between workspace heads: the fast way through a long tree. */
+  const hopWorkspace = (step) => {
+    const next = jumpWorkspace(walk, cursor, step)
+    if (next >= 0) setCursor(next)
+  }
   const onKeyDown = (event) => {
+    if (event.key === '[' || event.key === ']') {
+      event.preventDefault()
+      hopWorkspace(event.key === ']' ? 1 : -1)
+      return
+    }
     if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
       if (walk.length === 0) return
       event.preventDefault()
@@ -1667,15 +1712,15 @@ export function BetterWorkspace(props) {
       key: 'density',
       type: 'button',
       'data-polish-ws-density': densityOf(density),
-      title: densityOf(density) === 'compact' ? 'Use comfortable rows' : 'Use compact rows',
-      'aria-label': densityOf(density) === 'compact' ? 'Use comfortable rows' : 'Use compact rows',
+      title: DENSITY_TITLES[densityOf(density)],
+      'aria-label': DENSITY_TITLES[densityOf(density)],
       style: WS_ADD,
       onClick: () => {
-        const next = densityOf(density) === 'compact' ? 'comfortable' : 'compact'
+        const next = nextDensity(density)
         setDensity(next)
         writeDensity(next)
       },
-    }, densityOf(density) === 'compact' ? '≡' : '≣'),
+    }, DENSITY_GLYPHS[densityOf(density)]),
     React.createElement('button', {
       key: 'add',
       type: 'button',
@@ -1936,7 +1981,7 @@ export function BetterWorkspace(props) {
       : null)))
 
     if (open) {
-      sessions.forEach((row) => {
+      (metrics.sessions ? sessions : []).forEach((row) => {
         index += 1
         children.push(sessionRow(workspace, row, index))
       })

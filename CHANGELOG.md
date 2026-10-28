@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.21.2] - 2026-10-28
+
+Fixed: the folders-only density showed a zero count because it read the hidden session list instead of the real one.
+
+ - 2026-10-28
+
+Added: a folders-only density that hides session rows, and [ / ] to hop between workspaces.
+
 ## [0.20.0] - 2026-10-28
 
 Added: session flags and notes, shown on the row and on hover; the whole tree can be copied as indented text from the header.

@@ -358,3 +358,9 @@ test('the tree can flag a session, note it, and copy itself as text', () => {
     assert.ok(bundle.includes(marker), 'bundle is missing ' + marker)
   }
 })
+
+test('the tree can hop between workspaces and show folders only', () => {
+  for (const marker of ['jumpWorkspace(', 'nextDensity(', 'folders', "'['", "']'"]) {
+    assert.ok(bundle.includes(marker), 'bundle is missing ' + marker)
+  }
+})
