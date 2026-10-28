@@ -840,3 +840,17 @@ away from the handler. It grew four rows that the tree already honoured but neve
 
 A spec asserts that every expected key label is present and that each row carries a description, so adding a
 binding without its row fails the suite.
+
+
+### Opening a session’s own folder
+
+A session’s menu offers **Open this session’s folder** when the session carries a `cwd`, which matters for the
+sessions that started somewhere other than their workspace’s folder (the "Other sessions" case). It calls
+`services.openFolder(cwd)` → `remote.session.openWorkspacePath`, the same call the workspace menu’s
+"Open in File Explorer" uses, and reports "Could not open that folder." instead of failing silently.
+
+### Filling an empty folder
+
+A declared-but-empty folder now carries the same **+** its filled counterpart has
+(`[data-polish-empty-add]`), opening the usual source picker with that folder as the target. Before this the
+only way in was the folder’s own menu, which a first-time folder does not obviously advertise.

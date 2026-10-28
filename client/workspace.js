@@ -3569,6 +3569,25 @@ export function BetterWorkspace(props) {
           workspacesSnapshot: workspaceState,
           session: { sessionId: menu.row.id, displayTitle: menu.row.displayTitle, session: menu.row },
         }))),
+      (() => {
+        const cwd = String((menu.row && menu.row.cwd) || '')
+        if (!cwd) return null
+        return React.createElement('button', {
+          type: 'button',
+          'data-polish-session-open-folder': menu.row.id,
+          style: WS_MENU_ITEM,
+          title: cwd,
+          onClick: async () => {
+            const target = cwd
+            closeMenu()
+            try {
+              await services.openFolder(target)
+            } catch (error) {
+              setNotice('Could not open that folder.')
+            }
+          },
+        }, 'Open this session’s folder')
+      })(),
       React.createElement('button', {
         type: 'button',
         'data-polish-session-flag': menu.row.id,
@@ -4798,6 +4817,19 @@ export function BetterWorkspace(props) {
     React.createElement('span', { 'aria-hidden': 'true' }, '⌄'),
     React.createElement('span', { style: WS_TITLE }, folder),
     React.createElement('span', { style: WS_COUNT_NOTE }, 'empty'),
+    React.createElement('button', {
+      type: 'button',
+      key: 'empty-add',
+      'data-polish-empty-add': folder,
+      title: 'Add a workspace inside ' + folder,
+      'aria-label': 'Add a workspace inside the folder ' + folder,
+      style: Object.assign({}, WS_ROW_ACTION, { marginLeft: '2px' }),
+      onClick: (event) => {
+        event.stopPropagation()
+        setFolderTarget(folder)
+        setAdding(true)
+      },
+    }, '+'),
     React.createElement('button', {
       type: 'button',
       'data-polish-folder-remove': folder,

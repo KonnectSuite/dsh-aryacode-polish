@@ -1,3 +1,10 @@
+## [0.91.0]
+
+### Added
+- **Open this session’s folder** in a session’s menu, for the sessions that started somewhere other
+  than their workspace’s folder.
+- A **+** on an empty folder row, so a declared folder can be filled without re-opening its menu.
+
 ## [0.90.2]
 
 ### Fixed
