@@ -718,6 +718,43 @@ export function costLabel(cost) {
   return approx + symbol + shown
 }
 
+export function sumCost(sessions, snapshot) {
+  let usd = 0
+  let cny = 0
+  let anyUsd = false
+  let anyCny = false
+  let incomplete = false
+  for (const row of sessions || []) {
+    const cost = costOf(snapshot, row && row.id)
+    if (!cost) continue
+    if (cost.incomplete) incomplete = true
+    if (cost.usd !== undefined) { anyUsd = true; usd += Number(cost.usd) || 0 }
+    if (cost.cny !== undefined) { anyCny = true; cny += Number(cost.cny) || 0 }
+  }
+  if (!anyUsd && !anyCny) return undefined
+  return {
+    usd: anyUsd ? usd.toFixed(8) : undefined,
+    cny: anyCny ? cny.toFixed(8) : undefined,
+    incomplete,
+  }
+}
+
+/** What a group of sessions costs together, as a short label, or an empty string. */
+export function sumCostLabel(sessions, snapshot) {
+  const total = sumCost(sessions, snapshot)
+  return total ? costLabel(total) : ''
+}
+
+/** The folder header shows the same total for everything filed under it. */
+export function folderCostNode(inside, snapshot, folder) {
+  const sessions = (inside || []).reduce((all, entry) => all.concat(entry.sessions), [])
+  const label = sumCostLabel(sessions, snapshot)
+  if (!label) return null
+  return React.createElement('span', {
+    'data-polish-ws-folder-cost': folder,
+    style: Object.assign({}, WS_COST, { marginLeft: '6px' }),
+  }, label)
+}
 export function splitPinned(sessions, pinnedIds) {
   const pinned = new Set(pinnedIds || [])
   const pinnedSessions = []
@@ -2168,7 +2205,7 @@ export function BetterWorkspace(props) {
           setMenu({ kind: 'renameFolder', folder, anchor: { top: box.bottom + 4, left: box.left }, members: inside.map((entry) => entry.workspace) })
         },
       }, '✎'),
-      React.createElement('span', { style: WS_COUNT }, String(inside.reduce((sum, entry) => sum + entry.sessions.length, 0)))))
+      React.createElement('span', { style: WS_COUNT }, [String(inside.reduce((sum, entry) => sum + entry.sessions.length, 0)), folderCostNode(inside, sessionState, folder)])))
     }
 
     if (folded) return
@@ -2179,6 +2216,7 @@ export function BetterWorkspace(props) {
     const hovered = hover === 'workspace:' + workspace.workspaceId
     const dropHere = dropping === 'workspace:' + workspace.workspaceId
     const looks = appearanceOf(look, workspace.workspaceId)
+    const rowCost = sumCostLabel(sessions, sessionState)
 
     children.push(React.createElement('div', {
       key: 'workspace:' + workspace.workspaceId,
@@ -2226,6 +2264,9 @@ export function BetterWorkspace(props) {
       style: Object.assign({}, WS_TITLE, { fontWeight: looks.strong ? 600 : undefined }),
     }, workspaceLabel(workspace)),
     React.createElement('span', { style: WS_COUNT }, String(sessions.length)),
+    rowCost
+      ? React.createElement('span', { 'data-polish-ws-cost-total': workspace.workspaceId, style: Object.assign({}, WS_COST, { marginLeft: '6px' }) }, rowCost)
+      : null,
     React.createElement('button', {
       type: 'button',
       'data-polish-ws-new-session': workspace.workspaceId,

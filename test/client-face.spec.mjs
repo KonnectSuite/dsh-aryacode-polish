@@ -400,3 +400,11 @@ test('a session can be renamed in place, and a filed workspace dragged back out'
     assert.ok(bundle.includes(marker), 'bundle is missing ' + marker)
   }
 })
+
+
+test('a workspace and a folder show the same running total as their sessions', () => {
+  const bundle = read('lib/client.js')
+  assert.ok(bundle.includes("'data-polish-ws-cost-total'"))
+  assert.ok(bundle.includes("'data-polish-ws-folder-cost'"))
+  assert.ok(bundle.includes('sumCostLabel('))
+})

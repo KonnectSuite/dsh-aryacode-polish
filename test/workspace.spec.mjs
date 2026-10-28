@@ -57,7 +57,7 @@ import {
   splitArchived,
   splitPinned,
   costOf,
-  costLabel,
+  costLabel, sumCost, sumCostLabel,
   GLYPHS,
 } from '../client/workspace.js'
 
@@ -619,4 +619,37 @@ describe('per-session cost', () => {
     assert.equal(costLabel(undefined), '')
     assert.equal(costLabel({ usd: 'n/a' }), '')
   })
+})
+
+
+it('sumCost adds up what a group of sessions cost', () => {
+  const snapshot = {
+    projectionsBySession: {
+      a: { values: { polishCost: { costUsd: '0.00010000' } } },
+      b: { values: { polishCost: { costUsd: '0.00020000' } } },
+      c: { values: {} },
+    },
+  }
+  const total = sumCost([{ id: 'a' }, { id: 'b' }, { id: 'c' }], snapshot)
+  assert.equal(total.usd, '0.00030000')
+  assert.equal(total.cny, undefined)
+  assert.equal(sumCostLabel([{ id: 'a' }, { id: 'b' }], snapshot), '\u2248$0.00030')
+})
+
+it('sumCost keeps the currency it actually saw', () => {
+  const snapshot = {
+    projectionsBySession: {
+      a: { values: { polishCost: { costCny: '0.0042' } } },
+    },
+  }
+  const total = sumCost([{ id: 'a' }], snapshot)
+  assert.equal(total.usd, undefined)
+  assert.equal(total.cny, '0.00420000')
+  assert.equal(sumCostLabel([{ id: 'a' }], snapshot), '\u2248\u00a50.0042')
+})
+
+it('sumCost says nothing when no session is priced', () => {
+  assert.equal(sumCost([], {}), undefined)
+  assert.equal(sumCost([{ id: 'a' }], { projectionsBySession: {} }), undefined)
+  assert.equal(sumCostLabel([{ id: 'a' }], undefined), '')
 })

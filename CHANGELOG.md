@@ -1,3 +1,12 @@
+## [0.28.0] - 2026-10-28
+
+Added: a workspace row and a folder header now show the running total their sessions have cost, from
+the same `polishCost` projection the composer pill uses (`sumCost`, `sumCostLabel`,
+`folderCostNode`). Nothing priced renders nothing, and a group priced only in CNY shows ¥.
+
+Fixed: the folder rename glyph had been mojibaked (`âœŽ`) by an earlier PowerShell patch; it is
+✎ again.
+
 ## [0.27.1] - 2026-10-28
 
 Fixed: 0.27.0 double-clicked straight into a rename with the unchanged title. It now opens an inline editor (the workspace navigation service has no rename entry point, so the Host verb `session.rename` does the write).

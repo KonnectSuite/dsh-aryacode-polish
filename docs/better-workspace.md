@@ -338,3 +338,11 @@ failed with "no rename dialog here". A refusal is reported as a notice rather th
 While a filed workspace is being dragged, a dashed **Drop here to leave the folder** zone appears at
 the foot of the tree; dropping on it renames the workspace back to its bare name, which is the same
 thing the **Move to top level** menu row does — now reachable without opening a menu.
+
+## Totals
+
+A session row shows what that session has cost (`costOf`/`costLabel`), a workspace row shows the sum
+of its sessions (`sumCostLabel`), and a folder header shows the sum of everything filed under it
+(`folderCostNode`). All three read the same host-side `polishCost` projection the composer pill uses,
+so no price maths happens twice. A group with nothing priced renders nothing at all — never a
+misleading ≈$0 — and a group priced only in CNY shows ¥.
