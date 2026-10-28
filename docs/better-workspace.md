@@ -325,3 +325,16 @@ Two honest cases are covered by tests rather than by hope:
   that simply has not spent anything yet.
 - **Partially priced** — the projection marks usage it could not price; the label then leads with `~`
   instead of `≈`, the same convention the composer uses.
+
+## Renaming a session
+
+Double-clicking a session title opens an inline editor in the tree, pre-filled with the current title;
+Enter commits, Escape abandons. The write goes through the Host verb `session.rename` — the workspace
+navigation service (`uiWorkspace`) exposes no rename entry point, which is why an earlier attempt
+failed with "no rename dialog here". A refusal is reported as a notice rather than swallowed.
+
+## Dragging a workspace out of a folder
+
+While a filed workspace is being dragged, a dashed **Drop here to leave the folder** zone appears at
+the foot of the tree; dropping on it renames the workspace back to its bare name, which is the same
+thing the **Move to top level** menu row does — now reachable without opening a menu.

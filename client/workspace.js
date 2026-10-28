@@ -1196,9 +1196,20 @@ export function BetterWorkspace(props) {
   const commitRename = async () => {
     const draft = renaming
     setRenaming(null)
-    if (!draft || !services.renameWorkspace) return
+    if (!draft) return
     const title = String(draft.value || '').trim()
     if (title === '' || title === draft.label) return
+    if (draft.sessionId) {
+      if (!services.requestRenameSession) return
+      try {
+        await services.requestRenameSession(draft.sessionId, title)
+        setNotice('Renamed to ' + title + '.')
+      } catch (error) {
+        setNotice(error && error.message ? error.message : 'Could not rename that session.')
+      }
+      return
+    }
+    if (!services.renameWorkspace) return
     try {
       await services.renameWorkspace(draft.workspaceId, title)
       setNotice('Renamed to ' + title + '.')
@@ -1993,10 +2004,11 @@ export function BetterWorkspace(props) {
     children.push(React.createElement('input', {
       key: 'rename',
       'data-polish-ws-rename-input': 'true',
+      'data-polish-session-rename-input': renaming.sessionId ? renaming.sessionId : undefined,
       autoFocus: true,
       value: renaming.value,
-      placeholder: 'Workspace name (use Work/Name to file it)',
-      'aria-label': 'Workspace name',
+      placeholder: renaming.sessionId ? 'Session title' : 'Workspace name (use Work/Name to file it)',
+      'aria-label': renaming.sessionId ? 'Session title' : 'Workspace name',
       style: WS_FILTER,
       onChange: (event) => setRenaming(Object.assign({}, renaming, { value: event.target.value })),
       onKeyDown: (event) => {
@@ -2037,6 +2049,12 @@ export function BetterWorkspace(props) {
         boxShadow: rowFocused ? 'inset 0 0 0 1px var(--dsw-alias-border-l2, rgba(0, 0, 0, 0.12))' : undefined,
       }),
       onClick: () => services.openSession(row.id),
+      onDoubleClick: (event) => {
+        event.preventDefault()
+        event.stopPropagation()
+        const title = row.displayTitle || row.id
+        setRenaming({ sessionId: row.id, label: title, value: title })
+      },
       onContextMenu: (event) => openMenu(event, row, workspace),
       onMouseEnter: (event) => {
         setHover('session:' + row.id)
@@ -2357,6 +2375,35 @@ export function BetterWorkspace(props) {
     }
   }
 
+  if (drag && drag.kind === 'workspace') {
+    const dragged = allRows.find((group) => group.workspace.workspaceId === drag.id)
+    const filed = dragged ? folderKey(dragged.workspace) : undefined
+    if (dragged && filed !== undefined) {
+      children.push(React.createElement('div', {
+        key: 'top-zone',
+        'data-polish-ws-topzone': 'true',
+        style: Object.assign({}, WS_SECTION, {
+          border: '1px dashed var(--dsw-alias-border-l2, rgba(0,0,0,0.2))',
+          borderRadius: 'var(--dsw-radius-sm)',
+          background: dropping === 'topzone' ? 'var(--dsw-alias-interactive-bg-hover, rgba(0,0,0,0.06))' : undefined,
+        }),
+        onDragOver: (event) => { event.preventDefault(); setDropping('topzone') },
+        onDragLeave: () => setDropping(null),
+        onDrop: async (event) => {
+          event.preventDefault()
+          setDropping(null)
+          try {
+            await services.renameWorkspace(drag.id, unfiled(workspaceLabel(dragged.workspace)))
+            setNotice('Moved to the top level.')
+          } catch (error) {
+            setNotice(error && error.message ? error.message : 'Could not move that workspace.')
+          }
+        },
+      },
+      React.createElement('span', { style: WS_TITLE }, 'Drop here to leave the folder')))
+    }
+  }
+
   return React.createElement('div', {
     'data-polish-ws': 'tree',
     tabIndex: 0,
@@ -2516,6 +2563,11 @@ export function installWorkspaceSeat(ctx, configForms, extras = {}) {
             removeWorkspace: (id) => seated.workspaces.delete(id),
             renameWorkspace: (id, title) => seated.workspaces.rename(id, title),
             unarchiveSession: (id) => seated.workspaces.unarchiveSession(id),
+            requestRenameSession: async (id, title) => {
+              /* the workspace navigation service does not own rename, so call the Host verb */
+              const answer = await seated.remote.session.rename({ sessionId: id, title })
+              if (answer && answer.ok === false) throw new Error((answer.error && answer.error.message) || 'rename was refused')
+            },
             archiveSession: (id) => seated.workspaces.archiveSession(id),
             pinSession: (id) => seated.workspaces.pinSession(id),
             unpinSession: (id) => seated.workspaces.unpinSession(id),

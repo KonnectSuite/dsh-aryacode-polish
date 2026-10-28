@@ -1,3 +1,13 @@
+## [0.27.1] - 2026-10-28
+
+Fixed: 0.27.0 double-clicked straight into a rename with the unchanged title. It now opens an inline editor (the workspace navigation service has no rename entry point, so the Host verb `session.rename` does the write).
+
+## [0.27.0] - 2026-10-28
+
+Added: double-clicking a session in the tree raises the Host's own rename dialog, and dragging a filed
+workspace onto the top-level drop zone lifts it out of its folder — the gesture had a menu entry but no
+drag equivalent.
+
 ## [0.26.0] - 2026-10-28
 
 Added: a session row shows what that session has cost so far, read from the `polishCost` projection the

@@ -394,3 +394,9 @@ test('a session row can show what it has cost', () => {
     assert.ok(bundle.includes(marker), 'bundle is missing ' + marker)
   }
 })
+
+test('a session can be renamed in place, and a filed workspace dragged back out', () => {
+  for (const marker of ['requestRenameSession', 'onDoubleClick', 'data-polish-ws-topzone', 'Drop here to leave the folder', 'unfiled(workspaceLabel(dragged.workspace))']) {
+    assert.ok(bundle.includes(marker), 'bundle is missing ' + marker)
+  }
+})
