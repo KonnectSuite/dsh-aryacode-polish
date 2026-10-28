@@ -4355,7 +4355,9 @@ export function BetterWorkspace(props) {
     }, 'No sessions in these workspaces yet. Press + on a workspace to start one.'))
   }
 
-  if (helpHint) children.push(helpHint)
+  // The hint is a first-run nudge, not part of the tree: keep it out of the way once
+  // the filter is in hand, where it would read as a stray line under the field.
+  if (helpHint && !(filterOpen || query.trim())) children.push(helpHint)
 
   if (notice) {
     const runUndo = async () => {
