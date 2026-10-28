@@ -1893,6 +1893,7 @@ const WS_UNREAD_DOT = {
   flexShrink: 0,
   marginLeft: '5px',
 }
+const WS_EMPTY_SESSIONS = { padding: '10px 6px', color: 'var(--dsw-alias-label-quaternary, #8a8a8a)', fontSize: 'calc(' + "var(--dsh-content-font-size-secondary, 13px)" + ' - 2px)', lineHeight: '1.5' }
 const WS_CHIPS = { display: 'flex', gap: '4px', padding: '2px 8px 6px', flexWrap: 'wrap' }
 const WS_CHIP = { font: 'inherit', fontSize: 'calc(var(--dsh-content-font-size-secondary, 13px) - 4px)', padding: '2px 8px', borderRadius: '999px', border: '1px solid color-mix(in srgb, CanvasText 16%, transparent)', background: 'transparent', color: 'inherit', opacity: 0.7, cursor: 'pointer' }
 const WS_CHIP_ON = { opacity: 1, borderColor: 'color-mix(in srgb, CanvasText 34%, transparent)', background: 'color-mix(in srgb, CanvasText 10%, transparent)', fontWeight: 600 }
@@ -2175,6 +2176,7 @@ export function BetterWorkspace(props) {
     return ids
   }, [marks])
   const rows = filterTree(sortRows(allRows, sort, (group) => sumCost(group.sessions, sessionState)), query, pinned, { isRunning, flagged: flaggedIds, unread: (row) => isUnread(row, seen) })
+  const sessionTotal = React.useMemo(() => allRows.reduce((total, group) => total + (group.sessions || []).length, 0), [allRows])
   const totals = React.useMemo(() => treeTotals(allRows, sessionState), [allRows, sessionState])
   const totalsLabel = costLabel({ usd: totals.usd, cny: totals.cny })
   const unreadTotal = React.useMemo(() => unreadIds(allRows, seen).length, [allRows, seen])
@@ -3782,6 +3784,14 @@ export function BetterWorkspace(props) {
       'data-polish-ws-matches': String(matchCount),
       style: WS_MENU_HINT,
     }, filterSummary(query, matchCount)))
+  }
+
+  if (sessionTotal === 0 && allRows.length > 0 && !query.trim()) {
+    children.push(React.createElement('div', {
+      key: 'empty-sessions',
+      'data-polish-ws-empty-sessions': 'true',
+      style: WS_EMPTY_SESSIONS,
+    }, 'No sessions in these workspaces yet. Press + on a workspace to start one.'))
   }
 
   if (helpHint) children.push(helpHint)
