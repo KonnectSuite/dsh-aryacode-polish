@@ -1,3 +1,7 @@
+## [0.48.0] - 2026-10-28
+
+- The filter speaks operators: `!` keeps running sessions, `#` keeps flagged ones, `@name` scopes the tree to a workspace or folder. The input advertises the syntax and the match counter follows the filtered rows.
+
 ## [0.47.0] - 2026-10-28
 
 - Bulk actions in the tree: right-click a folder for "Collapse/Expand workspaces here", and right-click the Archived header to restore the whole shelf at once.

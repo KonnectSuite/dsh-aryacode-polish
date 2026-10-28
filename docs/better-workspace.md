@@ -444,3 +444,8 @@ component reads it and falls back to the row flag, so:
 ## Bulk actions
 
 The folder menu can fold or unfold every workspace inside that folder in one click, and the Archived header has its own menu with "Restore all N archived" (sequential, and it reports how many came back rather than claiming success).
+
+
+## Filter operators
+
+`!` — only sessions that are running. `#` — only sessions you flagged. `@name` — only workspaces or folders whose label contains `name`. Words still match titles; the operators compose (`# @work` is "flagged, inside Work").

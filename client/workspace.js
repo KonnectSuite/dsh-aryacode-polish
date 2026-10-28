@@ -328,8 +328,60 @@ export function workspaceLabel(workspace) {
   return words.charAt(0).toUpperCase() + words.slice(1)
 }
 
-export function filterTree(rows, query, pinned) {
-  const needle = String(query || '').trim().toLowerCase()
+/**
+ * Filter syntax: plain words match a title or a workspace name, `!` keeps only
+ * sessions that are running, `#` keeps only flagged ones, and `@name` scopes the
+ * tree to a workspace or folder. Operators are remembered as booleans so the
+ * matcher never re-parses per row.
+ */
+export function parseQuery(query) {
+  const tokens = String(query || '').trim().split(/\s+/).filter(Boolean)
+  const words = []
+  let running = false
+  let flagged = false
+  let scope = ''
+  tokens.forEach((token) => {
+    if (token === '!') running = true
+    else if (token === '#') flagged = true
+    else if (token.charAt(0) === '@') { if (token.length > 1) scope = token.slice(1).toLowerCase() }
+    else words.push(token)
+  })
+  return { text: words.join(' ').toLowerCase(), running, flagged, scope }
+}
+
+/**
+ * What the filter actually kept. Sessions always count; a workspace counts only when
+ * the typed text is what matched its name, so an operator filter cannot inflate the
+ * number by counting a header it merely kept alive.
+ */
+export function countMatches(rows, query) {
+  const parsed = parseQuery(query)
+  let total = 0
+  ;(rows || []).forEach(({ workspace, sessions }) => {
+    total += (sessions || []).length
+    if (parsed.text && workspaceLabel(workspace).toLowerCase().includes(parsed.text)) total += 1
+  })
+  return total
+}
+
+/** What the filter line under the box says, including the operator-only cases. */
+export function filterSummary(query, count) {
+  const parsed = parseQuery(query)
+  const total = Number(count) || 0
+  if (total > 0) return total === 1 ? '1 match' : total + ' matches'
+  if (parsed.running && !parsed.flagged) return 'No sessions are running.'
+  if (parsed.flagged && !parsed.running) return 'Nothing is flagged.'
+  if (parsed.running && parsed.flagged) return 'Nothing is both running and flagged.'
+  const text = String(query || '').trim()
+  if (parsed.scope && !parsed.text) return 'Nothing lives under "' + parsed.scope + '".'
+  return 'Nothing matches "' + text + '".'
+}
+
+export function filterTree(rows, query, pinned, options) {
+  const parsed = parseQuery(query)
+  const isRunning = (options && options.isRunning) || ((row) => row && row.running === true)
+  const flaggedIds = (options && options.flagged) || new Set()
+  const needle = parsed.text
   const ordered = rows.map(({ workspace, sessions }) => {
     const hoisted = []
     const rest = []
@@ -339,15 +391,26 @@ export function filterTree(rows, query, pinned) {
     })
     return { workspace, sessions: hoisted.concat(rest) }
   })
-  if (!needle) return ordered
+  if (!needle && !parsed.running && !parsed.flagged && !parsed.scope) return ordered
+  const constrained = parsed.running || parsed.flagged
+  const sessionOk = (row) => {
+    if (parsed.running && !isRunning(row)) return false
+    if (parsed.flagged && !flaggedIds.has(row.id)) return false
+    return true
+  }
   const matched = []
   ordered.forEach(({ workspace, sessions }) => {
     const label = workspaceLabel(workspace).toLowerCase()
-    if (label.includes(needle)) {
-      matched.push({ workspace, sessions })
+    /* a filed workspace is labelled "Folder/Name", so the label already carries the folder */
+    if (parsed.scope && !label.includes(parsed.scope)) return
+    const labelHit = needle ? label.includes(needle) : false
+    if (!constrained) {
+      if (!needle || labelHit) { matched.push({ workspace, sessions }); return }
+      const hits = sessions.filter(row => String(row.displayTitle || row.id).toLowerCase().includes(needle))
+      if (hits.length > 0) matched.push({ workspace, sessions: hits })
       return
     }
-    const hits = sessions.filter(row => String(row.displayTitle || row.id).toLowerCase().includes(needle))
+    const hits = sessions.filter(row => sessionOk(row) && (!needle || labelHit || String(row.displayTitle || row.id).toLowerCase().includes(needle)))
     if (hits.length > 0) matched.push({ workspace, sessions: hits })
   })
   return matched
@@ -1608,7 +1671,12 @@ export function BetterWorkspace(props) {
   }
   const allRows = workspaceRows(workspaceList, byPin.rest)
   const archivedSessions = split.archived
-  const rows = filterTree(sortRows(allRows, sort, (group) => sumCost(group.sessions, sessionState)), query, pinned)
+  const flaggedIds = React.useMemo(() => {
+    const ids = new Set()
+    Object.keys(marks || {}).forEach((id) => { if (marks[id] && marks[id].flag === true) ids.add(id) })
+    return ids
+  }, [marks])
+  const rows = filterTree(sortRows(allRows, sort, (group) => sumCost(group.sessions, sessionState)), query, pinned, { isRunning, flagged: flaggedIds })
   const folderOf = (workspace) => folderKey(workspace)
   const visibleRows = rows.filter((group) => {
     const key = folderOf(group.workspace)
@@ -1629,9 +1697,7 @@ export function BetterWorkspace(props) {
   const entries = React.useMemo(() => rowMenuEntries(slots), [slots, workspaceList.length, sessionList.length])
   const totalCount = allRows.reduce((sum, row) => sum + row.sessions.length, 0)
   const shownCount = rows.reduce((sum, row) => sum + row.sessions.length, 0)
-  const matchCount = query.trim()
-    ? rows.length + rows.reduce((sum, row) => sum + row.sessions.length, 0)
-    : 0
+  const matchCount = countMatches(rows, query)
   const folderNames = folderNamesOf(rows, declared)
   // One click should always do the useful thing: if anything is folded, the button
   // expands everything (folders included); only when nothing is folded does it fold.
@@ -2836,7 +2902,7 @@ export function BetterWorkspace(props) {
     'data-polish-ws-filter': 'true',
     type: 'search',
     value: query,
-    placeholder: 'Filter workspaces and sessions',
+    placeholder: 'Filter — ! running, # flagged, @folder',
     'aria-label': 'Filter workspaces and sessions',
     style: WS_FILTER,
     onChange: (event) => { setQuery(event.target.value); setCursor(-1) },
@@ -2850,9 +2916,7 @@ export function BetterWorkspace(props) {
       key: 'matches',
       'data-polish-ws-matches': String(matchCount),
       style: WS_MENU_HINT,
-    }, matchCount === 0
-      ? 'Nothing matches "' + query.trim() + '".'
-      : matchCount + (matchCount === 1 ? ' match' : ' matches')))
+    }, filterSummary(query, matchCount)))
   }
 
   if (helpHint) children.push(helpHint)

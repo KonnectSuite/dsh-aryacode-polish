@@ -10,6 +10,9 @@ import {
   withFolderLook,
   FOLDER_LOOK_PREFIX,
   filterTree,
+  parseQuery,
+  filterSummary,
+  countMatches,
   flattenRows,
   moveBefore,
   folderKey,
@@ -944,4 +947,65 @@ it('the bulk restore button says what it will do', () => {
   assert.equal(restoreLabel(0), 'Restore the archived session')
   assert.equal(restoreLabel(4), 'Restore all 4 archived')
   assert.equal(restoreLabel('3'), 'Restore all 3 archived')
+})
+
+
+it('parses the filter operators without swallowing the words', () => {
+  assert.deepEqual(parseQuery('! secret'), { text: 'secret', running: true, flagged: false, scope: '' })
+  assert.deepEqual(parseQuery('#'), { text: '', running: false, flagged: true, scope: '' })
+  assert.deepEqual(parseQuery('@work alpha'), { text: 'alpha', running: false, flagged: false, scope: 'work' })
+  assert.deepEqual(parseQuery('  '), { text: '', running: false, flagged: false, scope: '' })
+})
+
+it('a running operator keeps only live sessions and drops empty workspaces', () => {
+  const rows = filterTree(
+    [
+      { workspace: { workspaceId: 'w1', title: 'W one' }, sessions: [{ id: 'live' }, { id: 'idle' }] },
+      { workspace: { workspaceId: 'w2', title: 'W two' }, sessions: [{ id: 'quiet' }] },
+    ],
+    '!',
+    new Set(),
+    { isRunning: (row) => row.id === 'live' },
+  )
+  assert.equal(rows.length, 1)
+  assert.deepEqual(rows[0].sessions.map((row) => row.id), ['live'])
+})
+
+it('a flag operator reads the marks and a scope narrows to a folder', () => {
+  const rows = filterTree(
+    [
+      { workspace: { workspaceId: 'w1', title: 'Work/Alpha' }, sessions: [{ id: 'a' }, { id: 'b' }] },
+      { workspace: { workspaceId: 'w2', title: 'Beta' }, sessions: [{ id: 'c' }] },
+    ],
+    '# @work',
+    new Set(),
+    { isRunning: () => false, flagged: new Set(['b']) },
+  )
+  assert.equal(rows.length, 1)
+  assert.deepEqual(rows[0].sessions.map((row) => row.id), ['b'])
+})
+
+
+it('the filter line explains an empty operator result instead of quoting a symbol', () => {
+  assert.equal(filterSummary('!', 0), 'No sessions are running.')
+  assert.equal(filterSummary('#', 0), 'Nothing is flagged.')
+  assert.equal(filterSummary('! #', 0), 'Nothing is both running and flagged.')
+  assert.equal(filterSummary('@nowhere', 0), 'Nothing lives under "nowhere".')
+  assert.equal(filterSummary('zzz', 0), 'Nothing matches "zzz".')
+  assert.equal(filterSummary('!', 1), '1 match')
+  assert.equal(filterSummary('!', 3), '3 matches')
+})
+
+
+it('an operator filter does not count the headers it merely kept', () => {
+  const source = [
+    { workspace: { workspaceId: 'w1', title: 'Work/Alpha' }, sessions: [{ id: 'a' }] },
+    { workspace: { workspaceId: 'w2', title: 'Work/Beta' }, sessions: [{ id: 'b' }, { id: 'c' }] },
+  ]
+  const options = { isRunning: () => false, flagged: new Set(['b']) }
+  /* one flagged session, plus the header the operator had to keep alive: not 4 */
+  assert.equal(countMatches(filterTree(source, '#', new Set(), options), '#'), 1)
+  /* a name match counts the header it actually named, once */
+  assert.equal(countMatches(filterTree(source, 'alpha', new Set(), options), 'alpha'), 2)
+  assert.equal(countMatches([], ''), 0)
 })
