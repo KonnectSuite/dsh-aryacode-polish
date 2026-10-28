@@ -663,3 +663,14 @@ useful number there and showing both reads as a contradiction.
 
 Both sections also render their rows as `treeitem` at level 2, so the announced structure has no
 holes below the tree.
+
+
+## Fuzzy filter
+
+A filter query first tries a case-insensitive substring. When that misses, it falls back to a
+subsequence match with the query's spaces removed, so `dcp` finds **dsh-aryacode-polish** and
+`dsh are` finds it as well — the letters you remember are enough, in the order you remember them.
+
+The highlight follows the same decision: a substring match marks one contiguous run, a fuzzy match
+marks the individual characters it actually matched, so the mark never claims a range that is not
+there. `highlightSegments` (not `highlightParts`) is what the rows render.

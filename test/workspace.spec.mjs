@@ -2,6 +2,9 @@ import assert from 'node:assert/strict'
 import { describe, it } from 'node:test'
 
 import {
+  subsequenceIndex,
+  matchesText,
+  highlightSegments,
   firstRunning,
   actionEntries,
   treeDefaults,
@@ -1249,4 +1252,27 @@ it('the keyboard moves a workspace to its neighbour in the drawn order', () => {
   assert.equal(moveTarget(rows, 'c', 1), undefined, 'nothing below the last')
   assert.equal(moveTarget(rows, 'nope', 1), undefined, 'an unknown id has no neighbour')
   assert.equal(moveTarget(undefined, 'a', 1), undefined)
+})
+
+it('a filter reaches a row by its initials too', () => {
+  assert.deepEqual(subsequenceIndex('Work/Alpha', 'wka'), [0, 3, 5])
+  assert.deepEqual(subsequenceIndex('Work/Alpha', 'zzz'), [])
+  assert.ok(matchesText('Work/Alpha', 'work'))
+  assert.ok(matchesText('Work/Alpha', 'wka'), 'a subsequence still matches')
+  assert.ok(matchesText('Work/Alpha', 'ALP'), 'case is ignored')
+  assert.ok(matchesText('Work/Alpha', 'wk alp'), 'spaces are ignored so initials work')
+  assert.ok(!matchesText('Work/Alpha', 'wkz'))
+  assert.ok(matchesText('Work/Alpha', ''), 'no query means no filtering')
+})
+
+it('the highlight marks a contiguous run or each picked character', () => {
+  assert.deepEqual(highlightSegments('Work/Alpha', 'alp'), [
+    { text: 'Work/', hit: false },
+    { text: 'Alp', hit: true },
+    { text: 'ha', hit: false },
+  ])
+  const fuzzy = highlightSegments('Work/Alpha', 'wka')
+  assert.deepEqual(fuzzy.filter((part) => part.hit).map((part) => part.text), ['W', 'k', 'A'])
+  assert.deepEqual(highlightSegments('Work/Alpha', ''), [{ text: 'Work/Alpha', hit: false }])
+  assert.deepEqual(highlightSegments('Work/Alpha', 'zzz'), [{ text: 'Work/Alpha', hit: false }])
 })

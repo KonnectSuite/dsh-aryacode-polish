@@ -1,3 +1,21 @@
+## [0.68.1]
+
+### Fixed
+- A fuzzy query keeps its spaces out of the match, so `wk alp` finds **Work/Alpha** — the first
+  version compared the words including their space and matched nothing (`dsh are` now works,
+  `dshare` was the only thing that did).
+
+## [0.68.0]
+
+The filter reaches a row by its initials.
+
+### Added
+- Typing `dcp` finds **dsh-aryacode-polish** and `dsh are` finds it too: a plain substring still
+  wins, and when there is none the query is matched as a subsequence with its spaces ignored, so
+  the letters you remember are enough.
+- The highlight follows the same rule — a contiguous run is marked as one `mark`, a fuzzy match
+  marks the characters it actually matched instead of inventing a range.
+
 ## [0.67.0]
 
 Every row tells you the same things.
