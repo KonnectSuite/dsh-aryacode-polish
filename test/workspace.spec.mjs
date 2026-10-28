@@ -23,11 +23,12 @@ import {
   workspaceLabel,
   sessionRank,
   shippedBrowserEntry,
-  workspaceRows,  densityOf,
+  workspaceRows,
+  densityOf,
   readDensity,
   writeDensity,
   splitArchived,
-
+  GLYPHS,
 } from '../client/workspace.js'
 
 const session = (id, title, updatedAt) => ({ id, displayTitle: title, updatedAt })
@@ -177,10 +178,10 @@ describe('menu runtime', () => {
 describe('appearance', () => {
   it('keeps a tone and a weight per workspace', () => {
     const one = withAppearance({}, 'ws1', { tone: 'blue' })
-    assert.deepEqual(appearanceOf(one, 'ws1'), { tone: 'blue', strong: false })
+    assert.deepEqual(appearanceOf(one, 'ws1'), { tone: 'blue', strong: false, glyph: undefined, note: undefined })
     const two = withAppearance(one, 'ws1', { strong: true })
-    assert.deepEqual(appearanceOf(two, 'ws1'), { tone: 'blue', strong: true })
-    assert.deepEqual(appearanceOf(one, 'ws1'), { tone: 'blue', strong: false }, 'the first map is untouched')
+    assert.deepEqual(appearanceOf(two, 'ws1'), { tone: 'blue', strong: true, glyph: undefined, note: undefined })
+    assert.deepEqual(appearanceOf(one, 'ws1'), { tone: 'blue', strong: false, glyph: undefined, note: undefined }, 'the first map is untouched')
   })
 
   it('drops an entry once nothing is left to say', () => {
@@ -305,5 +306,32 @@ describe('density and the archived section', () => {
     assert.deepEqual(splitArchived(sessions, new Set(['c'])), { active: [{ id: 'a' }, { id: 'b' }], archived: [{ id: 'c' }] })
     assert.deepEqual(splitArchived(sessions, undefined), { active: sessions, archived: [] })
     assert.deepEqual(splitArchived(undefined, ['a']), { active: [], archived: [] })
+  })
+})
+
+describe('glyph and note', () => {
+  it('keeps a glyph and a note beside the tone', () => {
+    const map = withAppearance({}, 'w1', { tone: 'blue', strong: true, glyph: '🚀', note: 'release work' })
+    assert.deepEqual(appearanceOf(map, 'w1'), { tone: 'blue', strong: true, glyph: '🚀', note: 'release work' })
+    assert.deepEqual(map.w1, { tone: 'blue', strong: true, glyph: '🚀', note: 'release work' })
+  })
+
+  it('drops a field that is cleared without losing the others', () => {
+    const map = withAppearance({}, 'w1', { tone: 'green', glyph: '🐍', note: 'python' })
+    const noGlyph = withAppearance(map, 'w1', { glyph: '' })
+    assert.deepEqual(appearanceOf(noGlyph, 'w1'), { tone: 'green', strong: false, glyph: undefined, note: 'python' })
+    const bare = withAppearance(withAppearance(noGlyph, 'w1', { tone: undefined, note: '' }), 'w1', {})
+    assert.equal(bare.w1, undefined)
+  })
+
+  it('refuses a glyph that is not a short badge', () => {
+    const map = withAppearance({}, 'w1', { glyph: 'this is far too long to be a badge' })
+    assert.equal(appearanceOf(map, 'w1').glyph, undefined)
+    assert.equal(appearanceOf(withAppearance({}, 'w1', { glyph: 'ok' }), 'w1').glyph, 'ok')
+  })
+
+  it('offers a picker palette', () => {
+    assert.ok(Array.isArray(GLYPHS) && GLYPHS.length >= 8)
+    for (const glyph of GLYPHS) assert.ok(glyph.length <= 4, glyph + ' is a badge, not a sentence')
   })
 })

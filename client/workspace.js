@@ -435,6 +435,54 @@ export function splitArchived(sessions, archivedIds) {
   return { active, archived }
 }
 
+const WS_GLYPH_GRID = {
+  display: 'grid',
+  gridTemplateColumns: 'repeat(6, 26px)',
+  gap: '2px',
+  padding: '2px',
+}
+
+const WS_GLYPH_BUTTON = {
+  width: '26px',
+  height: '26px',
+  display: 'inline-flex',
+  alignItems: 'center',
+  justifyContent: 'center',
+  padding: 0,
+  border: 'none',
+  borderRadius: 'var(--dsw-radius-sm, 6px)',
+  background: 'transparent',
+  fontSize: '15px',
+  lineHeight: 1,
+  cursor: 'pointer',
+}
+
+const WS_NOTE_INPUT = {
+  width: '220px',
+  boxSizing: 'border-box',
+  padding: '5px 8px',
+  border: '0.5px solid var(--dsw-alias-border-l2, rgba(0, 0, 0, 0.12))',
+  borderRadius: 'var(--dsw-radius-sm, 6px)',
+  background: 'transparent',
+  color: 'inherit',
+  font: 'inherit',
+  outline: 'none',
+}
+
+const WS_MENU_HINT = {
+  padding: '4px 8px 2px',
+  fontSize: 'calc(var(--dsh-content-font-size-secondary, 13px) - 2px)',
+  color: 'var(--dsw-alias-label-quaternary, #8a8a8a)',
+}
+
+const WS_GLYPH = {
+  flex: 'none',
+  width: '16px',
+  textAlign: 'center',
+  fontSize: '13px',
+  lineHeight: 1,
+}
+
 const WS_SECTION = {
   display: 'flex',
   alignItems: 'center',
@@ -645,19 +693,29 @@ export const TONE_COLOR = {
   violet: '#7a5cc4',
 }
 
+/** Glyphs a workspace can wear instead of the folder icon. */
+export const GLYPHS = ['📁', '🚀', '🧪', '🐍', '⚙️', '📦', '🧭', '✨', '🧠', '🗂️']
+
 export function appearanceOf(map, workspaceId) {
   const entry = (map && map[workspaceId]) || {}
   return {
     tone: TONE_COLOR[entry.tone] ? entry.tone : undefined,
     strong: entry.strong === true,
+    glyph: typeof entry.glyph === 'string' && entry.glyph.length > 0 && entry.glyph.length <= 4 ? entry.glyph : undefined,
+    note: typeof entry.note === 'string' && entry.note.length > 0 ? entry.note : undefined,
   }
 }
 
 export function withAppearance(map, workspaceId, patch) {
   const next = Object.assign({}, map || {})
   const merged = Object.assign({}, appearanceOf(next, workspaceId), patch || {})
-  if (!merged.tone && merged.strong !== true) delete next[workspaceId]
-  else next[workspaceId] = { tone: merged.tone, strong: merged.strong === true }
+  const entry = {}
+  if (merged.tone) entry.tone = merged.tone
+  if (merged.strong === true) entry.strong = true
+  if (merged.glyph) entry.glyph = merged.glyph
+  if (merged.note) entry.note = merged.note
+  if (Object.keys(entry).length === 0) delete next[workspaceId]
+  else next[workspaceId] = entry
   return next
 }
 
@@ -774,6 +832,7 @@ export function BetterWorkspace(props) {
   const [drag, setDrag] = React.useState(null)
   const [dropping, setDropping] = React.useState(null)
   const [look, setLook] = React.useState(() => readAppearance())
+  const [noteDraft, setNoteDraft] = React.useState('')
   const folded = React.useMemo(() => readFolded(), [])
   const [folders, setFolders] = React.useState(folded.folders)
   const [switcher, setSwitcher] = React.useState(null)
@@ -1037,6 +1096,29 @@ export function BetterWorkspace(props) {
         }, 'Restore saved order'),
       React.createElement('button', {
         type: 'button',
+        'data-polish-glyph': 'open',
+        style: WS_MENU_ITEM,
+        onClick: () => {
+          const target = menu.workspace
+          const anchor = menu.anchor
+          closeMenu()
+          setMenu({ kind: 'glyph', workspace: target, anchor })
+        },
+      }, 'Glyph…'),
+      React.createElement('button', {
+        type: 'button',
+        'data-polish-note': 'open',
+        style: WS_MENU_ITEM,
+        onClick: () => {
+          const target = menu.workspace
+          const anchor = menu.anchor
+          closeMenu()
+          setNoteDraft(appearanceOf(look, target.workspaceId).note || '')
+          setMenu({ kind: 'note', workspace: target, anchor })
+        },
+      }, 'Note…'),
+      React.createElement('button', {
+        type: 'button',
         'data-polish-ws-appearance': 'open',
         style: WS_MENU_ITEM,
         onClick: () => {
@@ -1077,6 +1159,60 @@ export function BetterWorkspace(props) {
           }
         },
       }, 'Unarchive session'))
+    : null
+
+  const glyphMenu = menu && menu.kind === 'glyph'
+    ? React.createElement(RowMenu, { anchor: menu.anchor, onClose: closeMenu },
+      React.createElement('div', { style: WS_GLYPH_GRID },
+        GLYPHS.map((glyph) => React.createElement('button', {
+          key: 'glyph:' + glyph,
+          type: 'button',
+          'data-polish-glyph-pick': glyph,
+          title: 'Use ' + glyph,
+          style: Object.assign({}, WS_GLYPH_BUTTON, {
+            background: appearanceOf(look, menu.workspace.workspaceId).glyph === glyph
+              ? 'var(--dsw-alias-interactive-bg-hover, rgba(0, 0, 0, 0.06))'
+              : undefined,
+          }),
+          onClick: () => {
+            const target = menu.workspace
+            closeMenu()
+            paintLook(target.workspaceId, { glyph })
+          },
+        }, glyph)),
+        React.createElement('button', {
+          key: 'glyph:none',
+          type: 'button',
+          'data-polish-glyph-pick': 'none',
+          style: WS_GLYPH_BUTTON,
+          onClick: () => {
+            const target = menu.workspace
+            closeMenu()
+            paintLook(target.workspaceId, { glyph: '' })
+          },
+        }, '⌫')))
+    : null
+
+  const noteMenu = menu && menu.kind === 'note'
+    ? React.createElement(RowMenu, { anchor: menu.anchor, onClose: closeMenu },
+      React.createElement('input', {
+        'data-polish-note-input': 'true',
+        type: 'text',
+        value: noteDraft,
+        placeholder: 'A note for this workspace',
+        autoFocus: true,
+        style: WS_NOTE_INPUT,
+        onChange: (event) => setNoteDraft(event.target.value),
+        onKeyDown: (event) => {
+          if (event.key === 'Escape') { event.stopPropagation(); closeMenu(); return }
+          if (event.key !== 'Enter') return
+          const target = menu.workspace
+          const value = noteDraft.trim()
+          closeMenu()
+          paintLook(target.workspaceId, { note: value })
+        },
+      }),
+      React.createElement('div', { style: WS_MENU_HINT }, 'Enter saves, Escape cancels'))
     : null
 
   const paintMenu = menu && menu.kind === 'paint'
@@ -1375,6 +1511,7 @@ export function BetterWorkspace(props) {
       }),
       onClick: () => toggleWorkspace(workspace.workspaceId),
       onContextMenu: (event) => openWorkspaceMenu(event, workspace),
+      title: looks.note || undefined,
       onMouseEnter: () => setHover('workspace:' + workspace.workspaceId),
       onMouseLeave: () => setHover(null),
       onDragStart: () => setDrag({ kind: 'workspace', id: workspace.workspaceId }),
@@ -1387,7 +1524,9 @@ export function BetterWorkspace(props) {
       onDrop: (event) => { event.preventDefault(); dropOnWorkspace(workspace.workspaceId) },
     },
     React.createElement(CaretGlyph, { open }),
-    React.createElement(FolderGlyph),
+    looks.glyph
+      ? React.createElement('span', { 'data-polish-ws-glyph': looks.glyph, style: WS_GLYPH }, looks.glyph)
+      : React.createElement(FolderGlyph),
     looks.tone
       ? React.createElement('span', { style: Object.assign({}, WS_TONE, { background: TONE_COLOR[looks.tone] }) })
       : null,
@@ -1468,6 +1607,8 @@ export function BetterWorkspace(props) {
     : null,
   switcherCard,
   sessionMenu,
+  glyphMenu,
+  noteMenu,
   archivedMenu,
   paintMenu,
   workspaceMenu)

@@ -176,3 +176,13 @@ were being rendered inline in their workspace as if they were live.
 The header's fold control expands when anything is folded (folders included) and folds
 only when nothing is. An earlier version only looked at workspace rows, so a folded
 folder left the button saying "Expand all" while its workspaces stayed hidden.
+
+## Glyphs and notes
+
+A workspace can wear an emoji badge instead of the folder icon (**Glyph…** in its menu, ten
+badges plus a clear button) and carry a short note (**Note…**, Enter saves, Escape cancels).
+Both live in the same appearance record as the colour — one localStorage key, one shape —
+and the note surfaces as the row's tooltip, so it costs no vertical space in the tree.
+
+Glyph validation is deliberately narrow (one to four characters): the field is a badge in a
+16 px slot, not a place to paste a sentence.

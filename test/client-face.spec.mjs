@@ -309,3 +309,12 @@ test('the tree offers density modes and an archived section', () => {
   assert.ok(workspaceSource.includes('workspaces.unarchiveSession('), 'restoring goes through the Host verb')
   assert.ok(workspaceSource.includes('splitArchived('), 'archived sessions leave their workspace rows')
 })
+
+test('a workspace can wear a glyph and carry a note', () => {
+  assert.ok(workspaceSource.includes("'data-polish-glyph'"), 'the menu can open the glyph picker')
+  assert.ok(workspaceSource.includes("'data-polish-glyph-pick'"), 'the picker offers badges')
+  assert.ok(workspaceSource.includes("'data-polish-note'"), 'the menu can open the note editor')
+  assert.ok(workspaceSource.includes("'data-polish-note-input'"), 'the note is typed into a field')
+  assert.ok(workspaceSource.includes("'data-polish-ws-glyph'"), 'the row renders the chosen glyph')
+  assert.ok(workspaceSource.includes('looks.note || undefined'), 'the note rides the row tooltip')
+})

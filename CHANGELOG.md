@@ -1,5 +1,14 @@
 # Changelog
 
+## [0.16.0] - 2026-10-28
+
+### Added
+- **A glyph per workspace.** The workspace menu can put an emoji badge in front of a
+  workspace instead of the folder icon, and the choice is remembered with the colour.
+- **A note per workspace.** The note shows as the row tooltip and is edited from the same
+  menu; Enter saves, Escape cancels.
+
+
 ## [0.15.2] - 2026-10-28
 
 ### Added
