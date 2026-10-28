@@ -408,3 +408,12 @@ test('a workspace and a folder show the same running total as their sessions', (
   assert.ok(bundle.includes("'data-polish-ws-folder-cost'"))
   assert.ok(bundle.includes('sumCostLabel('))
 })
+
+
+test('a folder can grow a workspace, and the menus are reachable from the keyboard', () => {
+  const bundle = read('lib/client.js')
+  assert.ok(bundle.includes("'data-polish-folder-add'"))
+  assert.ok(bundle.includes("event.key === 'ContextMenu'"))
+  assert.ok(bundle.includes("'F10' && event.shiftKey"))
+  assert.ok(bundle.includes("fileUnder(workspaceLabel(created), into)"))
+})
