@@ -1,5 +1,21 @@
 # Changelog
 
+## [0.22.4] - 2026-10-28
+
+Fixed: the workspace navigation service is read from the plugin context, because the injected scope refuses property reads it did not name.
+
+## [0.22.3] - 2026-10-28
+
+Fixed: starting a session from a workspace row resolved the navigation service at click time and reports what happened instead of failing silently.
+
+## [0.22.1] - 2026-10-28
+
+Fixed: the hover actions shipped in 0.22.0 without their face spec, so the guard that keeps them in the bundle was missing.
+
+## [0.22.0] - 2026-10-28
+
+Added: a hover + on each workspace row starts a session in that workspace, and a hover star pins or unpins a session in one click.
+
 ## [0.21.2] - 2026-10-28
 
 Fixed: the folders-only density showed a zero count because it read the hidden session list instead of the real one.

@@ -1847,6 +1847,20 @@ export function BetterWorkspace(props) {
     rowHovered || rowFocused
       ? React.createElement('button', {
         type: 'button',
+        'data-polish-session-pin': row.id,
+        title: pinned.has(row.id) ? 'Unpin this session' : 'Pin this session',
+        'aria-label': pinned.has(row.id) ? 'Unpin this session' : 'Pin this session',
+        style: WS_ROW_ACTION,
+        onClick: (event) => {
+          event.stopPropagation()
+          if (pinned.has(row.id)) services.unpinSession(row.id)
+          else services.pinSession(row.id)
+        },
+      }, pinned.has(row.id) ? '\u2605' : '\u2606')
+      : null,
+    rowHovered || rowFocused
+      ? React.createElement('button', {
+        type: 'button',
         'data-polish-ws-menu': 'session',
         'aria-label': 'Session menu',
         style: WS_ROW_ACTION,
@@ -1970,6 +1984,22 @@ export function BetterWorkspace(props) {
       style: Object.assign({}, WS_TITLE, { fontWeight: looks.strong ? 600 : undefined }),
     }, workspaceLabel(workspace)),
     React.createElement('span', { style: WS_COUNT }, String(sessions.length)),
+    React.createElement('button', {
+      type: 'button',
+      'data-polish-ws-new-session': workspace.workspaceId,
+      title: 'New session in this workspace',
+      'aria-label': 'New session in this workspace',
+      style: Object.assign({}, WS_ROW_ACTION, { marginLeft: '2px' }),
+      onClick: (event) => {
+        event.stopPropagation()
+        try {
+          services.startSession(workspace.workspaceId)
+          setNotice('Started a session.')
+        } catch (error) {
+          setNotice((error && error.message) || 'Could not start a session.')
+        }
+      },
+    }, '+'),
     hovered || focused
       ? React.createElement('button', {
         type: 'button',
@@ -2229,6 +2259,15 @@ export function installWorkspaceSeat(ctx, configForms, extras = {}) {
             removeWorkspace: (id) => seated.workspaces.delete(id),
             renameWorkspace: (id, title) => seated.workspaces.rename(id, title),
             unarchiveSession: (id) => seated.workspaces.unarchiveSession(id),
+            archiveSession: (id) => seated.workspaces.archiveSession(id),
+            pinSession: (id) => seated.workspaces.pinSession(id),
+            unpinSession: (id) => seated.workspaces.unpinSession(id),
+            startSession: (workspaceId) => {
+              /* the injected scope is not a ctx: read the service from the plugin's own ctx */
+              const ui = ctx.get('uiWorkspace') || seated.uiWorkspace
+              if (!ui || typeof ui.startSession !== 'function') throw new Error('no workspace navigation here')
+              return ui.startSession(workspaceId)
+            },
             openFolder: async (path) => {
               const answer = await seated.remote.session.openWorkspacePath({ path })
               if (answer && answer.ok === false) throw new Error('cannot open the folder')

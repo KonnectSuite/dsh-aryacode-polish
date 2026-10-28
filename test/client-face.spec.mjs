@@ -364,3 +364,9 @@ test('the tree can hop between workspaces and show folders only', () => {
     assert.ok(bundle.includes(marker), 'bundle is missing ' + marker)
   }
 })
+
+test('a row can start a session in its workspace and pin a session in one click', () => {
+  for (const marker of ['data-polish-ws-new-session', 'data-polish-session-pin', 'startSession(', 'unpinSession(']) {
+    assert.ok(bundle.includes(marker), 'bundle is missing ' + marker)
+  }
+})
