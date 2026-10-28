@@ -2,6 +2,7 @@ import assert from 'node:assert/strict'
 import { describe, it } from 'node:test'
 
 import {
+  focusPlan,
   folderNameOf,
   workspaceTaken,
   attachLoose,
@@ -1516,4 +1517,37 @@ describe('a history that loses a session', () => {
     const state = { stack: ['a', 'b'], at: 0 }
     assert.deepEqual(pruneHistory(state, (id) => live.has(id)), state)
   })
+})
+
+it('focus collapses everything but one workspace', () => {
+  const rows = [
+    { workspace: { workspaceId: 'w1', title: 'Work/one' }, sessions: [{ id: 'a' }] },
+    { workspace: { workspaceId: 'w2', title: 'Work/two' }, sessions: [{ id: 'b' }] },
+    { workspace: { workspaceId: 'w3', title: 'loose' }, sessions: [{ id: 'c' }] },
+  ]
+
+  const plan = focusPlan(rows, 'w2')
+
+  assert.deepEqual(plan.expanded, { w1: false, w2: true, w3: false })
+  // an unfiled workspace has no folder to fold, so only the named one is recorded
+  assert.deepEqual(plan.folders, { Work: false })
+})
+
+it('focus without a target changes nothing', () => {
+  const rows = [{ workspace: { workspaceId: 'w1', title: 'loose' }, sessions: [] }]
+
+  assert.deepEqual(focusPlan(rows, undefined), { expanded: {}, folders: {} })
+  assert.deepEqual(focusPlan(undefined, 'w1'), { expanded: {}, folders: {} })
+})
+
+it('focus from outside a folder folds every folder', () => {
+  const rows = [
+    { workspace: { workspaceId: 'w1', title: 'Work/one' }, sessions: [] },
+    { workspace: { workspaceId: 'w2', title: 'loose' }, sessions: [] },
+  ]
+
+  const plan = focusPlan(rows, 'w2')
+
+  assert.deepEqual(plan.expanded, { w1: false, w2: true })
+  assert.deepEqual(plan.folders, { Work: true })
 })

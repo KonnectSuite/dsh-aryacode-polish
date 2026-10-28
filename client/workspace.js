@@ -872,6 +872,27 @@ export function withoutPreset(map, name) {
 export function presetNames(map) {
   return Object.keys(map || {}).sort((a, b) => a.localeCompare(b))
 }
+/** The folds that leave one workspace visible: every other folder shut, every other workspace collapsed. */
+export function focusPlan(rows, workspaceId) {
+  const expanded = {}
+  const folders = {}
+  if (!workspaceId || !Array.isArray(rows)) return { expanded, folders }
+  let keeper
+  rows.forEach((group) => {
+    const id = group && group.workspace ? group.workspace.workspaceId : undefined
+    if (!id) return
+    if (id === workspaceId) { expanded[id] = true; keeper = group }
+    else expanded[id] = false
+  })
+  if (keeper) {
+    const name = folderKey(keeper.workspace)
+    rows.forEach((group) => {
+      const folder = group && group.workspace ? folderKey(group.workspace) : undefined
+      if (folder) folders[folder] = folder !== name
+    })
+  }
+  return { expanded, folders }
+}
 const ORDER_KEY = 'aryacode-polish:workspace-order.v1'
 const FOLD_KEY = 'aryacode-polish:folded.v1'
 const DENSITY_KEY = 'aryacode-polish:density.v1'
@@ -2141,6 +2162,7 @@ export function BetterWorkspace(props) {
   const [hideEmpty, setHideEmpty] = React.useState(() => {
     try { return window.localStorage.getItem('aryacode-polish:hideempty.v1') === '1' } catch (error) { return false }
   })
+  const [focusReturn, setFocusReturn] = React.useState(null)
   const paintHideEmpty = React.useCallback((next) => {
     setHideEmpty(next)
     try {
@@ -3675,6 +3697,31 @@ export function BetterWorkspace(props) {
       style: WS_MENU_ITEM,
       onClick: () => { setMenu(null); paintHideEmpty(!hideEmpty); setNotice(hideEmpty ? 'Empty workspaces are listed again.' : 'Empty workspaces are hidden.') },
     }, (hideEmpty ? '\u2713 ' : '') + 'Hide workspaces with no sessions'))
+    if (currentWorkspaceId) {
+      const focused = focusReturn !== null
+      const label = (currentGroup && currentGroup.workspace ? (currentGroup.workspace.title || currentGroup.workspace.workspaceId) : 'the current workspace')
+      items.push(React.createElement('button', {
+        key: 'focus',
+        type: 'button',
+        'data-polish-tree-focus': focused ? 'on' : 'off',
+        style: WS_MENU_ITEM,
+        onClick: () => {
+          setMenu(null)
+          if (focused) {
+            setExpanded(focusReturn.expanded)
+            setFolders(focusReturn.folders)
+            setFocusReturn(null)
+            setNotice('Showing everything again.')
+            return
+          }
+          const plan = focusPlan(allRows, currentWorkspaceId)
+          setFocusReturn({ expanded, folders })
+          setExpanded(plan.expanded)
+          setFolders(plan.folders)
+          setNotice('Focused on ' + label + '.')
+        },
+      }, focused ? 'Show everything again' : 'Focus on ' + label))
+    }
     items.push(React.createElement('button', {
       key: 'daygroups',
       type: 'button',

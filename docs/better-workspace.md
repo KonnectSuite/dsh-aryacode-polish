@@ -788,3 +788,14 @@ same `seen` map the dots and the New filter read, so a whole day can be cleared 
 
 Verified live: 26 sessions with 26 dots, two picked, Read → "Marked 2 sessions read.", dots fell to 24 and
 `aryacode-polish:seen.v1` held exactly those two ids.
+
+
+## Focus
+
+The tree menu offers **Focus on <current workspace>**: every other workspace collapses and every other
+folder shuts, so a long list shows only where you are. The same row becomes **Show everything again** and
+restores the folds you had, because entering focus keeps a snapshot of `expanded` and `folded.folders`.
+
+`focusPlan(rows, workspaceId)` is pure: it returns the two maps to set (`{ expanded, folders }`), leaving
+an unfiled workspace out of the folder map because there is no folder to shut. Verified live: 26 session
+rows across 6 workspaces → focus → 11 rows with every other head collapsed → show everything → 26 again.

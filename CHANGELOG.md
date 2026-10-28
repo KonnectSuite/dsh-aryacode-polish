@@ -1,3 +1,10 @@
+## [0.84.0]
+
+### Added
+- **Focus on the current workspace** in the tree menu: folds every other workspace and every other folder,
+  so a long list shows only where you are. The same row turns into **Show everything again** and restores
+  the folds you had before.
+
 ## [0.83.0]
 
 ### Added
