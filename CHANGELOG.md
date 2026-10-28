@@ -1,3 +1,15 @@
+## [0.52.0]
+
+A bulk action you regret is now a bulk action you can take back.
+
+### Added
+- `plural(count, one, many)` so a notice never reads like a template
+  ("Archived 1 session." instead of "Archived 1 sessions.").
+- The notice after a bulk **Archive** or **Flag** carries an **Undo**, available for
+  twelve seconds. Archiving is undone by unarchiving exactly the sessions that were
+  archived (not the ones the Host refused), flagging by restoring the marks map that
+  was replaced.
+
 ## [0.51.0]
 
 Named views, then the tree learned to report itself: the header now says how many

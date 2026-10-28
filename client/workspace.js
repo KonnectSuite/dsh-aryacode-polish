@@ -396,6 +396,11 @@ export function treeTotals(rows, snapshot) {
   }
 }
 
+/** "1 session" / "2 sessions", so a notice never reads like a template. */
+export function plural(count, one, many) {
+  return count + ' ' + (count === 1 ? one : many)
+}
+
 /** Every id between the anchor and the target, in the order they are drawn. */
 export function rangeWithin(ids, anchorId, targetId) {
   const list = ids || []
@@ -1630,6 +1635,17 @@ export function BetterWorkspace(props) {
   const [armed, setArmed] = React.useState(null)
   const [adding, setAdding] = React.useState(false)
   const [notice, setNotice] = React.useState('')
+  const [undo, setUndo] = React.useState(null)
+  const undoTimer = React.useRef(null)
+
+  /** A way back out of a bulk change, offered for a few seconds and then let go. */
+  const offerUndo = React.useCallback((next) => {
+    if (undoTimer.current) clearTimeout(undoTimer.current)
+    setUndo(next)
+    undoTimer.current = setTimeout(() => setUndo(null), 12000)
+  }, [])
+
+  React.useEffect(() => () => { if (undoTimer.current) clearTimeout(undoTimer.current) }, [])
   const [query, setQuery] = React.useState('')
   const [cursor, setCursor] = React.useState(-1)
   const typeBufferRef = React.useRef('')
@@ -3140,16 +3156,28 @@ export function BetterWorkspace(props) {
     React.createElement('span', { style: { marginRight: '2px' } }, selectionLabel(pickedLive.length)),
     bulkButton('pin', 'Pin', () => run((id) => services.pinSession(id), (n) => 'Pinned ' + n + ' sessions.', (ok, n) => 'Pinned ' + ok + ' of ' + n + ' sessions.')),
     bulkButton('flag', 'Flag', () => {
+      const before = marks
       setMarks((previous) => {
         const next = Object.assign({}, previous)
         pickedLive.forEach((id) => { next[id] = Object.assign({}, next[id], { flag: true }) })
         writeMarks(next)
         return next
       })
+      offerUndo({ kind: 'flag', before })
       setNotice('Flagged ' + pickedLive.length + (pickedLive.length === 1 ? ' session.' : ' sessions.'))
       setPicked([])
     }),
-    bulkButton('archive', 'Archive', () => run((id) => services.archiveSession(id), (n) => 'Archived ' + n + ' sessions.', (ok, n) => 'Archived ' + ok + ' of ' + n + ' sessions.')),
+    bulkButton('archive', 'Archive', async () => {
+      const archived = []
+      for (let at = 0; at < pickedLive.length; at += 1) {
+        try { await services.archiveSession(pickedLive[at]); archived.push(pickedLive[at]) } catch { /* keep going */ }
+      }
+      if (archived.length > 0) offerUndo({ kind: 'archive', ids: archived })
+      setNotice(archived.length === pickedLive.length
+        ? 'Archived ' + plural(archived.length, 'session', 'sessions') + '.'
+        : 'Archived ' + archived.length + ' of ' + plural(pickedLive.length, 'session', 'sessions') + '.')
+      setPicked([])
+    }),
     bulkButton('copy', 'Copy ids', async () => {
       try {
         await navigator.clipboard.writeText(pickedLive.join('\n'))
@@ -3171,7 +3199,36 @@ export function BetterWorkspace(props) {
   if (helpHint) children.push(helpHint)
 
   if (notice) {
-    children.push(React.createElement('div', { key: 'notice', 'data-polish-ws': 'notice', style: WS_NOTICE }, notice))
+    const runUndo = async () => {
+      const payload = undo
+      if (!payload) return
+      setUndo(null)
+      if (payload.kind === 'flag') {
+        setMarks(payload.before)
+        writeMarks(payload.before)
+        setNotice('Flags put back.')
+        return
+      }
+      let back = 0
+      for (let at = 0; at < payload.ids.length; at += 1) {
+        try { await services.unarchiveSession(payload.ids[at]); back += 1 } catch { /* keep going */ }
+      }
+      setNotice(back === payload.ids.length
+        ? 'Restored ' + plural(back, 'session', 'sessions') + '.'
+        : 'Restored ' + back + ' of ' + plural(payload.ids.length, 'session', 'sessions') + '.')
+    }
+    children.push(React.createElement('div', { key: 'notice', 'data-polish-ws': 'notice', style: WS_NOTICE },
+      notice,
+      undo
+        ? React.createElement('button', {
+          key: 'undo',
+          type: 'button',
+          'data-polish-undo': undo.kind,
+          title: 'Put back what the last bulk action changed',
+          style: Object.assign({}, WS_MENU_ITEM, { display: 'inline-block', width: 'auto', padding: '0 6px', marginLeft: '6px' }),
+          onClick: () => { runUndo() },
+        }, 'Undo')
+        : null))
   }
 
   if (adding && services.sourceFlow) {

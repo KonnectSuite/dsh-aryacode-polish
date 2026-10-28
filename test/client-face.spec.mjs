@@ -519,3 +519,10 @@ test('a running session is marked the same way in its workspace and when pinned'
   assert.ok(bundle.includes("'data-polish-session-running'"))
   assert.ok(bundle.includes("'data-polish-pinned-running'"))
 })
+
+test('a bulk change offers a way back out', () => {
+  assert.ok(workspaceSource.includes("'data-polish-undo'"), 'the notice can carry an Undo')
+  assert.ok(workspaceSource.includes('offerUndo'), 'the action is offered, not assumed')
+  assert.ok(workspaceSource.includes('unarchiveSession(payload.ids[at])'), 'archiving is undone one session at a time')
+  assert.ok(workspaceSource.includes('writeMarks(payload.before)'), 'flagging is undone from the marks it replaced')
+})

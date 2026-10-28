@@ -472,3 +472,16 @@ session is never averaged in as zero.
 Density, sort and the shortcut sheet left the header for the header menu (right-click the
 title). The header keeps only the four actions that are about this tree right now: fold,
 copy as text, sort, and add.
+
+
+## Undo
+
+Bulk actions that change durable state offer a way back for twelve seconds: the notice that
+follows a bulk **Archive** or **Flag** carries an **Undo** (`button[data-polish-undo]`).
+
+- Archive stores the ids it actually archived, so undo unarchives exactly those — a Host
+  refusal is not counted as something to put back.
+- Flag stores the marks map it replaced, so undo restores the whole map rather than trying to
+  unset flags one by one (a session may have had a note too).
+- The offer expires on a timer and on unmount; `plural(count, one, many)` keeps the notice
+  reading like English ("Archived 1 session.").
