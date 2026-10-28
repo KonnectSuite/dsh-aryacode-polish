@@ -297,4 +297,15 @@ test('folders and saved orders ride the same workspace seat', () => {
   assert.ok(workspaceSource.includes('workspaces.rename('), 'the rename is a Host call')
   assert.ok(workspaceSource.includes('data-polish-switcher'), 'Ctrl-K opens a switcher')
   assert.ok(workspaceSource.includes('aryacode-polish:folded'), 'the folded state has a storage key')
+
+})
+
+test('the tree offers density modes and an archived section', () => {
+  assert.ok(workspaceSource.includes("'data-polish-ws-density'"), 'the header carries the density switch')
+  assert.ok(workspaceSource.includes('aryacode-polish:density'), 'the chosen density is remembered')
+  assert.ok(workspaceSource.includes('DENSITY_METRICS'), 'density changes row height from a table')
+  assert.ok(workspaceSource.includes("'data-polish-ws-archived'"), 'archived sessions get their own section')
+  assert.ok(workspaceSource.includes("'data-polish-ws-unarchive'"), 'an archived row can be restored')
+  assert.ok(workspaceSource.includes('workspaces.unarchiveSession('), 'restoring goes through the Host verb')
+  assert.ok(workspaceSource.includes('splitArchived('), 'archived sessions leave their workspace rows')
 })

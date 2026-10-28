@@ -23,7 +23,11 @@ import {
   workspaceLabel,
   sessionRank,
   shippedBrowserEntry,
-  workspaceRows,
+  workspaceRows,  densityOf,
+  readDensity,
+  writeDensity,
+  splitArchived,
+
 } from '../client/workspace.js'
 
 const session = (id, title, updatedAt) => ({ id, displayTitle: title, updatedAt })
@@ -268,5 +272,38 @@ describe('quick switcher and folded state', () => {
     assert.deepEqual(readFolded(storage), { workspaces: { w1: false }, folders: { Work: true } })
     assert.deepEqual(readFolded({ getItem: () => 'nope{', setItem: () => {} }), { workspaces: {}, folders: {} })
     assert.deepEqual(readFolded(undefined), { workspaces: {}, folders: {} })
+  })
+})
+
+describe('density and the archived section', () => {
+  const memoryStorage = () => {
+    const memory = new Map()
+    return { getItem: k => (memory.has(k) ? memory.get(k) : null), setItem: (k, v) => memory.set(k, v) }
+  }
+
+  it('reads comfort by default and survives junk', () => {
+    assert.equal(densityOf(undefined), 'comfortable')
+    assert.equal(densityOf('compact'), 'compact')
+    assert.equal(densityOf('cozy'), 'comfortable')
+    assert.equal(readDensity(undefined), 'comfortable')
+    assert.equal(readDensity({ getItem: () => 'cozy', setItem: () => {} }), 'comfortable')
+    assert.equal(readDensity({ getItem: () => { throw new Error('locked') }, setItem: () => {} }), 'comfortable')
+  })
+
+  it('remembers the chosen density', () => {
+    const storage = memoryStorage()
+    writeDensity('compact', storage)
+    assert.equal(readDensity(storage), 'compact')
+    writeDensity('comfortable', storage)
+    assert.equal(readDensity(storage), 'comfortable')
+    assert.doesNotThrow(() => writeDensity('compact', undefined))
+  })
+
+  it('splits archived sessions out of the rows a workspace shows', () => {
+    const sessions = [{ id: 'a' }, { id: 'b' }, { id: 'c' }]
+    assert.deepEqual(splitArchived(sessions, ['b']), { active: [{ id: 'a' }, { id: 'c' }], archived: [{ id: 'b' }] })
+    assert.deepEqual(splitArchived(sessions, new Set(['c'])), { active: [{ id: 'a' }, { id: 'b' }], archived: [{ id: 'c' }] })
+    assert.deepEqual(splitArchived(sessions, undefined), { active: sessions, archived: [] })
+    assert.deepEqual(splitArchived(undefined, ['a']), { active: [], archived: [] })
   })
 })

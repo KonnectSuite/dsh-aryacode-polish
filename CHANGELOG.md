@@ -1,5 +1,19 @@
 # Changelog
 
+## [0.15.2] - 2026-10-28
+
+### Added
+- **Density modes.** A control in the tree header switches between comfortable and
+  compact rows, and the choice is remembered (`aryacode-polish:density.v1`). Density
+  changes row height only — the text size stays readable.
+
+### Fixed
+- **Expand all now expands folders too.** The header button only flipped workspace rows, so a
+  folded folder kept its workspaces hidden while the button claimed everything was open.
+- **Archived sessions no longer sit in their workspace.** The tree now reads
+  `archivedSessionIds` (it never did) and shows those sessions in a collapsed
+  **Archived** section at the bottom, each one restorable from its own menu.
+
 ## [0.14.0] - 2026-10-28
 
 ### Added

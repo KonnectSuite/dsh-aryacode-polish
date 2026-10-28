@@ -1,32 +1,31 @@
 ﻿const fs = require('node:fs')
 const p = 'docs/better-workspace.md'
 let doc = fs.readFileSync(p, 'utf8')
-if (!doc.includes('## What M2 added')) {
-  doc += `
-## What M2 added
+if (doc.includes('## Density')) { console.log('docs already updated'); process.exit(0) }
+doc += `
+## Density
 
-- **Filter** — one box over workspaces and session titles. Every group it keeps is
-  opened, because a match you cannot see is not a match; the footer reports
-  "n of m sessions" whenever the filter hides any. \`/\` focuses it from anywhere,
-  Escape clears it.
-- **Pinned first, running dot** — a pinned session is hoisted to the top of its
-  workspace with a star, and a running session shows a dot, so the row can be read
-  without clicking it.
-- **Drag and drop** — a workspace dropped on another moves in front of it
-  (\`workspaces.insertBefore\`); a session dropped on a sibling reorders it
-  (\`workspaces.insertSessionBefore\`). A session refuses to leave its workspace: the
-  Host stores sessions inside workspaces, and moving one would look like a delete.
-- **Keyboard walk** — arrows move a highlighted row, Enter opens a session or folds a
-  workspace, Escape closes the menu, then clears the filter, then drops the cursor.
-- **Quiet rows** — the "..." action appears on hover or on the keyboard cursor instead
-  of on every row at once, and a header control folds or expands every workspace.
+The header carries a density control that flips between comfortable (28 px rows) and
+compact (22 px rows), remembered under \`aryacode-polish:density.v1\`. Density changes row
+height only: the text keeps its size, so a compact tree is still readable on a laptop.
+The row height travels through the CSS variable \`--polish-ws-row\`, which the tree element
+sets from \`DENSITY_METRICS\`; nothing else in the row styling depends on the mode.
 
-Still owed: "/"-in-title grouping, per-row appearance, workspace presets, and the same
-tree in the Hero picker.
+## Archived sessions
+
+Archiving a session removes it from its workspace — that is what the Host means by
+archived, and the shipped browser simply stops rendering it. Here those sessions keep a
+collapsed **Archived** section at the bottom of the tree instead, dimmed and italic, with
+their count on the header. Clicking one opens it; right-clicking offers **Unarchive
+session**, which goes through \`workspaces.unarchiveSession\`. This also fixed a real gap:
+before this, \`workspaceRows\` never consulted \`archivedSessionIds\`, so archived sessions
+were being rendered inline in their workspace as if they were live.
+
+## Folding everything
+
+The header's fold control expands when anything is folded (folders included) and folds
+only when nothing is. An earlier version only looked at workspace rows, so a folded
+folder left the button saying "Expand all" while its workspaces stayed hidden.
 `
-  fs.writeFileSync(p, doc)
-}
-let readme = fs.readFileSync('README.md', 'utf8')
-readme = readme.replace(/seven features shipped/g, 'eight features shipped')
-fs.writeFileSync('README.md', readme)
+fs.writeFileSync(p, doc)
 console.log('docs updated')

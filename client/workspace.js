@@ -202,7 +202,7 @@ const WS_ROW = {
   gap: '6px',
   boxSizing: 'border-box',
   width: '100%',
-  height: '28px',
+  height: 'var(--polish-ws-row, 28px)',
   padding: '0 6px',
   border: 'none',
   borderRadius: 'var(--dsw-radius-sm, 6px)',
@@ -385,6 +385,68 @@ export function moveBefore(list, movingId, beforeId) {
 const LOOK_KEY = 'aryacode-polish:workspace-appearance.v1'
 const ORDER_KEY = 'aryacode-polish:workspace-order.v1'
 const FOLD_KEY = 'aryacode-polish:folded.v1'
+const DENSITY_KEY = 'aryacode-polish:density.v1'
+
+export const DENSITIES = ['comfortable', 'compact']
+
+/** Row height per density: the tree fits more rows without shrinking the text. */
+export const DENSITY_METRICS = {
+  comfortable: { row: '28px' },
+  compact: { row: '22px' },
+}
+
+export function densityOf(value) {
+  return value === 'compact' ? 'compact' : 'comfortable'
+}
+
+export function readDensity(storage) {
+  try {
+    const store = storage || (typeof localStorage === 'undefined' ? undefined : localStorage)
+    if (!store) return 'comfortable'
+    return densityOf(store.getItem(DENSITY_KEY))
+  } catch {
+    return 'comfortable'
+  }
+}
+
+export function writeDensity(value, storage) {
+  try {
+    const store = storage || (typeof localStorage === 'undefined' ? undefined : localStorage)
+    if (!store) return
+    store.setItem(DENSITY_KEY, densityOf(value))
+  } catch {
+    /* remembering this is a nicety, not a requirement */
+  }
+}
+
+/**
+ * Split the flat session list into the rows a workspace shows and the ones it has
+ * archived. The shipped browser hides archived sessions; here they keep a section of
+ * their own at the bottom instead of disappearing without a trace.
+ */
+export function splitArchived(sessions, archivedIds) {
+  const archive = archivedIds instanceof Set ? archivedIds : new Set(archivedIds || [])
+  const active = []
+  const archived = []
+  for (const session of Array.isArray(sessions) ? sessions : []) {
+    if (archive.has(session.id)) archived.push(session)
+    else active.push(session)
+  }
+  return { active, archived }
+}
+
+const WS_SECTION = {
+  display: 'flex',
+  alignItems: 'center',
+  gap: '5px',
+  padding: '8px 6px 2px',
+  textTransform: 'uppercase',
+  letterSpacing: '0.04em',
+  color: 'var(--dsw-alias-label-quaternary, #8a8a8a)',
+  fontSize: 'calc(' + 'var(--dsh-content-font-size-secondary, 13px)' + ' - 3px)',
+  cursor: 'pointer',
+  userSelect: 'none',
+}
 
 /** Which workspaces and folders are folded, kept so a restart looks like yesterday. */
 export function readFolded(storage) {
@@ -715,6 +777,8 @@ export function BetterWorkspace(props) {
   const folded = React.useMemo(() => readFolded(), [])
   const [folders, setFolders] = React.useState(folded.folders)
   const [switcher, setSwitcher] = React.useState(null)
+  const [density, setDensity] = React.useState(() => readDensity())
+  const [archiveOpen, setArchiveOpen] = React.useState(false)
   React.useEffect(() => { writeFolded({ workspaces: expanded, folders }) }, [expanded, folders])
   const [renaming, setRenaming] = React.useState(null)
   const commitRename = async () => {
@@ -750,7 +814,11 @@ export function BetterWorkspace(props) {
     () => new Set((workspaceState && workspaceState.pinnedSessionIds) || []),
     [workspaceState],
   )
-  const allRows = workspaceRows(workspaceList, sessionList)
+  const metrics = DENSITY_METRICS[densityOf(density)]
+  const archiveSet = new Set((workspaceState && workspaceState.archivedSessionIds) || [])
+  const split = splitArchived(sessionList, archiveSet)
+  const allRows = workspaceRows(workspaceList, split.active)
+  const archivedSessions = split.archived
   const rows = filterTree(allRows, query, pinned)
   const folderOf = (workspace) => folderKey(workspace)
   const visibleRows = rows.filter((group) => {
@@ -763,7 +831,12 @@ export function BetterWorkspace(props) {
   const entries = React.useMemo(() => rowMenuEntries(slots), [slots, workspaceList.length, sessionList.length])
   const totalCount = allRows.reduce((sum, row) => sum + row.sessions.length, 0)
   const shownCount = rows.reduce((sum, row) => sum + row.sessions.length, 0)
-  const allFolded = rows.length > 0 && rows.every(row => expanded[row.workspace.workspaceId] === false)
+  const folderNames = Array.from(new Set(rows.map(row => folderKey(row.workspace)).filter(Boolean)))
+  // One click should always do the useful thing: if anything is folded, the button
+  // expands everything (folders included); only when nothing is folded does it fold.
+  const anyFolded = rows.some(row => expanded[row.workspace.workspaceId] === false)
+    || folderNames.some(name => folders[name] === true)
+  const allFolded = rows.length > 0 && !anyFolded
 
   React.useEffect(() => {
     if (cursor >= walk.length) setCursor(walk.length - 1)
@@ -833,10 +906,17 @@ export function BetterWorkspace(props) {
     })
   }
   const foldAll = () => {
-    if (allFolded) { setExpanded({}); return }
+    if (anyFolded) {
+      setExpanded({})
+      setFolders({})
+      return
+    }
     const next = {}
     rows.forEach((row) => { next[row.workspace.workspaceId] = false })
+    const nextFolders = {}
+    folderNames.forEach((name) => { nextFolders[name] = true })
     setExpanded(next)
+    setFolders(nextFolders)
   }
 
   const reorderWorkspace = async (movingId, beforeId) => {
@@ -980,6 +1060,25 @@ export function BetterWorkspace(props) {
       }, armed && armed === menu.workspace.workspaceId ? 'Remove workspace?' : 'Remove workspace'))
     : null
 
+  const archivedMenu = menu && menu.kind === 'archived'
+    ? React.createElement(RowMenu, { anchor: menu.anchor, onClose: closeMenu },
+      React.createElement('button', {
+        type: 'button',
+        'data-polish-ws-unarchive': menu.row.id,
+        style: WS_MENU_ITEM,
+        onClick: async () => {
+          const row = menu.row
+          closeMenu()
+          try {
+            await services.unarchiveSession(row.id)
+            setNotice('Restored that session.')
+          } catch {
+            setNotice('Could not restore that session.')
+          }
+        },
+      }, 'Unarchive session'))
+    : null
+
   const paintMenu = menu && menu.kind === 'paint'
     ? (() => {
       const workspace = menu.workspace
@@ -1093,6 +1192,19 @@ export function BetterWorkspace(props) {
       style: WS_ADD,
       onClick: foldAll,
     }, allFolded ? '⌄' : '⌃'),
+    React.createElement('button', {
+      key: 'density',
+      type: 'button',
+      'data-polish-ws-density': densityOf(density),
+      title: densityOf(density) === 'compact' ? 'Use comfortable rows' : 'Use compact rows',
+      'aria-label': densityOf(density) === 'compact' ? 'Use comfortable rows' : 'Use compact rows',
+      style: WS_ADD,
+      onClick: () => {
+        const next = densityOf(density) === 'compact' ? 'comfortable' : 'compact'
+        setDensity(next)
+        writeDensity(next)
+      },
+    }, densityOf(density) === 'compact' ? '≡' : '≣'),
     React.createElement('button', {
       key: 'add',
       type: 'button',
@@ -1301,6 +1413,36 @@ export function BetterWorkspace(props) {
     }
   })
 
+  if (archivedSessions.length > 0) {
+    children.push(React.createElement('div', {
+      key: 'archived-head',
+      'data-polish-ws-archived': 'head',
+      style: WS_SECTION,
+      onClick: () => setArchiveOpen((open) => !open),
+    },
+    React.createElement('span', { 'aria-hidden': 'true' }, archiveOpen ? '⌄' : '›'),
+    React.createElement('span', { style: WS_TITLE }, 'Archived'),
+    React.createElement('span', { style: WS_COUNT }, String(archivedSessions.length))))
+
+    if (archiveOpen) {
+      for (const row of archivedSessions) {
+        children.push(React.createElement('div', {
+          key: 'archived:' + row.id,
+          'data-polish-ws-archived-row': row.id,
+          title: 'Archived session',
+          style: Object.assign({}, WS_ROW, { opacity: 0.7, fontStyle: 'italic' }),
+          onClick: () => services.openSession(row.id),
+          onContextMenu: (event) => {
+            event.preventDefault()
+            event.stopPropagation()
+            setMenu({ kind: 'archived', row, anchor: { top: event.clientY, left: event.clientX } })
+          },
+        },
+        React.createElement('span', { style: WS_TITLE }, row.displayTitle || row.id)))
+      }
+    }
+  }
+
   return React.createElement('div', {
     'data-polish-ws': 'tree',
     tabIndex: 0,
@@ -1317,6 +1459,7 @@ export function BetterWorkspace(props) {
       overflowX: 'hidden',
       padding: '2px 6px 12px',
       outline: 'none',
+      '--polish-ws-row': metrics.row,
     },
   },
   children,
@@ -1325,6 +1468,7 @@ export function BetterWorkspace(props) {
     : null,
   switcherCard,
   sessionMenu,
+  archivedMenu,
   paintMenu,
   workspaceMenu)
 }
@@ -1451,6 +1595,7 @@ export function installWorkspaceSeat(ctx, configForms, extras = {}) {
             reorderSession: (workspaceId, movingId, beforeId) => seated.workspaces.insertSessionBefore(workspaceId, movingId, beforeId),
             removeWorkspace: (id) => seated.workspaces.delete(id),
             renameWorkspace: (id, title) => seated.workspaces.rename(id, title),
+            unarchiveSession: (id) => seated.workspaces.unarchiveSession(id),
             openFolder: async (path) => {
               const answer = await seated.remote.session.openWorkspacePath({ path })
               if (answer && answer.ok === false) throw new Error('cannot open the folder')
