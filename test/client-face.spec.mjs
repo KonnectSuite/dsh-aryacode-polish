@@ -434,3 +434,13 @@ test('dropping a workspace on another one refiles it, and an archived row can op
   assert.ok(bundle.includes('Moved into '))
   assert.ok(bundle.includes('await reorderWorkspace(moving.id, targetId)'))
 })
+
+
+test('the tree can explain itself, and stops hinting once it has', () => {
+  const bundle = read('lib/client.js')
+  assert.ok(bundle.includes("'data-polish-ws-help': 'open'"))
+  assert.ok(bundle.includes("'data-polish-ws-help-row'"))
+  assert.ok(bundle.includes("'data-polish-ws-help-hint'"))
+  assert.ok(bundle.includes('aryacode-polish:help.v1'))
+  assert.ok(bundle.includes("event.key !== '?'"))
+})

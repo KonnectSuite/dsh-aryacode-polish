@@ -57,7 +57,7 @@ import {
   splitArchived,
   splitPinned,
   costOf,
-  costLabel, sumCost, folderHasRunning, sumCostLabel,
+  costLabel, sumCost, folderHasRunning, readHelp, writeHelp, sumCostLabel,
   GLYPHS,
 } from '../client/workspace.js'
 
@@ -668,5 +668,28 @@ describe('a folder knows when something inside is running', () => {
     assert.equal(folderHasRunning([{ sessions: [{ running: false }] }]), false)
     assert.equal(folderHasRunning([]), false)
     assert.equal(folderHasRunning(undefined), false)
+  })
+})
+
+
+describe('the shortcut sheet remembers it was opened', () => {
+  it('starts unseen, remembers, and can be forgotten', () => {
+    const store = new Map()
+    const shim = {
+      getItem: (k) => (store.has(k) ? store.get(k) : null),
+      setItem: (k, v) => store.set(k, String(v)),
+      removeItem: (k) => store.delete(k),
+    }
+    assert.equal(readHelp(shim), false)
+    writeHelp(true, shim)
+    assert.equal(readHelp(shim), true)
+    writeHelp(false, shim)
+    assert.equal(readHelp(shim), false)
+  })
+
+  it('survives a storage that throws', () => {
+    const angry = { getItem: () => { throw new Error('nope') }, setItem: () => { throw new Error('nope') }, removeItem: () => { throw new Error('nope') } }
+    assert.equal(readHelp(angry), false)
+    assert.doesNotThrow(() => writeHelp(true, angry))
   })
 })

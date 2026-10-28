@@ -371,3 +371,10 @@ Dropping a workspace onto another workspace row does both halves of the move: it
 workspace into the target's folder (or out to the top level when the target is unfiled) and then
 repositions it immediately before the target. Two Host calls, one gesture — `rename` then
 `insertBefore`. A drop on a folder header still only files.
+
+## Teaching itself
+
+`?` (or the header's `?`) opens a sheet listing every gesture: Enter, `[`/`]`, `/`, Ctrl+K,
+Shift+F10, Alt+click, double-click, drag. Until that sheet has been opened once, one dim line under
+the filter says so; opening it stores `aryacode-polish:help.v1` and the hint stops. A storage that
+refuses to remember only means the hint stays.

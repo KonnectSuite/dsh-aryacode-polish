@@ -1,3 +1,9 @@
+## [0.32.0] - 2026-10-28
+
+Added: a shortcut sheet (? or the header's ? button) listing every gesture the tree answers to, and a
+one-line hint under the filter that disappears once the sheet has been opened
+(`aryacode-polish:help.v1`).
+
 ## [0.31.0] - 2026-10-28
 
 Changed: dropping a workspace onto another workspace row now re-files it into that row's folder and
