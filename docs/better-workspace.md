@@ -709,3 +709,14 @@ workspace**, which calls the same `workspaces.create({ path })` the GitHub clone
 session into the result. Verified live: "Other sessions" held one session started in
 `C:\Users\KNPhu\.arya\github\KonnectSuite\AryaCode`; the menu said "Made AryaCode a workspace.", an
 `AryaCode` workspace appeared with that session, and the group disappeared because nothing was left in it.
+
+
+### History on disk
+
+The stack and the cursor live in `aryacode-polish:history.v1` (`readHistory` / `writeHistory`, 50 entries max,
+junk dropped, an out-of-range position clamped, the key removed when the stack empties). It is written on
+every open and every step, so **Alt+Left still works after a reload** — verified by opening two sessions
+(`{"stack":[a,b],"at":1}`), reloading the page, and pressing Alt+Left: "Back to AryaCode."
+
+The module-level guard matters: `historyStore` reads storage through
+`typeof window !== 'undefined' && window.localStorage`, because the specs import this module in Node.

@@ -9,6 +9,8 @@ import {
   matchesText,
   highlightSegments,
   historyPush,
+  readHistory,
+  writeHistory,
   historyBack,
   historyForward,
   firstRunning,
@@ -1351,5 +1353,38 @@ describe('folder helpers', () => {
     assert.equal(workspaceTaken('c:\\work\\beta', list), true)
     assert.equal(workspaceTaken('C:\\Elsewhere', list), false)
     assert.equal(workspaceTaken('', list), false)
+  })
+})
+
+describe('session history on disk', () => {
+  const memory = () => {
+    const store = new Map()
+    return {
+      getItem: (key) => (store.has(key) ? store.get(key) : null),
+      setItem: (key, value) => store.set(key, value),
+      removeItem: (key) => store.delete(key),
+    }
+  }
+
+  it('a written stack comes back with its position', () => {
+    const storage = memory()
+    assert.deepEqual(readHistory(storage), { stack: [], at: -1 })
+    writeHistory({ stack: ['a', 'b'], at: 1 }, storage)
+    assert.deepEqual(readHistory(storage), { stack: ['a', 'b'], at: 1 })
+  })
+
+  it('junk is dropped and an out-of-range position is clamped', () => {
+    const storage = memory()
+    storage.setItem('aryacode-polish:history.v1', JSON.stringify({ stack: ['a', 42, '', 'b'], at: 9 }))
+    assert.deepEqual(readHistory(storage), { stack: ['a', 'b'], at: 1 })
+  })
+
+  it('an empty stack removes the key, and broken JSON is not fatal', () => {
+    const storage = memory()
+    writeHistory({ stack: ['a'], at: 0 }, storage)
+    writeHistory({ stack: [], at: -1 }, storage)
+    assert.equal(storage.getItem('aryacode-polish:history.v1'), null)
+    storage.setItem('aryacode-polish:history.v1', 'not json')
+    assert.deepEqual(readHistory(storage), { stack: [], at: -1 })
   })
 })

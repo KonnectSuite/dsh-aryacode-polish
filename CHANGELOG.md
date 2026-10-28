@@ -1,3 +1,8 @@
+## [0.77.0]
+
+- The session history survives a reload: the stack and the position are written to
+  `aryacode-polish:history.v1` on every open and every step, so Alt+Left still works after a restart.
+
 ## [0.76.1]
 
 - Fix the placement of the `Make this folder a workspace` row: it was appended to the workspace menu

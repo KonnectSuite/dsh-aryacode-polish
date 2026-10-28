@@ -1816,7 +1816,41 @@ export function historyPush(state, id, limit) {
   return { stack: capped, at: capped.length - 1 }
 }
 
-const historyStore = { value: { stack: [], at: -1 } }
+const HISTORY_KEY = 'aryacode-polish:history.v1'
+
+export function readHistory(storage) {
+  try {
+    const raw = storage.getItem(HISTORY_KEY)
+    if (!raw) return { stack: [], at: -1 }
+    const parsed = JSON.parse(raw)
+    const kept = Array.isArray(parsed && parsed.stack) ? parsed.stack.filter((id) => typeof id === 'string' && id !== '') : []
+    const stack = kept.length > 50 ? kept.slice(kept.length - 50) : kept
+    if (stack.length === 0) return { stack: [], at: -1 }
+    const wanted = parsed && typeof parsed.at === 'number' ? parsed.at : stack.length - 1
+    return { stack, at: Math.max(0, Math.min(stack.length - 1, wanted)) }
+  } catch (error) {
+    return { stack: [], at: -1 }
+  }
+}
+
+export function writeHistory(state, storage) {
+  try {
+    const stack = Array.isArray(state && state.stack) ? state.stack : []
+    if (stack.length === 0) storage.removeItem(HISTORY_KEY)
+    else storage.setItem(HISTORY_KEY, JSON.stringify({ stack, at: typeof state.at === 'number' ? state.at : stack.length - 1 }))
+  } catch (error) {
+    return
+  }
+}
+
+const historyStore = {
+  value: typeof window !== 'undefined' && window.localStorage ? readHistory(window.localStorage) : { stack: [], at: -1 },
+}
+
+const rememberHistory = (next) => {
+  historyStore.value = next
+  writeHistory(next, window.localStorage)
+}
 
 export function historyBack(state) {
   if (!state || !Array.isArray(state.stack)) return undefined
@@ -2088,7 +2122,7 @@ export function BetterWorkspace(props) {
   const history = historyStore.value
   const sessionsRef = React.useRef([])
   const openWithHistory = React.useCallback((id) => {
-    historyStore.value = historyPush(historyStore.value, id)
+    rememberHistory(historyPush(historyStore.value, id))
     services.openSession(id)
   }, [])
   const [picked, setPicked] = React.useState([])
@@ -2346,7 +2380,7 @@ export function BetterWorkspace(props) {
       const step = forward ? historyForward(current) : historyBack(current)
       event.preventDefault()
       if (!step) { setNotice(forward ? 'Nothing to go forward to.' : 'Nothing to go back to.'); return }
-      historyStore.value = { stack: current.stack, at: step.at }
+      rememberHistory({ stack: current.stack, at: step.at })
       services.openSession(step.id)
       const named = ((sessionsRef.current || []).filter((entry) => entry && entry.id === step.id)[0] || {}).displayTitle
       setNotice((forward ? 'Forward to ' : 'Back to ') + (named || 'that session') + '.')
