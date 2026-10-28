@@ -384,3 +384,10 @@ refuses to remember only means the hint stays.
 A pinned row carries the same information as a session row in its workspace: title, running dot, what
 it has cost, and a hover star that unpins it in place. Its context menu is the shipped session menu,
 so Pin/Rename/Fork/Archive/Copy ID/Open workspace folder all work there too — including duplication.
+
+## A folder has a look too
+
+Right-clicking a folder header opens a panel with a colour, a glyph and a bold/weight toggle, plus
+rename and (for a declared but still empty folder) remove. Folders are title prefixes, not Host
+objects, so the look is stored under `folder:<name>` in `aryacode-polish:workspace-appearance.v1`:
+one store, and a folder rename moves its entry with the members it renames.

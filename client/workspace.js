@@ -1150,6 +1150,20 @@ export function writeAppearance(map, storage) {
   }
 }
 
+export const FOLDER_LOOK_PREFIX = 'folder:'
+
+/**
+ * A folder is only a title prefix, so its look is stored under a reserved key in the same map the
+ * workspace looks use. One storage key means one migration when a folder is renamed.
+ */
+export function folderLookOf(map, name) {
+  return appearanceOf(map, FOLDER_LOOK_PREFIX + name)
+}
+
+export function withFolderLook(map, name, patch) {
+  return withAppearance(map, FOLDER_LOOK_PREFIX + name, patch)
+}
+
 const WS_TONE = {
   flex: 'none',
   width: '6px',
@@ -1819,12 +1833,100 @@ export function BetterWorkspace(props) {
                 delete next[from]
                 return next
               })
+              setLook((prev) => {
+                const next = Object.assign({}, prev)
+                if (next[FOLDER_LOOK_PREFIX + from] !== undefined) next[FOLDER_LOOK_PREFIX + target] = next[FOLDER_LOOK_PREFIX + from]
+                delete next[FOLDER_LOOK_PREFIX + from]
+                return next
+              })
               setNotice('Folder renamed.')
             })
             .catch(() => setNotice('Could not rename that folder.'))
         },
       }),
       React.createElement('div', { style: WS_MENU_HINT }, 'Renames every workspace inside it'))
+    : null
+
+  const folderLookMenu = menu && menu.kind === 'folderLook'
+    ? (() => {
+      const current = folderLookOf(look, menu.folder)
+      const paint = (patch) => setLook((prev) => {
+        const next = withFolderLook(prev, menu.folder, patch)
+        writeAppearance(next)
+        return next
+      })
+      return React.createElement(RowMenu, { anchor: menu.anchor, onClose: closeMenu },
+        React.createElement('div', { style: WS_PAINT_ROW },
+          TONE_ORDER.map((tone) => React.createElement('button', {
+            key: tone,
+            type: 'button',
+            'data-polish-folder-tone-pick': tone,
+            'aria-label': 'Colour ' + tone,
+            title: tone,
+            style: Object.assign({}, WS_SWATCH, {
+              background: TONE_COLOR[tone],
+              boxShadow: current.tone === tone ? '0 0 0 1.5px var(--dsw-alias-label-secondary, #61666b)' : undefined,
+            }),
+            onClick: () => paint({ tone }),
+          })),
+          React.createElement('button', {
+            key: 'none',
+            type: 'button',
+            'data-polish-folder-tone-pick': 'none',
+            'aria-label': 'No colour',
+            title: 'No colour',
+            style: Object.assign({}, WS_SWATCH, { background: 'transparent' }),
+            onClick: () => paint({ tone: undefined }),
+          })),
+        React.createElement('div', { style: WS_GLYPH_GRID },
+          GLYPHS.map((glyph) => React.createElement('button', {
+            key: glyph,
+            type: 'button',
+            'data-polish-folder-glyph-pick': glyph,
+            'aria-label': 'Glyph ' + glyph,
+            title: 'Use ' + glyph,
+            style: Object.assign({}, WS_GLYPH_BUTTON, {
+              background: current.glyph === glyph ? 'var(--dsw-alias-interactive-bg-hover, rgba(0, 0, 0, 0.06))' : undefined,
+            }),
+            onClick: () => paint({ glyph: current.glyph === glyph ? undefined : glyph }),
+          }, glyph))),
+        React.createElement('button', {
+          type: 'button',
+          'data-polish-folder-strong': current.strong ? 'on' : 'off',
+          style: WS_MENU_ITEM,
+          onClick: () => paint({ strong: !current.strong }),
+        }, current.strong ? 'Weight: bold \u2713' : 'Weight: normal'),
+        React.createElement('div', { style: WS_MENU_HINT }, 'Colour, glyph and weight for this folder'),
+        React.createElement('button', {
+          type: 'button',
+          'data-polish-folder-look-rename': menu.folder,
+          style: WS_MENU_ITEM,
+          onClick: () => {
+            const anchor = menu.anchor
+            const moving = rows.filter((entry) => folderOf(entry.workspace) === menu.folder).map((entry) => entry.workspace)
+            setFolderDraft(menu.folder)
+            setMenu({ kind: 'renameFolder', folder: menu.folder, anchor, members: moving })
+          },
+        }, 'Rename folder\u2026'),
+        menu.empty
+          ? React.createElement('button', {
+            type: 'button',
+            'data-polish-folder-look-remove': menu.folder,
+            style: WS_MENU_ITEM,
+            onClick: () => {
+              const name = menu.folder
+              setDeclared((prev) => removeFolder(prev, name))
+              setLook((prev) => {
+                const next = withFolderLook(prev, name, { tone: undefined, glyph: undefined, strong: false })
+                writeAppearance(next)
+                return next
+              })
+              setNotice('Folder removed.')
+              closeMenu()
+            },
+          }, 'Remove this folder')
+          : null)
+    })()
     : null
 
   const markMenu = menu && menu.kind === 'mark'
@@ -2317,6 +2419,7 @@ export function BetterWorkspace(props) {
     const workspace = group.workspace
     const sessions = group.sessions
     const folder = folderOf(workspace)
+    const folderLook = folder === undefined ? {} : folderLookOf(look, folder)
     const folded = folder !== undefined && folders[folder] === true
 
     if (folder !== undefined && !announced[folder]) {
@@ -2349,6 +2452,11 @@ export function BetterWorkspace(props) {
           })
           if (collapseSiblings) setNotice('Alt+click folds the other folders too.')
         },
+        onContextMenu: (event) => {
+          event.preventDefault()
+          event.stopPropagation()
+          setMenu({ kind: 'folderLook', folder, anchor: { top: event.clientY, left: event.clientX }, empty: declared.indexOf(folder) !== -1 && inside.length === 0 })
+        },
         onDragOver: (event) => {
           if (!drag || drag.kind !== 'workspace') return
           if (folderOf(rows.find((entry) => entry.workspace.workspaceId === drag.id)?.workspace) === folder) return
@@ -2369,8 +2477,18 @@ export function BetterWorkspace(props) {
             .catch(() => setNotice('Could not file that workspace.'))
         },
       },
-      React.createElement('span', { 'aria-hidden': 'true' }, folded ? '›' : '⌄'),
-      React.createElement('span', { style: WS_TITLE }, folder),
+      React.createElement('span', { 'aria-hidden': 'true' }, folded ? '\u203A' : '\u2304'),
+      folderLook.tone
+        ? React.createElement('span', {
+          'data-polish-folder-tone': folder,
+          'aria-hidden': 'true',
+          style: Object.assign({}, WS_TONE, { background: TONE_COLOR[folderLook.tone] }),
+        })
+        : null,
+      folderLook.glyph
+        ? React.createElement('span', { 'data-polish-folder-glyph': folder, 'aria-hidden': 'true', style: WS_GLYPH }, folderLook.glyph)
+        : null,
+      React.createElement('span', { style: folderLook.strong ? Object.assign({}, WS_TITLE, { fontWeight: 600 }) : WS_TITLE }, folder),
       React.createElement('button', {
         type: 'button',
         'data-polish-folder-edit': folder,
@@ -2681,6 +2799,7 @@ export function BetterWorkspace(props) {
     : null,
   switcherCard,
   helpCard,
+  folderLookMenu,
   sessionMenu,
   glyphMenu,
   noteMenu,

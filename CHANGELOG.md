@@ -1,3 +1,12 @@
+## [0.34.0] - 2026-10-28
+
+Added: a folder carries its own colour, glyph and weight, set from its own menu (right-click a folder
+header). A folder is only a title prefix, so its look lives under a reserved `folder:` key in the same
+store the workspace looks use — which also means a renamed folder keeps its look instead of losing it.
+
+Added: that menu also renames the folder and removes a declared empty one, so every folder action now
+hangs off the folder rather than a pencil button.
+
 ## [0.33.0] - 2026-10-28
 
 Changed: a pinned row now shows what that session has cost and carries its own hover unpin star, so

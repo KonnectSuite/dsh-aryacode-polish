@@ -1,0 +1,5 @@
+﻿const fs = require('node:fs')
+const src = fs.readFileSync('CHANGELOG.md', 'utf8')
+const i = src.search(/[\u00e2\u00c2]/)
+console.log(JSON.stringify(src.slice(Math.max(0, i - 40), i + 40)))
+console.log('codepoints: ' + Array.from(src.slice(i, i + 4)).map(c => c.codePointAt(0).toString(16)).join(' '))

@@ -2,6 +2,9 @@ import assert from 'node:assert/strict'
 import { describe, it } from 'node:test'
 
 import {
+  folderLookOf,
+  withFolderLook,
+  FOLDER_LOOK_PREFIX,
   filterTree,
   flattenRows,
   moveBefore,
@@ -692,4 +695,19 @@ describe('the shortcut sheet remembers it was opened', () => {
     assert.equal(readHelp(angry), false)
     assert.doesNotThrow(() => writeHelp(true, angry))
   })
+})
+
+it('folder looks live beside workspace looks under a reserved prefix', () => {
+  let map = {}
+  map = withFolderLook(map, 'Work', { tone: 'green', glyph: '🚀' })
+  assert.deepEqual(folderLookOf(map, 'Work'), { tone: 'green', strong: false, glyph: '🚀', note: undefined })
+  assert.equal(FOLDER_LOOK_PREFIX + 'Work' in map, true)
+  // a workspace id never collides with a folder key
+  map = withAppearance(map, 'Work', { tone: 'blue' })
+  assert.equal(folderLookOf(map, 'Work').tone, 'green')
+  assert.equal(appearanceOf(map, 'Work').tone, 'blue')
+  // clearing the last field drops the entry
+  map = withFolderLook(map, 'Work', { tone: undefined, glyph: undefined, strong: false })
+  assert.equal(FOLDER_LOOK_PREFIX + 'Work' in map, false)
+  assert.equal(appearanceOf(map, 'Work').tone, 'blue')
 })

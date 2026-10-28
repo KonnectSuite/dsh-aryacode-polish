@@ -20,6 +20,14 @@ const manifest = JSON.parse(read('package.json'))
 const declaration = JSON.parse(read('client/switches.json'))
 const bundle = read('lib/client.js')
 
+test('a folder wears its own colour and glyph', () => {
+  assert.match(workspaceSource, /'data-polish-folder-tone-pick'/)
+  assert.match(workspaceSource, /'data-polish-folder-glyph-pick'/)
+  assert.match(workspaceSource, /'data-polish-folder-strong'/)
+  assert.match(workspaceSource, /folderLookOf\(/)
+  assert.match(workspaceSource, /FOLDER_LOOK_PREFIX/)
+})
+
 test('the manifest declares a browser face the Shell can find', () => {
   assert.equal(manifest.dsh.client?.platform, 'web')
   assert.equal(manifest.exports?.['./client'], './lib/client.js')
