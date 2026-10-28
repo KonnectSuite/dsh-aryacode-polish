@@ -1,5 +1,30 @@
 # Changelog
 
+## [0.13.1] - 2026-10-28
+
+### Added
+
+- **Rename a workspace in place.** The workspace menu opens an input under the search
+  box; Enter (or blurring) sends `workspaces.rename`, Escape abandons it. Renaming to
+  `Work/Client A` is also how a workspace joins a folder.
+
+### Fixed
+
+- `planReorder` ignores ids the Host no longer has, so a saved order that names a
+  deleted workspace cannot shuffle the survivors into the wrong slots.
+
+## [0.13.0] - 2026-10-28
+
+### Added
+
+- **Folders from titles.** A workspace named `Work/Client A` files itself under a
+  collapsible `Work` row, with the folder's session count on the right. The grouping is
+  derived from the label and written nowhere, so renaming the workspace moves it.
+- **Order presets.** The workspace menu can "Remember this order" and later "Restore
+  saved order", which replays the Host's only reorder verb — `insertBefore` — through a
+  pure `planReorder(current, wanted)` plan, stored under
+  `aryacode-polish:workspace-order.v1`.
+
 ## [0.12.1] - 2026-10-28
 
 ### Fixed

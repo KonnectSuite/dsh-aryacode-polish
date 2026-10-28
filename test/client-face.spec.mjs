@@ -287,3 +287,12 @@ test('the workspace seat also offers the Hero picker, with the same colours', ()
   assert.ok(workspaceSource.includes('aryacode-polish:workspace-appearance'), 'the palette has a storage key')
   assert.ok(workspaceSource.includes('writeAppearance(next)'), 'a colour is written when it is chosen')
 })
+
+test('folders and saved orders ride the same workspace seat', () => {
+  assert.ok(workspaceSource.includes('data-polish-ws-folder'), 'a folder row is rendered')
+  assert.ok(workspaceSource.includes('aryacode-polish:workspace-order'), 'the preset has a storage key')
+  assert.ok(workspaceSource.includes("'data-polish-order': 'remember'"), 'the menu can remember the order')
+  assert.ok(workspaceSource.includes('planReorder('), 'restoring walks an insertBefore plan')
+  assert.ok(workspaceSource.includes("'data-polish-ws-rename': 'open'"), 'the menu can rename a workspace')
+  assert.ok(workspaceSource.includes('workspaces.rename('), 'the rename is a Host call')
+})

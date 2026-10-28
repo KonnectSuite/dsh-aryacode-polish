@@ -5,6 +5,10 @@ import {
   filterTree,
   flattenRows,
   moveBefore,
+  folderKey,
+  planReorder,
+  readOrder,
+  writeOrder,
   TONE_ORDER,
   TONE_COLOR,
   appearanceOf,
@@ -196,5 +200,36 @@ describe('appearance', () => {
     assert.deepEqual(readAppearance(storage), map)
     assert.deepEqual(readAppearance({ getItem: () => '{not json', setItem: () => {} }), {})
     assert.deepEqual(readAppearance(undefined), {})
+  })
+})
+
+describe('folders and order presets', () => {
+  it('files a slashed title under its prefix', () => {
+    assert.equal(folderKey({ title: 'Work/Client A', workspaceId: 'a' }), 'Work')
+    assert.equal(folderKey({ title: 'Work/Deep/Client B', workspaceId: 'b' }), 'Work/Deep')
+    assert.equal(folderKey({ title: 'plain', workspaceId: 'c' }), undefined)
+    assert.equal(folderKey({ title: 'trailing/', workspaceId: 'd' }), undefined)
+    assert.equal(folderKey({ title: '/leading', workspaceId: 'e' }), undefined)
+  })
+
+  it('plans the moves that turn one order into another', () => {
+    assert.deepEqual(planReorder(['a', 'b', 'c'], ['a', 'b', 'c']), [])
+    assert.deepEqual(planReorder(['a', 'b', 'c'], ['c', 'a', 'b']), [{ movingId: 'c', beforeId: 'a' }])
+    assert.deepEqual(planReorder(['a', 'b', 'c'], ['b', 'a', 'c']), [{ movingId: 'b', beforeId: 'a' }])
+  })
+
+  it('never moves something it does not have', () => {
+    assert.deepEqual(planReorder(['a'], ['z', 'a']), [])
+    assert.deepEqual(planReorder([], ['a']), [])
+    assert.deepEqual(planReorder(['a', 'b'], []), [])
+  })
+
+  it('round-trips a saved order through storage and survives junk', () => {
+    const memory = new Map()
+    const storage = { getItem: k => (memory.has(k) ? memory.get(k) : null), setItem: (k, v) => memory.set(k, v) }
+    writeOrder(['a', 'b'], storage)
+    assert.deepEqual(readOrder(storage), ['a', 'b'])
+    assert.deepEqual(readOrder({ getItem: () => '{"nope":1}', setItem: () => {} }), [])
+    assert.deepEqual(readOrder(undefined), [])
   })
 })
