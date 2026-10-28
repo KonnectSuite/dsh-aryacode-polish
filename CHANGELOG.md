@@ -1,3 +1,7 @@
+## [0.49.0] - 2026-10-28
+
+- Ctrl-click picks sessions, shift-click picks a span, and one bar acts on all of them: pin, flag, archive, copy ids. Escape clears; a plain click on a picked row clears without opening.
+
 ## [0.48.0] - 2026-10-28
 
 - The filter speaks operators: `!` keeps running sessions, `#` keeps flagged ones, `@name` scopes the tree to a workspace or folder. The input advertises the syntax and the match counter follows the filtered rows.

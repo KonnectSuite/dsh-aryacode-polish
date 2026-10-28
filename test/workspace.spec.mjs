@@ -12,6 +12,8 @@ import {
   filterTree,
   parseQuery,
   filterSummary,
+  rangeWithin,
+  selectionLabel,
   countMatches,
   flattenRows,
   moveBefore,
@@ -1008,4 +1010,21 @@ it('an operator filter does not count the headers it merely kept', () => {
   /* a name match counts the header it actually named, once */
   assert.equal(countMatches(filterTree(source, 'alpha', new Set(), options), 'alpha'), 2)
   assert.equal(countMatches([], ''), 0)
+})
+
+
+it('a shift-click selects the span between anchor and target, either direction', () => {
+  const ids = ['a', 'b', 'c', 'd']
+  assert.deepEqual(rangeWithin(ids, 'b', 'd'), ['b', 'c', 'd'])
+  assert.deepEqual(rangeWithin(ids, 'c', 'a'), ['a', 'b', 'c'])
+  assert.deepEqual(rangeWithin(ids, 'b', 'b'), ['b'])
+  assert.deepEqual(rangeWithin(ids, 'nope', 'c'), ['c'])
+  assert.deepEqual(rangeWithin(undefined, 'a', 'b'), ['b'])
+})
+
+it('a selection never announces itself when empty', () => {
+  assert.equal(selectionLabel(1), '1 selected')
+  assert.equal(selectionLabel(4), '4 selected')
+  assert.equal(selectionLabel(0), '')
+  assert.equal(selectionLabel(undefined), '')
 })

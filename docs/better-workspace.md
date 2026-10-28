@@ -449,3 +449,8 @@ The folder menu can fold or unfold every workspace inside that folder in one cli
 ## Filter operators
 
 `!` — only sessions that are running. `#` — only sessions you flagged. `@name` — only workspaces or folders whose label contains `name`. Words still match titles; the operators compose (`# @work` is "flagged, inside Work").
+
+
+## Multi-selection
+
+Ctrl-click toggles a session, shift-click takes the span from the last picked row, and the bar under the filter acts on the whole set (pin, flag, archive, copy ids). Escape clears the selection, and a plain click on a picked row clears it instead of opening the session.

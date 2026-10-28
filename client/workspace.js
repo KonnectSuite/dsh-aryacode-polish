@@ -364,6 +364,24 @@ export function countMatches(rows, query) {
   return total
 }
 
+/** Every id between the anchor and the target, in the order they are drawn. */
+export function rangeWithin(ids, anchorId, targetId) {
+  const list = ids || []
+  const from = list.indexOf(anchorId)
+  const to = list.indexOf(targetId)
+  if (from < 0 || to < 0) return targetId === undefined ? [] : [targetId]
+  const start = Math.min(from, to)
+  const end = Math.max(from, to)
+  return list.slice(start, end + 1)
+}
+
+/** How a multi-selection announces itself, so an empty one is never rendered. */
+export function selectionLabel(count) {
+  const total = Number(count) || 0
+  if (total <= 0) return ''
+  return total === 1 ? '1 selected' : total + ' selected'
+}
+
 /** What the filter line under the box says, including the operator-only cases. */
 export function filterSummary(query, count) {
   const parsed = parseQuery(query)
@@ -1533,6 +1551,8 @@ export function BetterWorkspace(props) {
   const [hover, setHover] = React.useState(null)
   const [drag, setDrag] = React.useState(null)
   const [dropping, setDropping] = React.useState(null)
+  const [picked, setPicked] = React.useState([])
+  const [anchorId, setAnchorId] = React.useState(undefined)
   const [look, setLook] = React.useState(() => readAppearance())
   const [noteDraft, setNoteDraft] = React.useState('')
   const [card, setCard] = React.useState(null)
@@ -2907,9 +2927,58 @@ export function BetterWorkspace(props) {
     style: WS_FILTER,
     onChange: (event) => { setQuery(event.target.value); setCursor(-1) },
     onKeyDown: (event) => {
-      if (event.key === 'Escape') { event.stopPropagation(); setQuery('') }
+      if (event.key === 'Escape') { event.stopPropagation(); setQuery(''); setPicked([]) }
     },
   }))
+
+  const pickedLive = picked.filter((id) => {
+    if (pinned.has(id)) return true
+    return rows.some((group) => (group.sessions || []).some((entry) => entry.id === id))
+  })
+
+  if (pickedLive.length > 0) {
+    const run = async (work, done, failed) => {
+      let ok = 0
+      for (let at = 0; at < pickedLive.length; at += 1) {
+        try { await work(pickedLive[at]); ok += 1 } catch { /* one refusal must not stop the rest */ }
+      }
+      setNotice(ok === pickedLive.length ? done(pickedLive.length) : failed(ok, pickedLive.length))
+      setPicked([])
+    }
+    const bulkButton = (key, label, onClick) => React.createElement('button', {
+      key,
+      type: 'button',
+      'data-polish-bulk': key,
+      style: Object.assign({}, WS_MENU_ITEM, { display: 'inline-block', width: 'auto', padding: '2px 8px' }),
+      onClick,
+    }, label)
+    children.push(React.createElement('div', {
+      key: 'bulk',
+      'data-polish-bulk-bar': String(pickedLive.length),
+      style: Object.assign({}, WS_MENU_HINT, { display: 'flex', gap: '6px', flexWrap: 'wrap', alignItems: 'center' }),
+    },
+    React.createElement('span', { style: { marginRight: '2px' } }, selectionLabel(pickedLive.length)),
+    bulkButton('pin', 'Pin', () => run((id) => services.pinSession(id), (n) => 'Pinned ' + n + ' sessions.', (ok, n) => 'Pinned ' + ok + ' of ' + n + ' sessions.')),
+    bulkButton('flag', 'Flag', () => {
+      setMarks((previous) => {
+        const next = Object.assign({}, previous)
+        pickedLive.forEach((id) => { next[id] = Object.assign({}, next[id], { flag: true }) })
+        writeMarks(next)
+        return next
+      })
+      setNotice('Flagged ' + pickedLive.length + (pickedLive.length === 1 ? ' session.' : ' sessions.'))
+      setPicked([])
+    }),
+    bulkButton('archive', 'Archive', () => run((id) => services.archiveSession(id), (n) => 'Archived ' + n + ' sessions.', (ok, n) => 'Archived ' + ok + ' of ' + n + ' sessions.')),
+    bulkButton('copy', 'Copy ids', async () => {
+      try {
+        await navigator.clipboard.writeText(pickedLive.join('\n'))
+        setNotice('Copied ' + pickedLive.length + (pickedLive.length === 1 ? ' session id.' : ' session ids.'))
+      } catch { setNotice('Could not copy the ids.') }
+      setPicked([])
+    }),
+    bulkButton('clear', 'Clear', () => setPicked([]))))
+  }
 
   if (query.trim()) {
     children.push(React.createElement('div', {
@@ -2981,7 +3050,7 @@ export function BetterWorkspace(props) {
   let index = -1
   const announced = {}
 
-  const sessionRow = (workspace, row, groupIndex) => {
+  const sessionRow = (workspace, row, groupIndex, list) => {
     const sessionCost = costLabel(costOf(sessionState, row.id))
     const rowFocused = cursor === groupIndex
     const rowHovered = hover === 'session:' + row.id
@@ -2990,16 +3059,39 @@ export function BetterWorkspace(props) {
       key: 'session:' + row.id,
       'data-polish-ws-session': row.id,
       'data-polish-cursor': rowFocused ? 'true' : undefined,
+      'data-polish-session-picked': picked.indexOf(row.id) >= 0 ? 'true' : undefined,
       draggable: true,
       style: Object.assign({}, WS_ROW, {
         paddingLeft: '24px',
         opacity: drag && drag.kind === 'session' && drag.id === row.id ? 0.5 : undefined,
         background: lifted
           ? 'var(--dsw-alias-interactive-bg-hover, rgba(0, 0, 0, 0.05))'
-          : (rowFocused ? 'var(--dsw-alias-interactive-bg-hover, rgba(0, 0, 0, 0.04))' : undefined),
-        boxShadow: rowFocused ? 'inset 0 0 0 1px var(--dsw-alias-border-l2, rgba(0, 0, 0, 0.12))' : undefined,
+          : (picked.indexOf(row.id) >= 0
+            ? 'var(--dsw-alias-interactive-bg-selected, rgba(0, 0, 0, 0.09))'
+            : (rowFocused ? 'var(--dsw-alias-interactive-bg-hover, rgba(0, 0, 0, 0.04))' : undefined)),
+        boxShadow: picked.indexOf(row.id) >= 0
+          ? 'inset 2px 0 0 var(--dsw-alias-text-accent, #4d6bfe)'
+          : (rowFocused ? 'inset 0 0 0 1px var(--dsw-alias-border-l2, rgba(0, 0, 0, 0.12))' : undefined),
       }),
-      onClick: () => services.openSession(row.id),
+      onClick: (event) => {
+        if (event.ctrlKey || event.metaKey) {
+          setPicked((previous) => previous.indexOf(row.id) >= 0 ? previous.filter((id) => id !== row.id) : previous.concat(row.id))
+          setAnchorId(row.id)
+          return
+        }
+        if (event.shiftKey) {
+          const order = (list || []).map((entry) => entry.id)
+          const span = rangeWithin(order, anchorId === undefined ? row.id : anchorId, row.id)
+          setPicked((previous) => {
+            const next = previous.slice()
+            span.forEach((id) => { if (next.indexOf(id) < 0) next.push(id) })
+            return next
+          })
+          return
+        }
+        if (picked.length > 0) { setPicked([]); return }
+        services.openSession(row.id)
+      },
       onDoubleClick: (event) => {
         event.preventDefault()
         event.stopPropagation()
@@ -3298,7 +3390,7 @@ export function BetterWorkspace(props) {
     if (open) {
       (metrics.sessions ? sessions : []).forEach((row) => {
         index += 1
-        children.push(sessionRow(workspace, row, index))
+        children.push(sessionRow(workspace, row, index, sessions))
       })
     }
   })
