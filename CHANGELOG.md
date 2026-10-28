@@ -1,3 +1,14 @@
+## [0.54.0]
+
+One-click filters, and a date you can filter by.
+
+### Added
+- Chips under the filter — **All**, **Running**, **Flagged**, **Today** — that add or remove the
+  matching operator token, so the query and the chips can never disagree.
+- `t:today` and `t:week` filter tokens, honoured by `filterTree` against each session's
+  `updatedAt` (local midnight for "today").
+- `startOfToday`, `queryHasToken`, `withToken`.
+
 ## [0.53.0]
 
 The undo reaches the row menus, and folders can stand in the order you keep them.

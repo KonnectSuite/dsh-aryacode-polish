@@ -340,13 +340,16 @@ export function parseQuery(query) {
   let running = false
   let flagged = false
   let scope = ''
+  let age = ''
   tokens.forEach((token) => {
     if (token === '!') running = true
     else if (token === '#') flagged = true
+    else if (token === 't:today') age = 'today'
+    else if (token === 't:week') age = 'week'
     else if (token.charAt(0) === '@') { if (token.length > 1) scope = token.slice(1).toLowerCase() }
     else words.push(token)
   })
-  return { text: words.join(' ').toLowerCase(), running, flagged, scope }
+  return { text: words.join(' ').toLowerCase(), running, flagged, scope, age }
 }
 
 /**
@@ -394,6 +397,27 @@ export function treeTotals(rows, snapshot) {
     usd: sawUsd ? usd.toFixed(8) : undefined,
     cny: sawCny ? cny.toFixed(8) : undefined,
   }
+}
+
+/** Midnight, local time, for "today". */
+export function startOfToday(now) {
+  const at = new Date(typeof now === 'number' && Number.isFinite(now) ? now : Date.now())
+  at.setHours(0, 0, 0, 0)
+  return at.getTime()
+}
+
+/** Is that token already part of the query? */
+export function queryHasToken(query, token) {
+  return String(query || '').trim().split(/\s+/).indexOf(token) >= 0
+}
+
+/** Adds the token, or takes it away when it is already there. */
+export function withToken(query, token) {
+  const tokens = String(query || '').trim().split(/\s+/).filter(Boolean)
+  const at = tokens.indexOf(token)
+  if (at >= 0) tokens.splice(at, 1)
+  else tokens.push(token)
+  return tokens.join(' ')
 }
 
 /** The order the folders were dragged into, with any new folder appended alphabetically. */
@@ -507,6 +531,7 @@ export function filterTree(rows, query, pinned, options) {
   const parsed = parseQuery(query)
   const isRunning = (options && options.isRunning) || ((row) => row && row.running === true)
   const flaggedIds = (options && options.flagged) || new Set()
+  const now = (options && typeof options.now === 'number' && Number.isFinite(options.now)) ? options.now : Date.now()
   const needle = parsed.text
   const ordered = rows.map(({ workspace, sessions }) => {
     const hoisted = []
@@ -517,11 +542,13 @@ export function filterTree(rows, query, pinned, options) {
     })
     return { workspace, sessions: hoisted.concat(rest) }
   })
-  if (!needle && !parsed.running && !parsed.flagged && !parsed.scope) return ordered
-  const constrained = parsed.running || parsed.flagged
+  if (!needle && !parsed.running && !parsed.flagged && !parsed.scope && !parsed.age) return ordered
+  const constrained = parsed.running || parsed.flagged || Boolean(parsed.age)
   const sessionOk = (row) => {
     if (parsed.running && !isRunning(row)) return false
     if (parsed.flagged && !flaggedIds.has(row.id)) return false
+    if (parsed.age === 'today' && !(Number(row.updatedAt) >= startOfToday(now))) return false
+    if (parsed.age === 'week' && !(Number(row.updatedAt) >= now - 7 * 24 * 60 * 60 * 1000)) return false
     return true
   }
   const matched = []
@@ -1638,6 +1665,9 @@ const WS_PAINT_ROW = {
   padding: '6px 8px',
 }
 
+const WS_CHIPS = { display: 'flex', gap: '4px', padding: '2px 8px 6px', flexWrap: 'wrap' }
+const WS_CHIP = { font: 'inherit', fontSize: 'calc(var(--dsh-content-font-size-secondary, 13px) - 4px)', padding: '2px 8px', borderRadius: '999px', border: '1px solid color-mix(in srgb, CanvasText 16%, transparent)', background: 'transparent', color: 'inherit', opacity: 0.7, cursor: 'pointer' }
+const WS_CHIP_ON = { opacity: 1, borderColor: 'color-mix(in srgb, CanvasText 34%, transparent)', background: 'color-mix(in srgb, CanvasText 10%, transparent)', fontWeight: 600 }
 const WS_FILTER = {
   margin: '2px 2px 6px',
   padding: '4px 8px',
@@ -1873,7 +1903,7 @@ export function BetterWorkspace(props) {
     return ids
   }, [marks])
   const rows = filterTree(sortRows(allRows, sort, (group) => sumCost(group.sessions, sessionState)), query, pinned, { isRunning, flagged: flaggedIds })
-  const totals = React.useMemo(() => treeTotals(rows, sessionState), [rows, sessionState])
+  const totals = React.useMemo(() => treeTotals(allRows, sessionState), [allRows, sessionState])
   const totalsLabel = costLabel({ usd: totals.usd, cny: totals.cny })
   const folderOf = (workspace) => folderKey(workspace)
   const orderedRows = React.useMemo(() => applyFolderOrder(rows, folderOrder), [rows, folderOrder])
@@ -3232,6 +3262,34 @@ export function BetterWorkspace(props) {
       style: WS_ADD,
       onClick: () => { setAdding(true); setNotice('') },
     }, '+')))
+
+  const CHIPS = [
+    { id: 'all', label: 'All', token: '' },
+    { id: 'running', label: 'Running', token: '!' },
+    { id: 'flagged', label: 'Flagged', token: '#' },
+    { id: 'today', label: 'Today', token: 't:today' },
+  ]
+  children.push(React.createElement('div', {
+    key: 'chips',
+    'data-polish-ws-chips': 'true',
+    style: WS_CHIPS,
+  }, CHIPS.map((chip) => {
+    const on = chip.token === '' ? (query.trim() === '') : queryHasToken(query, chip.token)
+    return React.createElement('button', {
+      key: chip.id,
+      type: 'button',
+      'data-polish-chip': chip.id,
+      'data-polish-chip-on': on ? 'true' : undefined,
+      'aria-pressed': on ? 'true' : 'false',
+      title: chip.token === '' ? 'Show everything' : (on ? 'Stop filtering by ' + chip.label.toLowerCase() : 'Only show ' + chip.label.toLowerCase()),
+      style: on ? Object.assign({}, WS_CHIP, WS_CHIP_ON) : WS_CHIP,
+      onClick: () => {
+        const next = chip.token === '' ? '' : withToken(query, chip.token)
+        setQuery(next)
+        setCursor(-1)
+      },
+    }, chip.label)
+  })))
 
   children.push(React.createElement('input', {
     key: 'filter',

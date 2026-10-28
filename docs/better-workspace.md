@@ -504,3 +504,16 @@ Verified live: with `Home` and `Work` present, moving `Work` up produced `Work, 
 and `["Work","Home"]` in storage; moving the first folder up reported "That folder is already
 first." and left the order untouched; **Alphabetical order** restored `Home, Work` and cleared the
 stored key.
+
+
+## One-click filters
+
+Four chips sit under the filter — **All**, **Running**, **Flagged**, **Today** — and each one is
+just a token the query already understands, added or removed by `withToken(query, token)` and
+read back with `queryHasToken`. Typing `!` lights the Running chip, because there is only one
+source of truth for "what is filtered".
+
+`t:today` and `t:week` are the two date tokens: `filterTree` compares each session's
+`updatedAt` against local midnight (`startOfToday(now)`) or seven days back. The header totals
+still describe the whole tree while a filter is on — `≈$0.012` with "6 sessions in 2 workspaces ·
+4 priced" even when only one row is showing — and the match line is what reports the filter.

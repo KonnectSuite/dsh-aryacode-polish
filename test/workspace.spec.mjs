@@ -11,6 +11,9 @@ import {
   FOLDER_LOOK_PREFIX,
   filterTree,
   parseQuery,
+  startOfToday,
+  queryHasToken,
+  withToken,
   filterSummary,
   rangeWithin,
   readViews,
@@ -962,10 +965,10 @@ it('the bulk restore button says what it will do', () => {
 
 
 it('parses the filter operators without swallowing the words', () => {
-  assert.deepEqual(parseQuery('! secret'), { text: 'secret', running: true, flagged: false, scope: '' })
-  assert.deepEqual(parseQuery('#'), { text: '', running: false, flagged: true, scope: '' })
-  assert.deepEqual(parseQuery('@work alpha'), { text: 'alpha', running: false, flagged: false, scope: 'work' })
-  assert.deepEqual(parseQuery('  '), { text: '', running: false, flagged: false, scope: '' })
+  assert.deepEqual(parseQuery('! secret'), { text: 'secret', running: true, flagged: false, scope: '', age: '' })
+  assert.deepEqual(parseQuery('#'), { text: '', running: false, flagged: true, scope: '', age: '' })
+  assert.deepEqual(parseQuery('@work alpha'), { text: 'alpha', running: false, flagged: false, scope: 'work', age: '' })
+  assert.deepEqual(parseQuery('  '), { text: '', running: false, flagged: false, scope: '', age: '' })
 })
 
 it('a running operator keeps only live sessions and drops empty workspaces', () => {
@@ -1118,4 +1121,27 @@ it('folders can stand in a hand-kept order', () => {
   assert.deepEqual(moveFolder([], ['A', 'B', 'C'], 'B', -1), ['B', 'A', 'C'])
   assert.deepEqual(moveFolder([], ['A', 'B', 'C'], 'A', -1), ['A', 'B', 'C'], 'the first stays first')
   assert.deepEqual(moveFolder(['C', 'B', 'A'], ['A', 'B', 'C'], 'B', 1), ['C', 'A', 'B'])
+})
+
+it('the chips and the date tokens speak the same language', () => {
+  assert.equal(parseQuery('t:today').age, 'today')
+  assert.equal(parseQuery('t:week ! #').age, 'week')
+  assert.equal(parseQuery('t:week ! #').running, true)
+  assert.equal(parseQuery('nothing here').age, '')
+
+  assert.equal(queryHasToken('! t:today', 't:today'), true)
+  assert.equal(queryHasToken('!', 't:today'), false)
+  assert.equal(withToken('', 't:today'), 't:today')
+  assert.equal(withToken('! t:today', 't:today'), '!', 'clicking an active chip takes the token away')
+  assert.equal(withToken('alpha', '!'), 'alpha !')
+
+  const noon = new Date(2026, 9, 28, 12, 0, 0).getTime()
+  assert.equal(startOfToday(noon), new Date(2026, 9, 28, 0, 0, 0).getTime())
+
+  const row = (id, hoursAgo) => ({ id, displayTitle: id, updatedAt: noon - hoursAgo * 3600 * 1000 })
+  const rows = [{ workspace: { workspaceId: 'a', title: 'Work' }, sessions: [row('fresh', 2), row('old', 40)] }]
+  const today = filterTree(rows, 't:today', new Set(), { now: noon })
+  assert.deepEqual(today.flatMap((g) => g.sessions.map((s) => s.id)), ['fresh'])
+  const week = filterTree(rows, 't:week', new Set(), { now: noon })
+  assert.deepEqual(week.flatMap((g) => g.sessions.map((s) => s.id)), ['fresh', 'old'])
 })

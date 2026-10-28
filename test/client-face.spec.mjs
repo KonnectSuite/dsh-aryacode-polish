@@ -526,3 +526,9 @@ test('a bulk change offers a way back out', () => {
   assert.ok(workspaceSource.includes('unarchiveSession(payload.ids[at])'), 'archiving is undone one session at a time')
   assert.ok(workspaceSource.includes('writeMarks(payload.before)'), 'flagging is undone from the marks it replaced')
 })
+
+test('the filter offers chips for the operators it understands', () => {
+  for (const marker of ["'data-polish-chip'", "'data-polish-ws-chips'", 'queryHasToken(query, chip.token)', 'withToken(query, chip.token)', "token: 't:today'"]) {
+    assert.ok(workspaceSource.includes(marker), 'bundle should carry ' + marker)
+  }
+})
