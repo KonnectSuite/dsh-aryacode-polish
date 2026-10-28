@@ -628,12 +628,13 @@ export function densityOf(value) {
 }
 
 export const SORT_KEY = 'aryacode-polish:sort.v1'
-export const SORTS = ['host', 'name', 'cost']
+export const SORTS = ['host', 'name', 'cost', 'recent']
 
 export const SORT_TITLES = {
   host: 'Host order',
   name: 'Sort A to Z',
   cost: 'Most spent first',
+  recent: 'Recent first',
 }
 
 export function sortOf(value) {
@@ -678,6 +679,29 @@ export function sortRows(rows, mode, totalOf) {
       if (a.usd === undefined && b.usd !== undefined) return 1
       if (b.usd === undefined && a.usd !== undefined) return -1
       if (a.usd !== undefined && b.usd !== undefined && a.usd !== b.usd) return b.usd - a.usd
+      if (a.label !== b.label) return a.label < b.label ? -1 : 1
+      return a.index - b.index
+    })
+    return ranked.map((entry) => entry.group)
+  }
+  if (kind === 'recent') {
+    const stamp = (group) => {
+      const times = (group.sessions || [])
+        .map((row) => Number(row && row.updatedAt))
+        .filter((value) => Number.isFinite(value) && value > 0)
+      return times.length === 0 ? undefined : Math.max.apply(null, times)
+    }
+    const ranked = rows.map((group, index) => ({
+      group,
+      index,
+      at: stamp(group),
+      label: workspaceLabel(group.workspace).toLowerCase(),
+    }))
+    ranked.sort((a, b) => {
+      // A workspace nothing has touched sinks below any workspace that has been used.
+      if (a.at === undefined && b.at !== undefined) return 1
+      if (b.at === undefined && a.at !== undefined) return -1
+      if (a.at !== undefined && b.at !== undefined && a.at !== b.at) return b.at - a.at
       if (a.label !== b.label) return a.label < b.label ? -1 : 1
       return a.index - b.index
     })

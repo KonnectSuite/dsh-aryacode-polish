@@ -788,9 +788,36 @@ it('A workspace with no spend sinks below a priced one, whatever its name', () =
   assert.deepEqual(ranked.map((group) => group.workspace.workspaceId), ['zzz', 'aaa'])
 })
 
+it('Sort by recency puts the workspace touched last on top', () => {
+  const groups = [
+    { workspace: { workspaceId: 'old', title: 'Old' }, sessions: [{ id: 's1', updatedAt: 1_000 }] },
+    { workspace: { workspaceId: 'new', title: 'New' }, sessions: [{ id: 's2', updatedAt: 9_000 }, { id: 's3', updatedAt: 4_000 }] },
+    { workspace: { workspaceId: 'mid', title: 'Mid' }, sessions: [{ id: 's4', updatedAt: 5_000 }] },
+  ]
+  const ranked = sortRows(groups, 'recent')
+  assert.deepEqual(ranked.map((group) => group.workspace.workspaceId), ['new', 'mid', 'old'])
+})
+
+it('A workspace nothing has touched sinks below a dated one, whatever its name', () => {
+  const groups = [
+    { workspace: { workspaceId: 'aaa', title: 'AAA' }, sessions: [{ id: 's1', updatedAt: 0 }] },
+    { workspace: { workspaceId: 'zzz', title: 'ZZZ' }, sessions: [{ id: 's2', updatedAt: 250 }] },
+  ]
+  assert.deepEqual(sortRows(groups, 'recent').map((group) => group.workspace.workspaceId), ['zzz', 'aaa'])
+})
+
+it('Recency without a usable stamp falls back to names, not to a crash', () => {
+  const groups = [
+    { workspace: { workspaceId: 'b', title: 'Bravo' }, sessions: [] },
+    { workspace: { workspaceId: 'a', title: 'Alpha' } },
+  ]
+  assert.deepEqual(sortRows(groups, 'recent').map((group) => group.workspace.workspaceId), ['a', 'b'])
+})
+
 it('Every sort mode is named once, and cost is one of them', () => {
-  assert.deepEqual(SORTS, ['host', 'name', 'cost'])
+  assert.deepEqual(SORTS, ['host', 'name', 'cost', 'recent'])
   assert.equal(SORT_TITLES.cost, 'Most spent first')
+  assert.equal(SORT_TITLES.recent, 'Recent first')
   assert.equal(sortOf('cost'), 'cost')
   for (const mode of SORTS) assert.equal(typeof SORT_TITLES[mode], 'string')
 })

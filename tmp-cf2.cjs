@@ -1,0 +1,7 @@
+﻿const fs = require('node:fs')
+const text = fs.readFileSync('test/client-face.spec.mjs', 'utf8')
+const lines = text.split('\n')
+lines.forEach((line, index) => { if (line.includes("it('") && line.includes('sort')) console.log((index + 1) + ': ' + line.trim().slice(0, 120)) })
+console.log('---')
+const at = text.indexOf("it('Sorts") >= 0 ? text.indexOf("it('Sorts") : text.indexOf('sort')
+console.log(text.slice(at - 300, at + 600))

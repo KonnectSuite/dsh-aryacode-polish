@@ -28,6 +28,12 @@ test('the header menu names every tree action, and can reset the view', () => {
   assert.match(workspaceSource, /treeDefaults\(\)/)
 })
 
+test('the tree can sort by what was touched last', () => {
+  assert.match(workspaceSource, /recent: 'Recent first'/)
+  assert.match(workspaceSource, /kind === 'recent'/)
+  assert.match(bundle, /Recent first/)
+})
+
 test('the palette can act, not only jump', () => {
   assert.match(workspaceSource, /actionEntries\(/)
   assert.match(workspaceSource, /'data-polish-switcher-action'/)

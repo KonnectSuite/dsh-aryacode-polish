@@ -1,3 +1,11 @@
+## [0.44.0] - 2026-10-28
+
+### Added
+
+- `Recent first` sort mode for the workspace tree: ranks each workspace by the newest
+  `updatedAt` any of its sessions carries, sinking a workspace nothing has touched below one
+  that has been used, and falling back to names when no stamp is usable.
+
 ## [0.43.0] - 2026-10-28
 
 - The running dot reads the slot's live status store (`useSessionStatus`) instead of the session

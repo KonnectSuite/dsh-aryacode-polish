@@ -1,0 +1,5 @@
+﻿const fs = require('node:fs')
+const text = fs.readFileSync('test/workspace.spec.mjs', 'utf8')
+const at = text.indexOf("describe('sortRows")
+console.log('at ' + at)
+console.log(text.slice(at, at + 2600))
