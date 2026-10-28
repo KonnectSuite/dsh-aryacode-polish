@@ -105,6 +105,14 @@ to remember anything. `readAppearance`/`writeAppearance` swallow every failure
 and nothing else. `appearanceOf` ignores a tone it does not know, which keeps an old
 entry from breaking the row if the palette ever changes.
 
+The tone is worn by the thing it describes: a workspace's folder glyph is drawn in that
+colour, so the row reads "green workspace" rather than "green dot". It used to be a 6 px
+dot between the icon and the label — the exact size, place and weight of the running
+dot — which made a coloured workspace look like one that was still working. Folders have
+no icon of their own, so their tone is a narrow bar beside the name (`WS_TONE_BAR`).
+Neither can be mistaken for status: status is `●` green for running and a hollow accent
+ring for new, and nothing else in the tree is a dot.
+
 ## The Hero picker
 
 The blank-session Hero's workspace chip is the same list, not a second implementation:
@@ -506,17 +514,19 @@ first." and left the order untouched; **Alphabetical order** restored `Home, Wor
 stored key.
 
 
-## One-click filters
+## The filter
 
-Four chips sit under the filter — **All**, **Running**, **Flagged**, **Today** — and each one is
-just a token the query already understands, added or removed by `withToken(query, token)` and
-read back with `queryHasToken`. Typing `!` lights the Running chip, because there is only one
-source of truth for "what is filtered".
+The filter is an icon in the tree's chrome, not a row of chips. Click it — or press `/` from
+anywhere in the tree — and it becomes the text field; clear it and click away, and it folds back
+to the icon. That keeps one control where a row of presets used to sit, and the operators are the
+same either way: `!` running, `#` flagged, `@folder`, `t:today`, `t:week`, `t:new`.
 
-`t:today` and `t:week` are the two date tokens: `filterTree` compares each session's
-`updatedAt` against local midnight (`startOfToday(now)`) or seven days back. The header totals
-still describe the whole tree while a filter is on — `≈$0.012` with "6 sessions in 2 workspaces ·
-4 priced" even when only one row is showing — and the match line is what reports the filter.
+`withToken(query, token)` and `queryHasToken` remain the one place a token is added or removed, so
+the field, the header line and the tests agree about what is filtered. `t:today` and `t:week` are
+the two date tokens: `filterTree` compares each session's `updatedAt` against local midnight
+(`startOfToday(now)`) or seven days back. The header totals still describe the whole tree while a
+filter is on — `≈$0.012` with "6 sessions in 2 workspaces · 4 priced" even when only one row is
+showing — and the match line is what reports the filter.
 
 
 ## Unread
@@ -533,14 +543,14 @@ its dot until you open it here or mark all read — which is why the menu row ex
 
 ## New filter
 
-`t:new` (and the **New** chip) keeps only the sessions that still carry an unread dot, so the
+`t:new` keeps only the sessions that still carry an unread dot, so the
 marker has a destination instead of being decoration. `filterTree` asks the caller — `unread:
 (row) => isUnread(row, seen)` — rather than reading storage itself, which keeps the pure filter
 testable.
 
 The header tooltip reports the count too ("6 sessions in 2 workspaces · 4 priced · 5 new"), and
-because the chip, the dots and the tooltip all read the same map, opening a row under the New
-filter drops it from the list, the dots and the count in one step.
+because the filter, the dots and the tooltip all read the same map, opening a row under `t:new`
+drops it from the list, the dots and the count in one step.
 
 
 ## New above the fold
@@ -553,7 +563,7 @@ The ring is deliberately not the running dot: running is green and filled, new i
 accent-coloured, and neither can be mistaken for the other.
 
 `Alt+ArrowDown` / `Alt+ArrowUp` walk to the next or previous new session and wrap once, with
-"No new session that way." when the walk finds nothing — the keyboard equivalent of the New chip.
+"No new session that way." when the walk finds nothing — the keyboard equivalent of `t:new`.
 
 
 ## Hover recap
@@ -595,10 +605,15 @@ Two decisions worth knowing:
 
 ## Row quick actions
 
+A workspace row keeps two 20 px controls at its right end: `+` starts a session in that workspace,
+`…` opens the menu. The menu's slot is reserved even while it is hidden (`visibility: hidden` with
+`aria-hidden` and `tabIndex: -1`). Rendering it only on hover pushed `+` sideways at the moment the
+pointer arrived, so a click meant for `+` landed on the menu instead.
+
 A hovered (or keyboard-focused) session row shows three small controls: pin, flag, menu. The flag
 button writes through the same `withMark` store the menu row uses (`aryacode-polish:session-marks.v1`),
-so the `#` filter, the Flagged chip and the tree menu never disagree about what is flagged — there is
-only one place a flag can live.
+so the `#` filter and the tree menu never disagree about what is flagged — there is only one place a
+flag can live.
 
 
 ## Hide empty

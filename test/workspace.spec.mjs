@@ -1151,7 +1151,7 @@ it('folders can stand in a hand-kept order', () => {
   assert.deepEqual(moveFolder(['C', 'B', 'A'], ['A', 'B', 'C'], 'B', 1), ['C', 'A', 'B'])
 })
 
-it('the chips and the date tokens speak the same language', () => {
+it('the filter tokens and the date tokens speak the same language', () => {
   assert.equal(parseQuery('t:today').age, 'today')
   assert.equal(parseQuery('t:week ! #').age, 'week')
   assert.equal(parseQuery('t:week ! #').running, true)
@@ -1160,7 +1160,7 @@ it('the chips and the date tokens speak the same language', () => {
   assert.equal(queryHasToken('! t:today', 't:today'), true)
   assert.equal(queryHasToken('!', 't:today'), false)
   assert.equal(withToken('', 't:today'), 't:today')
-  assert.equal(withToken('! t:today', 't:today'), '!', 'clicking an active chip takes the token away')
+  assert.equal(withToken('! t:today', 't:today'), '!', 'toggling an active token takes it away')
   assert.equal(withToken('alpha', '!'), 'alpha !')
 
   const noon = new Date(2026, 9, 28, 12, 0, 0).getTime()

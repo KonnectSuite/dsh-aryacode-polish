@@ -1,3 +1,17 @@
+## [0.97.0]
+
+### Changed
+- The chip row is gone. The filter is an icon that becomes the field when clicked (or on `/`), and
+  folds back to the icon when it is cleared and left.
+- A workspace's colour now tints its folder glyph instead of drawing a dot between the glyph and the
+  name. The dot was the same size, colour and place as the running dot, so a coloured workspace read
+  as one that was still working. Folder colours are a narrow bar beside the name.
+- The workspace `…` menu keeps its slot while hidden, so hovering no longer pushes `+` out from under
+  the pointer (a click aimed at `+` used to land on the menu).
+
+### Fixed
+- The tree no longer shows a status-looking dot on a workspace that has nothing running.
+
 ## [0.96.0]
 
 ### Changed

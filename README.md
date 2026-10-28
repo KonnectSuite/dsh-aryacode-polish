@@ -69,8 +69,8 @@ all of it switchable by turning the **Better workspace** switch off:
 - **Order.** Drag a workspace onto another to reorder, drag it onto a folder header to file it, drag
   it to the dashed top zone to lift it out, star one to the top, or hand-keep the folder order.
 - **Find.** One filter with operators (`!` running, `#` flagged, `@folder`, `t:today`, `t:week`,
-  `t:new`), fuzzy matching (`dcp` finds `dsh-aryacode-polish`), chips for the same operators, and
-  counts that say what they excluded.
+  `t:new`) and fuzzy matching (`dcp` finds `dsh-aryacode-polish`); it stays an icon until you click
+  it or press `/`, then becomes the field. Counts say what they excluded.
 - **Sort.** Host order, A to Z, most spent first, recent first — applied to workspaces and to the
   sessions inside them.
 - **Read state.** A dot on every session that changed since you opened it, the same dot rolled up onto

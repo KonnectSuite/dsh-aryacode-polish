@@ -527,8 +527,31 @@ test('a bulk change offers a way back out', () => {
   assert.ok(workspaceSource.includes('writeMarks(payload.before)'), 'flagging is undone from the marks it replaced')
 })
 
-test('the filter offers chips for the operators it understands', () => {
-  for (const marker of ["'data-polish-chip'", "'data-polish-ws-chips'", 'queryHasToken(query, chip.token)', 'withToken(query, chip.token)', "token: 't:today'"]) {
+test('the filter is an icon that becomes the field it always was', () => {
+  for (const marker of ["'data-polish-ws-search'", "'data-polish-ws-filter'", 'filterOpen', 'React.createElement(SearchGlyph)']) {
+    assert.ok(workspaceSource.includes(marker), 'bundle should carry ' + marker)
+  }
+  for (const gone of ["'data-polish-chip'", "'data-polish-ws-chips'", 'const CHIPS = [']) {
+    assert.ok(!workspaceSource.includes(gone), 'the chip row is gone: ' + gone)
+  }
+})
+
+test('the filter speaks the operators it understands', () => {
+  for (const marker of ["parseQuery", "t:new", 'queryHasToken(', 'withToken(']) {
+    assert.ok(workspaceSource.includes(marker), 'bundle should carry ' + marker)
+  }
+})
+
+test('a workspace colour is never drawn as a status dot', () => {
+  assert.ok(workspaceSource.includes("'data-polish-ws-tone'"), 'the tone is worn by the glyph')
+  assert.ok(workspaceSource.includes('WS_TONE_BAR'), 'a folder gets a tag, not a dot')
+  assert.ok(!workspaceSource.includes("Object.assign({}, WS_TONE, { background"), 'no detached tone dot')
+  // The only round dots left are status: running, and the folder rollup of it.
+  assert.ok(workspaceSource.includes("'data-polish-session-running'"), 'running keeps its dot')
+})
+
+test('the row menu keeps its slot so hover cannot move the +', () => {
+  for (const marker of ["'data-polish-ws-menu-shown'", "visibility: 'hidden'"]) {
     assert.ok(workspaceSource.includes(marker), 'bundle should carry ' + marker)
   }
 })
@@ -539,8 +562,8 @@ test('the tree marks what you have not looked at', () => {
   }
 })
 
-test('the New chip filters by what changed', () => {
-  for (const marker of ["token: 't:new'", 'unread: (row) => isUnread(row, seen)']) {
+test('the New filter keeps what changed', () => {
+  for (const marker of ['unread: (row) => isUnread(row, seen)']) {
     assert.ok(workspaceSource.includes(marker), 'bundle should carry ' + marker)
   }
 })
