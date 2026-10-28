@@ -4342,6 +4342,8 @@ export function BetterWorkspace(props) {
         children.push(React.createElement('div', {
           key: 'pinned:' + row.id,
           'data-polish-ws-pinned-row': row.id,
+          role: 'treeitem',
+          'aria-level': 2,
           draggable: true,
           onDragStart: () => setDrag({ kind: 'pinned', id: row.id, workspaceId: group ? group.workspaceId : undefined }),
           onMouseEnter: () => setHover('pinned:' + row.id),
@@ -4365,6 +4367,7 @@ export function BetterWorkspace(props) {
           }, runningFor(row.id))
           : null,
         React.createElement('span', { style: WS_TITLE }, row.displayTitle || row.id),
+        isRunning(row) ? null : React.createElement('span', { 'data-polish-pinned-age': row.id, style: WS_AGE, title: ageTitle(row.updatedAt) }, ageLabel(row.updatedAt, clock)),
         costLabel(costOf(sessionState, row.id))
           ? React.createElement('span', { 'data-polish-pinned-cost': row.id, style: WS_COST }, costLabel(costOf(sessionState, row.id)))
           : null,
@@ -4403,6 +4406,8 @@ export function BetterWorkspace(props) {
         children.push(React.createElement('div', {
           key: 'archived:' + row.id,
           'data-polish-ws-archived-row': row.id,
+          role: 'treeitem',
+          'aria-level': 2,
           title: 'Archived session',
           style: Object.assign({}, WS_ROW, { opacity: 0.7, fontStyle: 'italic' }),
           onClick: () => services.openSession(row.id),
@@ -4412,7 +4417,13 @@ export function BetterWorkspace(props) {
             setMenu({ kind: 'archived', row, anchor: { top: event.clientY, left: event.clientX } })
           },
         },
-        React.createElement('span', { style: WS_TITLE }, row.displayTitle || row.id)))
+        React.createElement('span', { style: WS_TITLE }, row.displayTitle || row.id),
+        ageLabel(row.updatedAt, clock)
+          ? React.createElement('span', { 'data-polish-archived-age': row.id, style: WS_AGE, title: ageTitle(row.updatedAt) }, ageLabel(row.updatedAt, clock))
+          : null,
+        costLabel(costOf(sessionState, row.id))
+          ? React.createElement('span', { 'data-polish-archived-cost': row.id, style: WS_COST }, costLabel(costOf(sessionState, row.id)))
+          : null))
       }
     }
   }

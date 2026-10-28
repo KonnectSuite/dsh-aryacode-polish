@@ -1,3 +1,14 @@
+## [0.67.0]
+
+Every row tells you the same things.
+
+### Added
+- **Archived** rows now show when the session was last touched and what it cost, like a live row does.
+- **Pinned** rows show that age too — except while a session is running, where the running clock is the
+  more useful number and showing both would read as a contradiction.
+- Pinned and archived rows are `treeitem` at level 2 like every other session row, so the
+  announced structure has no holes in the secondary sections.
+
 ## [0.66.0]
 
 Space picks, like every file list you have ever used.

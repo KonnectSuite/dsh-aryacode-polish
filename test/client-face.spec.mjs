@@ -604,3 +604,9 @@ test('Space picks the focused session', () => {
     assert.ok(workspaceSource.includes(marker), 'bundle should carry ' + marker)
   }
 })
+
+test('secondary rows carry the same facts', () => {
+  for (const marker of ["'data-polish-archived-age'", "'data-polish-archived-cost'", "'data-polish-pinned-age'", "isRunning(row) ? null : React.createElement('span', { 'data-polish-pinned-age'"]) {
+    assert.ok(workspaceSource.includes(marker), 'bundle should carry ' + marker)
+  }
+})

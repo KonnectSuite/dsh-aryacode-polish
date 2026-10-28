@@ -652,3 +652,14 @@ Ctrl/Space selection — so the announced structure is not a claim the interacti
 never needs a modifier key. The handler stands aside when the event comes from an input, a textarea or
 a contenteditable — a space typed into the filter is still a space. A workspace row under the cursor
 answers "Focus a session to pick it." instead of picking something else.
+
+
+## Secondary rows
+
+Pinned and archived rows carry the same facts as live ones: the age (`data-polish-pinned-age`,
+`data-polish-archived-age`, with the absolute time in the tooltip) and the cost when the session has
+one. A pinned row hides its age while the session is running, because the running clock is the more
+useful number there and showing both reads as a contradiction.
+
+Both sections also render their rows as `treeitem` at level 2, so the announced structure has no
+holes below the tree.
