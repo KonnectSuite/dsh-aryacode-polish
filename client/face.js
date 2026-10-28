@@ -547,8 +547,8 @@ function BalanceLine(props) {
     return React.createElement('div', { 'data-polish-balance': 'empty', style: { display: 'none' } })
   }
   const money = formatBalance(wallet)
-  // The foot is a single row shared with the GitHub entry, so the amount stays
-  // bare: a tooltip names it, and nothing here competes for width.
+  // "left" is the one word that makes a bare amount mean something; the tooltip
+  // still spells out which balance it is.
   return React.createElement('div', {
     title: 'Remaining account balance',
     'data-polish-balance': 'ready',
@@ -556,15 +556,19 @@ function BalanceLine(props) {
       display: 'flex',
       alignItems: 'center',
       gap: '6px',
-      padding: '2px 4px 4px 8px',
+      // The foot is one line: the GitHub status keeps the left edge and the
+      // amount takes the right one, so the row reads as a status bar instead of
+      // two fragments. Same 12px tertiary weight as the status text beside it.
+      marginLeft: 'auto',
+      padding: '2px 8px',
       fontSize: '12px',
-      lineHeight: '16px',
+      lineHeight: '18px',
       flex: '0 0 auto',
       whiteSpace: 'nowrap',
-      opacity: 0.75,
+      color: 'var(--dsw-alias-label-tertiary, inherit)',
       fontVariantNumeric: 'tabular-nums',
     },
-  }, money)
+  }, money + ' left')
 }
 
 /**
@@ -1211,7 +1215,7 @@ function GithubStatus(props) {
   const label = current === undefined
     ? 'GitHub · checking…'
     : signedIn ? `GitHub · ${String(current.login)}` : 'GitHub · signed out'
-  return React.createElement('div', { style: { padding: '2px 8px 0', minWidth: 0 } },
+  return React.createElement('div', { style: { minWidth: 0 } },
     React.createElement('button', {
       type: 'button',
       'data-polish-github': 'status',
@@ -1889,7 +1893,8 @@ return {
       accountCtx.slots.inject('sidebar.footer.action', () => accountCtx.slots.register({
         name: 'sidebar.footer.action',
         id: 'polish-balance',
-        order: 3,
+        // After the status chip, so the amount lands on the right-hand edge.
+        order: 5,
         inject: () => ({ configForms, loadBalance }),
       }, BalanceLine))
     })
@@ -1936,11 +1941,12 @@ return {
         inject: () => ({ configForms, createWorkspace }),
       }, ShellOverlay))
       // The footer keeps the sign-in state, not an add button: adding a
-      // workspace belongs in the "+" menu, where the Shell says it does.
+      // workspace belongs in the "+" menu, where the Shell says it does. It is
+      // also the foot's left edge, which is why it owns the lower order now.
       githubCtx.slots.inject('sidebar.footer.action', () => githubCtx.slots.register({
         name: 'sidebar.footer.action',
         id: 'polish-github-status',
-        order: 4,
+        order: 3,
         inject: () => ({ configForms }),
       }, GithubStatus))
     })

@@ -1,3 +1,13 @@
+## [0.97.1]
+
+### Changed
+- The sidebar foot is one status line: `GitHub · <login>` on the left edge, the remaining balance
+  (`$4.08 left`) on the right, both in the same 12px tertiary grey. The amount used to sit first in
+  near-black at 75% opacity, so it floated out of the row it belongs to.
+
+### Fixed
+- The amount says what it is — `left` — instead of a bare number that only the tooltip explained.
+
 ## [0.97.0]
 
 ### Changed

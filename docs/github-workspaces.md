@@ -48,9 +48,10 @@ The session belongs to the GitHub CLI, and both directions stay inside the app:
   second confirming click, then re-reads the session. "not logged in" counts as
   success, because that is the state the click asked for.
 - **Where you see it** is the sidebar foot: `GitHub · <login>` or
-  `GitHub · signed out`, on the same line as the balance. The dialog repeats it,
-  and the footer row re-reads on window focus so a `gh auth login` run in a
-  terminal shows up without a restart.
+  `GitHub · signed out` holds the left edge of the status line, and the balance
+  (`$4.08 left`) takes the right one, so the foot reads as one row instead of two
+  fragments. The dialog repeats it, and the footer row re-reads on window focus so
+  a `gh auth login` run in a terminal shows up without a restart.
 
 Nothing about this stores a credential of its own: the code is a one-time device
 code, and the token never leaves the CLI's own credential store.
