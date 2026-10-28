@@ -1,3 +1,12 @@
+## [0.43.0] - 2026-10-28
+
+- The running dot reads the slot's live status store (`useSessionStatus`) instead of the session
+  summaries, whose `running` flag stays false even while the Shell shows Stop — the 0.30 folder dot had
+  never lit.
+- A session's own cost opens the same breakdown card as the workspace total.
+- The header carries `● n` while n sessions run, including one the tree has not listed yet; clicking it
+  unfolds to the session or opens it.
+
 ## [0.40.0] - 2026-10-28
 
 - A workspace's cost total is now a door: clicking it opens the breakdown behind the number — cache hit

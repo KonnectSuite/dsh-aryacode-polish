@@ -1,5 +1,0 @@
-﻿const fs = require('node:fs')
-const lines = fs.readFileSync('client/workspace.js', 'utf8').split('\n')
-const at = lines.findIndex((line) => line.includes('const renderedFolder') || line.includes('renderedFolder'))
-console.log('renderedFolder at ' + (at + 1))
-console.log(lines.slice(at - 6, at + 26).map((text, offset) => (at - 5 + offset) + ': ' + text).join('\n'))

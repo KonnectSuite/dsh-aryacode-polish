@@ -2,6 +2,7 @@ import assert from 'node:assert/strict'
 import { describe, it } from 'node:test'
 
 import {
+  firstRunning,
   actionEntries,
   treeDefaults,
   highlightParts,
@@ -854,4 +855,14 @@ it('A group with nothing priced reports zero priced sessions', () => {
   assert.equal(totals.priced, 0)
   assert.equal(totals.billed, 0)
   assert.equal(totals.hit, 0)
+})
+
+it('the status store decides, not the row', () => {
+  const rows = [
+    { workspace: { workspaceId: 'w1' }, sessions: [{ id: 's1', displayTitle: 'One', running: false }] },
+  ]
+  // Row summaries never carry running; the slot's status store does.
+  assert.deepEqual(firstRunning(rows, (row) => row.id === 's1'), { workspaceId: 'w1', sessionId: 's1', title: 'One' })
+  assert.equal(firstRunning(rows, () => false), undefined)
+  assert.equal(folderHasRunning([{ sessions: [{ id: 's9', running: false }] }], (row) => row.id === 's9'), true)
 })

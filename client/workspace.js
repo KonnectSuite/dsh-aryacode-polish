@@ -371,6 +371,21 @@ export function flattenRows(rows, expanded, query) {
   return flat
 }
 
+/** The first session the tree shows as busy, so a folded tree cannot hide one. */
+export function firstRunning(rows, isRunning) {
+  const busy = typeof isRunning === 'function' ? isRunning : (row) => row && row.running === true
+  for (const group of rows || []) {
+    const workspace = group && group.workspace
+    if (!workspace) continue
+    for (const row of group.sessions || []) {
+      if (row && busy(row) === true) {
+        return { workspaceId: workspace.workspaceId, sessionId: row.id, title: row.displayTitle || row.title || row.id }
+      }
+    }
+  }
+  return undefined
+}
+
 /** Where the cursor lands when hopping to the next or previous workspace head. */
 export function jumpWorkspace(list, cursor, step) {
   const flat = Array.isArray(list) ? list : []
@@ -771,8 +786,9 @@ export function writeHelp(seen, storage) {
   }
 }
 
-export function folderHasRunning(inside) {
-  return (inside || []).some((entry) => (entry.sessions || []).some((row) => row && row.running === true))
+export function folderHasRunning(inside, isRunning) {
+  const busy = typeof isRunning === 'function' ? isRunning : (row) => row && row.running === true
+  return (inside || []).some((entry) => (entry.sessions || []).some((row) => busy(row) === true))
 }
 
 export function sumCost(sessions, snapshot) {
@@ -1434,6 +1450,22 @@ export function BetterWorkspace(props) {
   const filterRef = React.useRef(null)
 
   const workspaceState = useLive(services.workspacesLive)
+  const statusesOf = props.useSessionStatus
+  const statuses = statusesOf ? statusesOf((state) => state) : undefined
+  const runningIds = React.useMemo(() => {
+    const ids = []
+    if (statuses && typeof statuses.forEach === 'function') {
+      statuses.forEach((entry, id) => { if (entry && entry.running === true) ids.push(id) })
+    }
+    return ids
+  }, [statuses])
+  const isRunning = (row) => {
+    if (!row) return false
+    if (runningIds.indexOf(row.id) >= 0) return true
+    const entry = statuses && typeof statuses.get === 'function' ? statuses.get(row.id) : undefined
+    if (entry && typeof entry === 'object' && 'running' in entry) return entry.running === true
+    return row.running === true
+  }
   const sessionState = useLive(services.sessionsLive)
   const workspaceList = (workspaceState && (workspaceState.items || workspaceState.workspaces)) || []
   const sessionList = sessionState && sessionState.ids && sessionState.byId
@@ -1486,6 +1518,36 @@ export function BetterWorkspace(props) {
   // expands everything (folders included); only when nothing is folded does it fold.
   const anyFolded = rows.some(row => expanded[row.workspace.workspaceId] === false)
     || folderNames.some(name => folders[name] === true)
+  const runningTotal = React.useMemo(() => {
+    const seen = new Set(runningIds)
+    for (const group of rows) {
+      for (const row of group.sessions || []) {
+        if (row && row.running === true) seen.add(row.id)
+      }
+    }
+    return seen.size
+  }, [runningIds, rows])
+  const revealRunning = () => {
+    const target = firstRunning(rows, isRunning)
+    if (!target) {
+      const hidden = runningIds[0]
+      if (hidden === undefined) return
+      try {
+        services.openSession(hidden)
+        setNotice('Opened a running session.')
+      } catch (error) {
+        setNotice((error && error.message) || 'Could not open that session.')
+      }
+      return
+    }
+    const group = rows.find((entry) => entry.workspace.workspaceId === target.workspaceId)
+    if (!group) return
+    const key = folderOf(group.workspace)
+    if (key !== undefined) setFolders((previous) => Object.assign({}, previous, { [key]: false }))
+    setExpanded((previous) => Object.assign({}, previous, { [target.workspaceId]: true }))
+    setQuery('')
+    setNotice('Revealed a running session.')
+  }
   const allFolded = rows.length > 0 && !anyFolded
 
   React.useEffect(() => {
@@ -2270,8 +2332,9 @@ export function BetterWorkspace(props) {
     ['?', 'this sheet'],
   ]
   const peekGroup = costPeek ? rows.find((group) => group.workspace.workspaceId === costPeek.workspaceId) : undefined
-  const peekTotal = peekGroup ? sumCost(peekGroup.sessions, sessionState) : undefined
-  const peekTokens = peekGroup ? sumTokens(peekGroup.sessions, sessionState) : undefined
+  const peekSessions = costPeek && costPeek.sessionId ? [{ id: costPeek.sessionId }] : (peekGroup ? peekGroup.sessions : undefined)
+  const peekTotal = peekSessions ? sumCost(peekSessions, sessionState) : undefined
+  const peekTokens = peekSessions ? sumTokens(peekSessions, sessionState) : undefined
   const number = (value) => new Intl.NumberFormat('en-US').format(Math.round(Number(value) || 0))
   const peekRows = peekTokens === undefined || peekTokens.priced === 0
     ? []
@@ -2569,6 +2632,17 @@ export function BetterWorkspace(props) {
       style: WS_ADD,
       onClick: () => { writeHelp(true); setHelpSeen(true); setHelpOpen(true) },
     }, '?'),
+    runningTotal > 0
+      ? React.createElement('button', {
+        key: 'running',
+        type: 'button',
+        'data-polish-ws-running': String(runningTotal),
+        title: 'Reveal a session that is still running',
+        'aria-label': 'Reveal a session that is still running',
+        style: Object.assign({}, WS_ADD, { color: 'var(--dsw-alias-text-accent, #2f6feb)', fontWeight: 600 }),
+        onClick: () => { revealRunning() },
+      }, '\u25CF ' + String(runningTotal))
+      : null,
     React.createElement('button', {
       key: 'add',
       type: 'button',
@@ -2709,7 +2783,7 @@ export function BetterWorkspace(props) {
       onDragLeave: () => setDropping(null),
       onDrop: (event) => { event.preventDefault(); dropOnSession(workspace.workspaceId, row.id) },
     },
-    row.running ? React.createElement('span', { 'data-polish-session-running': row.id, style: WS_DOT, title: 'Running' }) : null,
+    isRunning(row) ? React.createElement('span', { 'data-polish-session-running': row.id, style: WS_DOT, title: 'Running' }) : null,
     pinned.has(row.id) ? React.createElement('span', { style: WS_PIN, title: 'Pinned' }, '\u2605') : null,
     markOf(marks, row.id).flag
       ? React.createElement('span', { 'data-polish-mark-flag': row.id, style: WS_PIN, title: 'Flagged' }, '⚑')
@@ -2720,7 +2794,17 @@ export function BetterWorkspace(props) {
       }),
     }, titleNode(row.displayTitle || row.id)),
     sessionCost
-      ? React.createElement('span', { 'data-polish-ws-cost': row.id, style: WS_COST }, sessionCost)
+      ? React.createElement('button', {
+      type: 'button',
+      'data-polish-ws-cost': row.id,
+      'data-polish-session-cost-open': row.id,
+      title: 'Show what this session has cost',
+      style: Object.assign({}, WS_COST, { border: 'none', background: 'transparent', cursor: 'pointer', font: 'inherit', padding: 0 }),
+      onClick: (event) => {
+        event.stopPropagation()
+        setCostPeek({ sessionId: row.id, workspaceId: workspace.workspaceId, label: row.displayTitle || row.id })
+      },
+    }, sessionCost)
       : null,
     rowHovered || rowFocused
       ? React.createElement('button', {
@@ -2835,7 +2919,7 @@ export function BetterWorkspace(props) {
         },
       }, '✎'),
       React.createElement('span', { style: WS_COUNT }, [String(inside.reduce((sum, entry) => sum + entry.sessions.length, 0)), folderCostNode(inside, sessionState, folder),
-      folderHasRunning(inside)
+      folderHasRunning(inside, isRunning)
         ? React.createElement('span', { 'data-polish-folder-running': folder, title: 'A session inside is running', style: WS_DOT })
         : null,
       React.createElement('button', {
@@ -3069,7 +3153,7 @@ export function BetterWorkspace(props) {
           },
         },
         React.createElement('span', { style: WS_PIN, 'aria-hidden': 'true' }, '\u2605'),
-        row.running ? React.createElement('span', { 'data-polish-pinned-running': row.id, style: WS_DOT, title: 'Running' }) : null,
+        isRunning(row) ? React.createElement('span', { 'data-polish-pinned-running': row.id, style: WS_DOT, title: 'Running' }) : null,
         React.createElement('span', { style: WS_TITLE }, row.displayTitle || row.id),
         costLabel(costOf(sessionState, row.id))
           ? React.createElement('span', { 'data-polish-pinned-cost': row.id, style: WS_COST }, costLabel(costOf(sessionState, row.id)))

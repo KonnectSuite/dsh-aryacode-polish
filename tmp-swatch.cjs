@@ -1,7 +1,0 @@
-﻿const fs = require('node:fs')
-const s = fs.readFileSync('client/workspace.js', 'utf8')
-const i = s.indexOf('const WS_SWATCH = {')
-console.log(s.slice(i, i + 420))
-const j = s.indexOf("'data-polish-glyph-pick'")
-console.log('--- workspace glyph button ---')
-console.log(s.slice(j - 420, j + 420))

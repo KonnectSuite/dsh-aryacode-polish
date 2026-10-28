@@ -1,8 +1,0 @@
-﻿const fs = require('node:fs')
-const lines = fs.readFileSync('client/workspace.js', 'utf8').split('\n')
-const at = lines.findIndex((line) => line.includes("'data-polish-ws-cost-total'"))
-console.log('cost total span at ' + (at + 1))
-console.log(lines.slice(at - 8, at + 8).map((t, i) => (at - 7 + i) + ': ' + t).join('\n'))
-const close = lines.findIndex((line) => line.includes("'data-polish-ws-help='") || line.includes("data-polish-ws-help\": 'open'"))
-const open = lines.findIndex((line) => line.includes('helpOpen'))
-console.log('--- helpOpen first at ' + (open + 1))

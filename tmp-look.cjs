@@ -1,5 +1,0 @@
-﻿const fs = require('node:fs')
-const lines = fs.readFileSync('client/workspace.js', 'utf8').split('\n')
-const at = lines.findIndex(l => l.includes('const symbol = raw === undefined'))
-console.log('line ' + (at + 1) + ': ' + JSON.stringify(lines[at]))
-console.log('next: ' + JSON.stringify(lines[at + 1]))

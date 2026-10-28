@@ -1,5 +1,0 @@
-﻿const fs = require('node:fs')
-const s = fs.readFileSync('client/workspace.js', 'utf8').split('\n')
-const at = s.findIndex((line) => line.includes('costOf =') || line.includes('function costOf'))
-console.log('costOf at ' + (at + 1))
-console.log(s.slice(at - 6, at + 18).map((text, offset) => (at - 5 + offset) + ': ' + text).join('\n'))

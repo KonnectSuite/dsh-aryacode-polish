@@ -423,3 +423,19 @@ everything, the three densities, the two sort orders, "Reset the tree" (which re
 `treeDefaults()`: no filter, nothing folded, comfortable rows, host order) and the shortcut sheet.
 The menu is generated from the same lists the icons use (`DENSITIES`, `SORTS`), so a new density
 appears in both places at once.
+
+## Running sessions
+
+The session rows the sidebar store hands a plugin never carry `running`; they carry
+`id, displayTitle, retainedBy, blank, updatedAt, formatStatus, projectionValues, title, cwd` and a
+`running` flag that stays `false` even while the Shell shows its Stop control. Measured on a 250-line
+turn: every row reported `running=false`.
+
+The live truth is the slot's `useSessionStatus` store, the same one the shipped browser reads
+(`packages/client/ui-workspace/src/client/tree.ts:401 running: status?.running ?? s.running`). This
+component reads it and falls back to the row flag, so:
+
+- a session's running dot lights while a turn runs,
+- a folder shows a dot when any session inside it is busy,
+- the header shows `● n` only while n sessions are running, and clicking it clears the filter, unfolds
+  the folder and expands the workspace holding the first busy session.

@@ -1,5 +1,0 @@
-﻿const fs = require('node:fs')
-const lines = fs.readFileSync('client/workspace.js', 'utf8').split('\n')
-const at = lines.findIndex((line) => line.includes("data-polish-ws-folder'"))
-console.log('folder header at ' + (at + 1))
-console.log(lines.slice(at - 22, at + 10).map((text, offset) => (at - 21 + offset) + ': ' + text).join('\n'))
