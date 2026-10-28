@@ -16,6 +16,11 @@ import {
   unreadIds,
   unreadInside,
   workspaceRecap,
+  orderStarred,
+  toggleStarred,
+  readStarred,
+  writeStarred,
+  STARRED_KEY,
   queryHasToken,
   withToken,
   filterSummary,
@@ -1198,4 +1203,21 @@ it('a workspace says how much, how much it cost and how long ago', () => {
   assert.equal(lines[1], '\u2248' + '$1.00 \u00b7 last 3m')
   assert.equal(workspaceRecap({ workspace: {}, sessions: [] }, {}, { now: 0 }), '0 sessions')
   assert.equal(workspaceRecap(undefined, {}, {}), '')
+})
+
+it('a starred workspace floats to the top without being duplicated', () => {
+  const rows = [
+    { workspace: { workspaceId: 'a', title: 'Alpha' }, sessions: [] },
+    { workspace: { workspaceId: 'b', title: 'Beta' }, sessions: [] },
+    { workspace: { workspaceId: 'c', title: 'Gamma' }, sessions: [] },
+  ]
+  const ordered = orderStarred(rows, new Set(['c']))
+  assert.deepEqual(ordered.map((g) => g.workspace.workspaceId), ['c', 'a', 'b'])
+  assert.equal(ordered.length, rows.length)
+  assert.deepEqual(orderStarred(rows, new Set()).map((g) => g.workspace.workspaceId), ['a', 'b', 'c'])
+  assert.deepEqual(toggleStarred(['a'], 'a'), [])
+  assert.deepEqual(toggleStarred([], 'b'), ['b'])
+  const store = { getItem: () => null, setItem() {}, removeItem() {} }
+  assert.deepEqual(readStarred(store), [])
+  writeStarred([], store)
 })

@@ -556,3 +556,9 @@ test('hovering a workspace explains it', () => {
     assert.ok(workspaceSource.includes(marker), 'bundle should carry ' + marker)
   }
 })
+
+test('a workspace can be starred to the top', () => {
+  for (const marker of ['orderStarred(applyFolderOrder', "'data-polish-ws-star-toggle'", "'data-polish-ws-starred': 'head'"]) {
+    assert.ok(workspaceSource.includes(marker), 'bundle should carry ' + marker)
+  }
+})

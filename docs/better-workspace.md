@@ -566,3 +566,14 @@ Hovering a workspace row shows what it holds without opening it:
 That is `workspaceRecap(group, snapshot, { now, isUnread })` — two lines, composed from the same
 cost projection, the same seen map and the same `updatedAt` stamps the rows already use. A note you
 typed on the workspace still wins, because a deliberate label outranks a derived one.
+
+
+## Starred
+
+**Star this workspace** in a workspace's menu lifts it above the folders under a Starred heading
+(`orderStarred`, stored in `aryacode-polish:starred.v1`). Starring is a reorder, never a copy: the
+workspace keeps its folder membership, its colour, its sessions and its place in the keyboard walk —
+it is simply sorted first, so nothing appears twice and no id has two rows.
+
+Unstarring returns it to where the folder order puts it, and the section header disappears with the
+last star.

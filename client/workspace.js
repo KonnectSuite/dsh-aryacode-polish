@@ -543,6 +543,49 @@ export function moveFolder(order, names, name, delta) {
 
 export const FOLDER_ORDER_KEY = 'aryacode-polish:folderorder.v1'
 
+export const STARRED_KEY = 'aryacode-polish:starred.v1'
+
+export function readStarred(storage) {
+  try {
+    const raw = storage.getItem(STARRED_KEY)
+    if (!raw) return []
+    const parsed = JSON.parse(raw)
+    if (!Array.isArray(parsed)) return []
+    const seen = new Set()
+    const ids = []
+    parsed.forEach((entry) => {
+      if (typeof entry !== 'string' || entry === '' || seen.has(entry)) return
+      seen.add(entry)
+      ids.push(entry)
+    })
+    return ids
+  } catch (error) {
+    return []
+  }
+}
+
+export function writeStarred(ids, storage) {
+  try {
+    if (!ids || ids.length === 0) storage.removeItem(STARRED_KEY)
+    else storage.setItem(STARRED_KEY, JSON.stringify(ids))
+  } catch (error) {
+    // A full disk must not break the tree.
+  }
+}
+
+export function toggleStarred(ids, id) {
+  const list = Array.isArray(ids) ? ids : []
+  return list.indexOf(id) >= 0 ? list.filter((entry) => entry !== id) : list.concat(id)
+}
+
+export function orderStarred(rows, starred) {
+  const list = Array.isArray(rows) ? rows : []
+  const set = starred instanceof Set ? starred : new Set(Array.isArray(starred) ? starred : [])
+  const top = list.filter((group) => group && group.workspace && set.has(group.workspace.workspaceId))
+  const rest = list.filter((group) => !(group && group.workspace && set.has(group.workspace.workspaceId)))
+  return top.concat(rest)
+}
+
 export function readFolderOrder(storage) {
   try {
     const raw = storage.getItem(FOLDER_ORDER_KEY)
@@ -1741,6 +1784,7 @@ const WS_PAINT_ROW = {
 }
 
 const WS_UNREAD = { color: 'var(--dsw-alias-text-accent, #4d6bfe)', fontSize: '14px', lineHeight: '1', marginRight: '2px' }
+const WS_STAR = { fontSize: '10px', lineHeight: '1', color: 'var(--dsw-alias-text-accent, #4d6bfe)', flexShrink: 0 }
 const WS_UNREAD_DOT = {
   width: '6px',
   height: '6px',
@@ -1819,6 +1863,15 @@ export function BetterWorkspace(props) {
   const standard = { wide: props.wide === true, expandSidebar: props.expandSidebar }
   const [expanded, setExpanded] = React.useState(() => readFolded().workspaces)
   const [folderOrder, setFolderOrder] = React.useState(() => readFolderOrder(window.localStorage))
+  const [starred, setStarred] = React.useState(() => readStarred(window.localStorage))
+  const starredIds = React.useMemo(() => new Set(starred), [starred])
+  const paintStar = React.useCallback((workspaceId) => {
+    setStarred((previous) => {
+      const next = toggleStarred(previous, workspaceId)
+      writeStarred(next, window.localStorage)
+      return next
+    })
+  }, [])
   const [seen, setSeen] = React.useState(() => readSeen(window.localStorage))
   const markSeen = React.useCallback((row) => {
     if (!row || !row.id) return
@@ -2004,7 +2057,8 @@ export function BetterWorkspace(props) {
   const totalsLabel = costLabel({ usd: totals.usd, cny: totals.cny })
   const unreadTotal = React.useMemo(() => unreadIds(allRows, seen).length, [allRows, seen])
   const folderOf = (workspace) => folderKey(workspace)
-  const orderedRows = React.useMemo(() => applyFolderOrder(rows, folderOrder), [rows, folderOrder])
+  const orderedRows = React.useMemo(() => orderStarred(applyFolderOrder(rows, folderOrder), starredIds), [rows, folderOrder, starredIds])
+  const starredTop = React.useMemo(() => orderedRows.length > 0 && orderedRows[0] && orderedRows[0].workspace && starredIds.has(orderedRows[0].workspace.workspaceId), [orderedRows, starredIds])
   const visibleRows = orderedRows.filter((group) => {
     const key = folderOf(group.workspace)
     return key === undefined || folders[key] !== true
@@ -2343,6 +2397,18 @@ export function BetterWorkspace(props) {
           try { await navigator.clipboard.writeText(menu.workspace.path) } catch {}
         },
       }, 'Copy path'),
+      React.createElement('button', {
+        type: 'button',
+        'data-polish-ws-star-toggle': menu.workspace.workspaceId,
+        style: WS_MENU_ITEM,
+        onClick: () => {
+          const workspace = menu.workspace
+          const next = starredIds.has(workspace.workspaceId)
+          closeMenu()
+          paintStar(workspace.workspaceId)
+          setNotice(next ? 'Unstarred ' + workspaceLabel(workspace) + '.' : 'Starred ' + workspaceLabel(workspace) + ' to the top.')
+        },
+      }, starredIds.has(menu.workspace.workspaceId) ? 'Unstar this workspace' : 'Star this workspace'),
       React.createElement('button', {
         type: 'button',
         'data-polish-ws-rename': 'open',
@@ -3751,6 +3817,14 @@ export function BetterWorkspace(props) {
 
   orderedRows.forEach((group) => {
     const workspace = group.workspace
+    if (starredTop && starredIds.has(workspace.workspaceId) && !announced['★']) {
+      announced['★'] = true
+      children.push(React.createElement('div', {
+        key: 'starred-head',
+        'data-polish-ws-starred': 'head',
+        style: WS_FOLDER_ROW,
+      }, 'Starred'))
+    }
     const sessions = group.sessions
     const folder = folderOf(workspace)
     const folderLook = folder === undefined ? {} : folderLookOf(look, folder)
@@ -3918,6 +3992,9 @@ export function BetterWorkspace(props) {
       : React.createElement(FolderGlyph),
     looks.tone
       ? React.createElement('span', { style: Object.assign({}, WS_TONE, { background: TONE_COLOR[looks.tone] }) })
+      : null,
+    starredIds.has(workspace.workspaceId)
+      ? React.createElement('span', { 'data-polish-ws-star': workspace.workspaceId, style: WS_STAR }, '\u2605')
       : null,
     React.createElement('span', {
       style: Object.assign({}, WS_TITLE, { fontWeight: looks.strong ? 600 : undefined }),

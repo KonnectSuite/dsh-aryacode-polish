@@ -1,3 +1,12 @@
+## [0.59.0]
+
+Star the workspaces you live in; they rise above the folders.
+
+### Added
+- **Star this workspace** in the row menu floats a workspace to the top under a Starred heading,
+  stored in `aryacode-polish:starred.v1` (`orderStarred`, `toggleStarred`, `readStarred`,
+  `writeStarred`). Nothing is duplicated: starring reorders, it does not clone.
+
 ## [0.58.0]
 
 Hovering a workspace now explains it.
