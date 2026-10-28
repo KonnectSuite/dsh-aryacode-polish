@@ -24,6 +24,7 @@
  */
 
 import { mountCost } from './cost.js'
+import { mountFolders } from './folders.js'
 import { mountGithub } from './github.js'
 
 /**
@@ -59,6 +60,13 @@ export const features = [
     description: 'Sign in with the GitHub CLI, browse your repositories, and clone one as a workspace.',
     defaultOn: true,
     mount: mountGithub,
+  },
+  {
+    id: 'workspaceSources',
+    label: 'Add a workspace from this PC or GitHub',
+    description: 'Put an "On this PC" / "GitHub repository" source menu behind the Workspaces + button.',
+    defaultOn: true,
+    mount: mountFolders,
   },
 ]
 

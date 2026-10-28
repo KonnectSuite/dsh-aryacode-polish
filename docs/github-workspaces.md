@@ -31,16 +31,34 @@ server rejects a bearer token for clone, which is why the header carries
 `x-access-token` basic auth. Every line of git output is scrubbed of the token
 before it can reach the browser, and the route answers `cache-control: no-store`.
 
-## Why the entry point is the sidebar foot
+## How the entry point works
 
-The "+" menu's **Add workspace** entry only appears when something occupies
-`sidebar.workspaces.directoryFlow`, and that slot is `kind: 'single'`: it already
-holds the folder picker, so occupying it would mean re-implementing folder
-choosing (browse *and* the native desktop picker) just to add a second source.
-Rather than replace the shipped picker, the feature adds its own entry in the
-sidebar foot next to it. If a multi-source workspace socket ever lands in the
-harness, only the registration moves; the route, the clone rules and the tests
-stay as they are.
+The "+" menu's **Add workspace…** entry only appears when something occupies
+`sidebar.workspaces.directoryFlow`, and that slot is `kind: 'single'` — whoever
+takes it stands in for the folder picker. This bundle takes it and offers the
+two sources the owner asked for:
+
+- **On this PC** — a folder browser driven by this bundle's own route
+  (`api/polish.folders`, actions `roots` and `ls`): roots, a `..` row for going
+  back, directories only, hidden and system entries filtered out, and **Use this
+  folder** hands the current path to the flow's `onPicked`.
+- **GitHub repository…** — the dialog described above. It opens on behalf of the
+  flow, so a finished clone hands its path back through the flow's `onPicked`,
+  and the Shell creates the workspace exactly as it does for a picked folder.
+
+### Why the browser does not borrow the Host's chooser
+
+A composed directory picker serves exactly one capability: `browse` answers
+`list` and `createDirectory`, `native` answers `pick`. The web profile composes
+the picker whose chooser cannot open there, so `directoryPicker.pick()` waits on
+a dialog that never appears — the first build of this flow did exactly that and
+the row spun forever. Owning the listing keeps one behaviour in the app and in
+the browser, needs no capability guess, and does not break when a profile mounts
+a different picker.
+
+The tray of the foot keeps the sign-in state (`GitHub · <login>`, or
+`GitHub · signed out`) next to the balance, so the account is visible without
+opening a dialog; clicking it opens the repository dialog directly.
 
 ## Not used from the AryaAI-era plugin
 

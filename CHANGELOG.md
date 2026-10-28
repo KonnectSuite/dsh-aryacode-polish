@@ -1,5 +1,33 @@
 # Changelog
 
+## [0.6.0] - 2026-10-28
+
+### Changed
+
+- **Adding a workspace moved into the Workspaces "+" menu.** A new switch
+  (`workspaceSources`) occupies `sidebar.workspaces.directoryFlow`, which is what
+  makes the Shell's **Add workspace…** row appear at all, and stands in for the
+  folder picker with the source menu the owner asked for: **On this PC** (a folder
+  browser driven by this bundle's own `api/polish.folders` route) and **GitHub
+  repository…** (the existing dialog). A finished clone hands its path to the
+  flow's `onPicked`, so the Shell creates the workspace exactly as it does for a
+  picked folder.
+
+### Added
+
+- The sidebar foot now carries the GitHub sign-in state next to the balance
+  (`GitHub · <login>` / `GitHub · signed out`); clicking it opens the repository
+  dialog. It replaced the foot's add-workspace row, which the "+" menu supersedes.
+
+### Fixed
+
+- "On this PC" lists folders instead of waiting on a chooser that cannot open. A
+  composed directory picker serves one capability, `browse` or `native`, and the
+  browser build composes the one with no chooser to show, so the previous
+  `directoryPicker.pick()` call simply never settled. The flow now walks folders
+  through its own route: roots, a `..` row for going back, directories only, and
+  hidden or system entries filtered out.
+
 ## [0.5.0] - 2026-10-27
 
 ### Added

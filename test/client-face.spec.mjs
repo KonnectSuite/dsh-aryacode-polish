@@ -72,6 +72,7 @@ test('the face registers every surface it ships, each under its own key', () => 
     'conversation.composer.dock',
     'sidebar.footer.action',
     'sidebar.workspaces.session.menu.item',
+    'sidebar.workspaces.directoryFlow',
   ]) {
     assert.ok(bundle.includes(`'${slot}'`), `the face must register ${slot}`)
   }
@@ -79,7 +80,38 @@ test('the face registers every surface it ships, each under its own key', () => 
   assert.match(bundle, /id: 'polish-balance'/)
   assert.match(bundle, /id: 'polish-open-folder'/)
   assert.match(bundle, /id: 'polish-github'/)
-  assert.match(bundle, /id: 'polish-github-entry'/)
+})
+
+test('the Workspaces "+" menu offers both sources and honours the flow contract', () => {
+  assert.ok(bundle.includes("'On this PC'"), 'the source menu names the machine')
+  assert.ok(bundle.includes("'GitHub repository…'"), 'the source menu names GitHub')
+  assert.ok(
+    bundle.includes("foldersCall({ action: 'roots' })"),
+    'the machine source asks this bundle\'s own route for the roots, not the Host chooser',
+  )
+  assert.ok(
+    bundle.includes("foldersCall({ action: 'ls', path })"),
+    'the browser walks folders through the same route, so it behaves the same in the app and in the web build',
+  )
+  assert.equal(
+    bundle.includes('directoryPicker'),
+    false,
+    'a composed picker serves one capability and the browser build composes the one whose chooser cannot open, so the flow must not depend on it',
+  )
+  for (const handedBack of ['props.onPicked(path)', 'props.onCancel()']) {
+    assert.ok(
+      bundle.includes(handedBack),
+      `the flow hands the chosen path back through ${handedBack}, so the Shell creates the workspace`,
+    )
+  }
+  assert.ok(
+    bundle.includes('takePicker()'),
+    'a dialog opened by the flow gives the clone back to the flow instead of creating a second workspace',
+  )
+  assert.ok(
+    bundle.includes('priority: -1'),
+    'a single slot clashes at equal priority and the lowest renders, so the flow must shadow the shipped picker instead of colliding with it',
+  )
 })
 
 test('a cloned repository becomes a workspace through the Workspace service', () => {

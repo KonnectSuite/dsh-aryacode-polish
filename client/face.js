@@ -466,6 +466,7 @@ function CostPill(props) {
  */
 const BALANCE_RETRY_DELAYS = [1500, 5000, 15000, 30000]
 
+
 /**
  * The remaining-balance line in the sidebar foot.
  *
@@ -627,7 +628,12 @@ const GITHUB_ROUTE = 'api/polish.github'
  */
 const githubStore = (() => {
   let open = false
+  // Set when the dialog was opened from the add-workspace flow: the flow owns
+  // workspace creation through `onPicked`, so a clone hands it the path rather
+  // than calling the Workspace service itself.
+  let picker
   const listeners = new Set()
+  const publish = () => { for (const listener of listeners) listener() }
   return {
     isOpen: () => open,
     subscribe(listener) {
@@ -637,7 +643,21 @@ const githubStore = (() => {
     set(next) {
       if (open === next) return
       open = next
-      for (const listener of listeners) listener()
+      if (!next) picker = undefined
+      publish()
+    },
+    /** Open the dialog, optionally on behalf of the add-workspace flow. */
+    open(onPicked) {
+      picker = onPicked
+      if (open) return
+      open = true
+      publish()
+    },
+    /** Take the flow's `onPicked` once, so a second clone cannot reuse it. */
+    takePicker() {
+      const current = picker
+      picker = undefined
+      return current
     },
   }
 })()
@@ -660,6 +680,28 @@ async function githubCall(action, extra) {
   }
   if (payload.ok !== true) throw new Error(payload.error || 'GitHub request failed')
   return payload.value
+}
+
+/** The Host route the folder browser talks over. Document-relative, like every app route. */
+const FOLDERS_ROUTE = 'api/polish.folders'
+
+/**
+ * Post one action to the folder route.
+ * @param body - `{ action: 'roots' }` or `{ action: 'ls', path }`.
+ * @returns the route's listing, or throws with its own message.
+ */
+async function foldersCall(body) {
+  const response = await fetch(FOLDERS_ROUTE, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify(body),
+  })
+  const payload = await response.json().catch(() => undefined)
+  if (payload === undefined || typeof payload !== 'object') {
+    throw new Error(`the Host answered ${String(response.status)}`)
+  }
+  if (payload.error !== undefined) throw new Error(String(payload.error))
+  return payload
 }
 
 /** Modal backdrop and panel skin, matching the Shell's own dialogs. */
@@ -785,7 +827,15 @@ function GitHubPanel(props) {
     setError('')
     Promise.resolve()
       .then(() => githubCall('clone', { owner: repo.owner, name: repo.name }))
-      .then(result => Promise.resolve(props.createWorkspace(result.path)).then(() => result))
+      // The add-workspace flow owns creation when it opened this dialog; a
+      // dialog opened from the footer creates the workspace itself.
+      .then(result => {
+        const onPicked = githubStore.takePicker()
+        const land = onPicked === undefined
+          ? Promise.resolve(props.createWorkspace(result.path))
+          : Promise.resolve(onPicked(result.path))
+        return land.then(() => result)
+      })
       .then(result => {
         setBusy('')
         githubStore.set(false)
@@ -862,59 +912,309 @@ function GitHubPanel(props) {
     , document.body)
 }
 
+/** The compact footer-row skin shared by the status line. */
+const FOOT_ROW_STYLE = {
+  display: 'flex',
+  alignItems: 'center',
+  gap: '6px',
+  maxWidth: '100%',
+  minWidth: 0,
+  padding: '2px 6px',
+  border: 'none',
+  borderRadius: 'var(--dsw-radius-sm, 6px)',
+  background: 'transparent',
+  color: 'var(--dsw-alias-label-tertiary, inherit)',
+  font: 'inherit',
+  fontSize: '12px',
+  lineHeight: '18px',
+  fontVariantNumeric: 'tabular-nums',
+  whiteSpace: 'nowrap',
+  overflow: 'hidden',
+  textOverflow: 'ellipsis',
+  cursor: 'pointer',
+}
+
 /**
- * The footer row that opens the GitHub dialog.
+ * The footer status line: which GitHub session the "+" menu will clone with.
+ *
+ * It reads the same `status` action the dialog does, so it costs one request
+ * when the Shell loads and one whenever the window regains focus.
+ *
  * @param props - our lazy `configForms`.
  * @returns the row, or null when the feature is switched off.
  */
-function GithubEntry(props) {
+function GithubStatus(props) {
   const enabled = useSwitch(props.configForms, 'githubWorkspace', true)
+  const [status, setStatus] = React.useState(undefined)
+  React.useEffect(() => {
+    if (!enabled) return undefined
+    let live = true
+    const read = () => {
+      Promise.resolve()
+        .then(() => githubCall('status'))
+        .then(next => { if (live) setStatus(next) })
+        .catch(() => { if (live) setStatus({ signedIn: false }) })
+    }
+    read()
+    const onFocus = () => { read() }
+    window.addEventListener('focus', onFocus)
+    return () => {
+      live = false
+      window.removeEventListener('focus', onFocus)
+    }
+  }, [enabled])
   if (!enabled) return null
-  return React.createElement('div', { style: { padding: '2px 8px 4px', minWidth: 0 } },
+  const signedIn = status !== undefined && status.signedIn === true
+  const label = status === undefined
+    ? 'GitHub · checking…'
+    : signedIn ? `GitHub · ${String(status.login)}` : 'GitHub · signed out'
+  return React.createElement('div', { style: { padding: '2px 8px 0', minWidth: 0 } },
     React.createElement('button', {
       type: 'button',
-      'data-polish-github': 'entry',
-      title: 'Add a workspace from GitHub',
-      'aria-label': 'Add a workspace from GitHub',
-      onClick: () => githubStore.set(true),
-      style: {
-        display: 'flex',
-        alignItems: 'center',
-        gap: '6px',
-        maxWidth: '100%',
-        minWidth: 0,
-        padding: '2px 6px',
-        border: 'none',
-        borderRadius: 'var(--dsw-radius-sm, 6px)',
-        background: 'transparent',
-        color: 'var(--dsw-alias-label-tertiary, inherit)',
-        font: 'inherit',
-        fontSize: '12px',
-        lineHeight: '18px',
-        fontVariantNumeric: 'tabular-nums',
-        whiteSpace: 'nowrap',
-        overflow: 'hidden',
-        textOverflow: 'ellipsis',
-        cursor: 'pointer',
-      },
+      'data-polish-github': 'status',
+      'data-polish-github-state': signedIn ? 'in' : status === undefined ? 'checking' : 'out',
+      title: signedIn
+        ? 'Add a workspace from GitHub'
+        : 'Sign in with the GitHub CLI (gh auth login), then add a repository as a workspace',
+      'aria-label': label,
+      onClick: () => githubStore.open(),
+      style: FOOT_ROW_STYLE,
       onMouseEnter: event => { event.currentTarget.style.background = 'var(--dsw-alias-interactive-bg-hover, rgba(0,0,0,0.06))' },
       onMouseLeave: event => { event.currentTarget.style.background = 'transparent' },
+    }, label))
+}
+
+/** One row of the add-workspace source menu. */
+const SOURCE_ROW_STYLE = {
+  display: 'flex',
+  flexDirection: 'column',
+  alignItems: 'flex-start',
+  gap: '2px',
+  width: '100%',
+  padding: '8px 10px',
+  border: 'none',
+  borderRadius: 'var(--dsw-radius-sm, 6px)',
+  background: 'transparent',
+  color: 'inherit',
+  font: 'inherit',
+  textAlign: 'left',
+  cursor: 'pointer',
+}
+
+/**
+ * The "+" add-workspace flow: choose where the workspace comes from.
+ *
+ * The Harness shows its own `Add workspace…` row only while this slot is
+ * occupied, and a single-owner slot means this dialog stands in for the folder
+ * picker. It therefore offers both sources: the machine (the Host's own OS
+ * chooser when the composition serves the `native` capability, otherwise a
+ * folder list driven by the browse primitives) and GitHub.
+ *
+ * @param props - the slot owner's `open`/`busy`/`onPicked`/`onCancel`/`onError`,
+ *   our lazy `configForms`, and the directory-picker calls.
+ * @returns the flow, or null while it is closed or switched off.
+ */
+function WorkspaceSourceFlow(props) {
+  const enabled = useSwitch(props.configForms, 'workspaceSources', true)
+  const [step, setStep] = React.useState('menu')
+  const [listing, setListing] = React.useState(undefined)
+  const [error, setError] = React.useState('')
+  const [busy, setBusy] = React.useState(false)
+
+  const cancel = () => {
+    if (typeof props.onCancel === 'function') props.onCancel()
+  }
+
+  // Escape closes the flow. Declared with the other hooks, before the early
+  // return, so the hook order stays fixed while the flow opens and closes.
+  React.useEffect(() => {
+    if (!enabled || props.open !== true) return undefined
+    const onKey = event => { if (event.key === 'Escape') cancel() }
+    document.addEventListener('keydown', onKey)
+    return () => document.removeEventListener('keydown', onKey)
+  }, [enabled, props.open])
+
+  if (!enabled || props.open !== true) return null
+
+  const fail = message => {
+    setBusy(false)
+    setError(message)
+  }
+  const messageOf = reason => (reason instanceof Error ? reason.message : String(reason))
+
+  const land = path => {
+    setBusy(true)
+    setError('')
+    Promise.resolve()
+      .then(() => props.onPicked(path))
+      .catch(reason => fail(messageOf(reason)))
+  }
+
+  const browse = path => {
+    setBusy(true)
+    setError('')
+    Promise.resolve()
+      .then(() => foldersCall({ action: 'ls', path }))
+      .then(level => {
+        setListing(level)
+        setBusy(false)
+        setStep('browse')
+      })
+      .catch(reason => fail(messageOf(reason)))
+  }
+
+  /**
+   * Start the folder browser at the machine's roots.
+   *
+   * This deliberately does not call the Host's directory picker: a composed
+   * picker serves either `browse` or `native`, never both, and the browser build
+   * composes the one whose chooser cannot open there — a `pick` call would wait
+   * for a dialog that never appears. Our own listing behaves the same in the app
+   * and in the browser, and hands the chosen path back through `onPicked`.
+   */
+  const chooseOnPc = () => {
+    if (busy) return
+    setBusy(true)
+    setError('')
+    Promise.resolve()
+      .then(() => foldersCall({ action: 'roots' }))
+      .then(payload => {
+        const roots = Array.isArray(payload.roots) ? payload.roots : []
+        setListing({
+          path: '',
+          parent: null,
+          entries: roots.map(root => ({ name: root.label, path: root.path })),
+        })
+        setBusy(false)
+        setStep('browse')
+      })
+      .catch(reason => fail(messageOf(reason)))
+  }
+
+  const openGithub = () => {
+    githubStore.open(path => props.onPicked(path))
+    cancel()
+  }
+
+  const rows = step === 'menu'
+    ? [
+      React.createElement('button', {
+        key: 'pc',
+        type: 'button',
+        'data-polish-source': 'machine',
+        disabled: busy,
+        onClick: chooseOnPc,
+        style: SOURCE_ROW_STYLE,
+        onMouseEnter: event => { event.currentTarget.style.background = 'var(--dsw-alias-interactive-bg-hover, rgba(0,0,0,0.06))' },
+        onMouseLeave: event => { event.currentTarget.style.background = 'transparent' },
+      },
+      React.createElement('span', { style: { fontWeight: 500 } }, 'On this PC'),
+      React.createElement('span', { style: { opacity: 0.7 } }, 'Choose a folder on this machine')),
+      React.createElement('button', {
+        key: 'github',
+        type: 'button',
+        'data-polish-source': 'github',
+        disabled: busy,
+        onClick: openGithub,
+        style: SOURCE_ROW_STYLE,
+        onMouseEnter: event => { event.currentTarget.style.background = 'var(--dsw-alias-interactive-bg-hover, rgba(0,0,0,0.06))' },
+        onMouseLeave: event => { event.currentTarget.style.background = 'transparent' },
+      },
+      React.createElement('span', { style: { fontWeight: 500 } }, 'GitHub repository…'),
+      React.createElement('span', { style: { opacity: 0.7 } }, 'Clone one of your repositories as a workspace')),
+    ]
+    : [
+      React.createElement('div', {
+        key: 'head',
+        style: { display: 'flex', alignItems: 'center', gap: '8px', padding: '2px 4px 6px', minWidth: 0 },
+      },
+      React.createElement('span', {
+        style: { flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' },
+        title: listing !== undefined ? listing.path : '',
+      }, listing === undefined || listing.path === '' ? 'This PC' : listing.path),
+      listing === undefined || listing.path === ''
+        ? null
+        : React.createElement('button', {
+          type: 'button',
+          'data-polish-pick': 'here',
+          disabled: busy,
+          onClick: () => { if (listing !== undefined) land(listing.path) },
+          style: { ...FOOT_ROW_STYLE, color: 'var(--dsw-alias-label-primary, inherit)', background: 'var(--dsw-alias-interactive-bg-hover, rgba(0,0,0,0.06))' },
+        }, 'Use this folder')),
+      ...(listing === undefined || listing.parent === null || listing.parent === undefined
+        ? []
+        : [React.createElement('button', {
+          key: 'up',
+          type: 'button',
+          'data-polish-folder': '..',
+          disabled: busy,
+          onClick: () => browse(listing.parent),
+          style: SOURCE_ROW_STYLE,
+          onMouseEnter: event => { event.currentTarget.style.background = 'var(--dsw-alias-interactive-bg-hover, rgba(0,0,0,0.06))' },
+          onMouseLeave: event => { event.currentTarget.style.background = 'transparent' },
+        }, React.createElement('span', { title: listing.parent }, '..'))]),
+      ...(listing === undefined
+        ? []
+        : listing.entries.map(entry => React.createElement('button', {
+          key: entry.path,
+          type: 'button',
+          'data-polish-folder': entry.name,
+          disabled: busy,
+          onClick: () => browse(entry.path),
+          style: SOURCE_ROW_STYLE,
+          onMouseEnter: event => { event.currentTarget.style.background = 'var(--dsw-alias-interactive-bg-hover, rgba(0,0,0,0.06))' },
+          onMouseLeave: event => { event.currentTarget.style.background = 'transparent' },
+        }, React.createElement('span', { style: { overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }, title: entry.path }, entry.name)))),
+    ]
+
+  // The flow is rendered inside the Shell's add-workspace popover, which is
+  // narrow and sits under the sidebar's own stacking order. A portal to the body
+  // puts it above everything and keeps the rows readable at their own width.
+  return ReactDOM.createPortal(
+    React.createElement('div', {
+      style: GITHUB_BACKDROP_STYLE,
+      'data-polish-flow-backdrop': step,
+      onPointerDown: event => { if (event.target === event.currentTarget) cancel() },
     },
-    React.createElement('svg', {
-      width: 14,
-      height: 14,
-      viewBox: '0 0 16 16',
-      fill: 'none',
-      stroke: 'currentColor',
-      strokeWidth: 1.2,
-      strokeLinecap: 'round',
-      strokeLinejoin: 'round',
-      'aria-hidden': 'true',
-      style: { flex: 'none' },
+    React.createElement('div', {
+      'data-polish-flow': step,
+      role: 'dialog',
+      'aria-label': 'Add a workspace',
+      style: {
+        display: 'flex',
+        flexDirection: 'column',
+        gap: '2px',
+        width: 'min(360px, calc(100vw - 32px))',
+        maxHeight: 'min(420px, calc(100vh - 96px))',
+        padding: '6px',
+        overflowY: 'auto',
+        borderRadius: 'var(--dsw-radius-lg, 12px)',
+        background: 'var(--dsw-specific-menu, Canvas)',
+        boxShadow: 'var(--dsw-elevation-prominent, 0 8px 24px rgba(0,0,0,0.18))',
+        fontSize: '12px',
+        lineHeight: '18px',
+        color: 'var(--dsw-alias-label-secondary, inherit)',
+      },
     },
-    React.createElement('path', { d: 'M2.5 5.5h4l1.2 1.5h5.8v6.5h-11z' }),
-    React.createElement('path', { d: 'M8 9.8v3.4M6.3 11.5h3.4' })),
-    'Add from GitHub'))
+    error !== ''
+      ? React.createElement('div', { style: { padding: '4px 6px', color: 'var(--dsw-alias-label-error, #b42318)' } }, error)
+      : null,
+    ...rows,
+    step === 'menu'
+      ? null
+      : React.createElement('button', {
+        type: 'button',
+        'data-polish-pick': 'back',
+        onClick: () => { setStep('menu'); setListing(undefined); setError('') },
+        style: { ...FOOT_ROW_STYLE, justifyContent: 'flex-start' },
+      }, 'Back'),
+    React.createElement('button', {
+      type: 'button',
+      'data-polish-pick': 'cancel',
+      onClick: cancel,
+      style: { ...FOOT_ROW_STYLE, justifyContent: 'flex-start' },
+    }, 'Cancel'))),
+  document.body)
 }
 
 return {
@@ -995,12 +1295,29 @@ return {
         id: 'polish-github',
         inject: () => ({ configForms, createWorkspace }),
       }, GitHubPanel))
+      // The footer keeps the sign-in state, not an add button: adding a
+      // workspace belongs in the "+" menu, where the Shell says it does.
       githubCtx.slots.inject('sidebar.footer.action', () => githubCtx.slots.register({
         name: 'sidebar.footer.action',
-        id: 'polish-github-entry',
+        id: 'polish-github-status',
         order: 4,
         inject: () => ({ configForms }),
-      }, GithubEntry))
+      }, GithubStatus))
     })
+    // The "+" menu's `Add workspace…` row exists only while a plugin occupies
+    // this single-owner hole, so occupying it means standing in for the folder
+    // picker: the flow offers the machine and GitHub as sources. It needs no
+    // Remote injection: the folder list and the clone both come from this
+    // bundle's own Host routes, which is what makes the flow behave the same in
+    // the browser and in the app.
+    ctx.slots.inject('sidebar.workspaces.directoryFlow', () => ctx.slots.register({
+      name: 'sidebar.workspaces.directoryFlow',
+      // A single slot clashes only at the exact priority; another priority
+      // shadows it and the LOWEST priority renders. The shipped pickers
+      // register at 0, so -1 is what puts this flow in front of them without
+      // making their own activation throw.
+      priority: -1,
+      inject: () => ({ configForms }),
+    }, WorkspaceSourceFlow))
   },
 }

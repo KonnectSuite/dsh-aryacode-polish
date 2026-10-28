@@ -24,6 +24,12 @@
       "label": "Add a workspace from GitHub",
       "description": "Sign in with the GitHub CLI, browse your repositories, and clone one as a workspace.",
       "defaultOn": true
+    },
+    {
+      "key": "workspaceSources",
+      "label": "Add a workspace from this PC or GitHub",
+      "description": "Put an On this PC / GitHub repository source menu behind the Workspaces + button.",
+      "defaultOn": true
     }
   ]
 }
