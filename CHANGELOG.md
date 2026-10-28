@@ -1,3 +1,9 @@
+## [0.85.0]
+
+### Added
+- **Archive every session here** in a workspace's menu: clears a whole workspace out of the list in one
+  step, with the same Undo the bulk bar offers.
+
 ## [0.84.0]
 
 ### Added

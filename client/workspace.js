@@ -2832,6 +2832,25 @@ export function BetterWorkspace(props) {
       }, 'Copy path'),
       React.createElement('button', {
         type: 'button',
+        'data-polish-ws-archive-all': menu.workspace.workspaceId,
+        style: WS_MENU_ITEM,
+        onClick: async () => {
+          const workspace = menu.workspace
+          const inside = (rows.find((group) => group.workspace.workspaceId === workspace.workspaceId) || {}).sessions || []
+          closeMenu()
+          if (inside.length === 0) { setNotice('Nothing to archive here.'); return }
+          const done = []
+          for (let at = 0; at < inside.length; at += 1) {
+            try { await services.archiveSession(inside[at].id); done.push(inside[at].id) } catch { /* keep going */ }
+          }
+          if (done.length > 0) offerUndo({ kind: 'archive', ids: done })
+          setNotice(done.length === inside.length
+            ? 'Archived ' + plural(done.length, 'session', 'sessions') + ' from ' + workspaceLabel(workspace) + '.'
+            : 'Archived ' + done.length + ' of ' + inside.length + ' sessions from ' + workspaceLabel(workspace) + '.')
+        },
+      }, 'Archive every session here'),
+      React.createElement('button', {
+        type: 'button',
         'data-polish-ws-star-toggle': menu.workspace.workspaceId,
         style: WS_MENU_ITEM,
         onClick: () => {

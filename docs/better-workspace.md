@@ -799,3 +799,13 @@ restores the folds you had, because entering focus keeps a snapshot of `expanded
 `focusPlan(rows, workspaceId)` is pure: it returns the two maps to set (`{ expanded, folders }`), leaving
 an unfiled workspace out of the folder map because there is no folder to shut. Verified live: 26 session
 rows across 6 workspaces → focus → 11 rows with every other head collapsed → show everything → 26 again.
+
+
+### Emptying a workspace
+
+A workspace's menu offers **Archive every session here**. It archives the group's sessions one at a time
+(a single refusal does not stop the rest), reports `Archived 11 sessions from default-workspace.` or the
+partial form, and offers the same Undo the bulk bar uses — so the whole move is reversible.
+
+Verified live: 26 session rows, `default-workspace` holding 11 → archive every → 15 rows, archived count
+1 → 12, Undo → 26 rows and archived back to 1.
