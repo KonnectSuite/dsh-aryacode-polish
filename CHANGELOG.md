@@ -1,12 +1,23 @@
 # Changelog
 
+
+## [0.8.2] - 2026-10-28
+
+### Fixed
+
+- The camera floated over the panel with metrics of its own, so it read as a
+  foreign control. It now mounts into the docking kit's chrome seat beside the
+  Shell's own presentation and collapse buttons, wearing that cluster's 28px box,
+  15px glyph, hover state and tooltip, and it follows the strip through docked,
+  split and fullscreen layouts.
+
 ## [0.8.1] - 2026-10-28
 
 ### Changed
 
-- The camera moved out of the composer row and into the open right panel's own
-  top-right corner, where the panel is what you are looking at. The composer
-  dock entry stays, invisibly, to publish the session context the button needs.
+- The camera moved out of the composer row and next to the right panel's own
+  controls. The composer dock entry stays, invisibly, to publish the session
+  context the button needs.
 
 ## [0.8.0] - 2026-10-28
 

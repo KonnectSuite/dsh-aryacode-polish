@@ -130,16 +130,16 @@ test('the composer row can photograph the open right panel into the chat', () =>
     'the capture targets the open right-panel tab, which is the same node for the Shell sidebar and better-sidebar',
   )
   assert.ok(
-    bundle.includes("'data-polish-shot-anchor': 'panel'"),
-    'the camera is drawn against the panel\'s own top-right corner, not the composer row',
+    bundle.includes('data-dockkit-strip-chrome'),
+    'the camera is portalled into the docking kit chrome seat, so it shares the Shell own controls\' gap, box and alignment instead of floating on coordinates',
   )
   assert.ok(
-    bundle.includes('function shotAnchor('),
-    'the corner is measured from the open panel, so it follows the panel wherever it lands',
+    bundle.includes('ReactDOM.createPortal(') && bundle.includes('SHOT_CHROME_SELECTOR'),
+    'the strip control is mounted into the strip itself, which is what makes it join the cluster in docked, split and fullscreen layouts',
   )
   assert.ok(
-    bundle.includes('data-sidebar-right-open'),
-    'the button re-measures when the panel opens, closes or swaps tabs',
+    !bundle.includes('function shotAnchor('),
+    'no coordinate maths is left over from the floating draft of this button',
   )
   assert.ok(
     bundle.includes('shotStore.set('),

@@ -1572,7 +1572,6 @@ function shotName() {
     + '-' + pad(now.getHours()) + pad(now.getMinutes()) + pad(now.getSeconds()) + '.png'
 }
 
-const SHOT_GLYPH_STYLE = { width: '14px', height: '14px', flex: 'none', display: 'block' }
 
 /**
  * Camera glyph, drawn here so the face depends on no icon package.
@@ -1581,51 +1580,94 @@ const SHOT_GLYPH_STYLE = { width: '14px', height: '14px', flex: 'none', display:
 function CameraGlyph() {
   return React.createElement('svg', {
     viewBox: '0 0 16 16',
-    width: 14,
-    height: 14,
+    width: 15,
+    height: 15,
     fill: 'none',
     stroke: 'currentColor',
-    strokeWidth: 1.2,
+    strokeWidth: 1,
     strokeLinecap: 'round',
     strokeLinejoin: 'round',
     'aria-hidden': 'true',
-    style: SHOT_GLYPH_STYLE,
   },
-  React.createElement('path', { d: 'M2 5.5h2.2l1-1.5h5.6l1 1.5H14v7H2z' }),
-  React.createElement('circle', { cx: 8, cy: 9, r: 2.2 }))
+  React.createElement('path', { d: 'M2.6 5.4h1.9l1-1.5h5l1 1.5h1.9a1 1 0 0 1 1 1v5.7a1 1 0 0 1-1 1H2.6a1 1 0 0 1-1-1V6.4a1 1 0 0 1 1-1Z' }),
+  React.createElement('circle', { cx: 8, cy: 9.3, r: 2.5 }))
+}
+
+/** Confirmation tick, drawn at the strip's own glyph size. */
+function CheckGlyph() {
+  return React.createElement('svg', {
+    viewBox: '0 0 16 16',
+    width: 15,
+    height: 15,
+    fill: 'none',
+    stroke: 'currentColor',
+    strokeWidth: 1.4,
+    strokeLinecap: 'round',
+    strokeLinejoin: 'round',
+    'aria-hidden': 'true',
+  },
+  React.createElement('path', { d: 'M3.4 8.6l3 3 6.2-6.6' }))
+}
+
+/** Refusal mark, drawn at the strip's own glyph size. */
+function BangGlyph() {
+  return React.createElement('svg', {
+    viewBox: '0 0 16 16',
+    width: 15,
+    height: 15,
+    fill: 'none',
+    stroke: 'currentColor',
+    strokeWidth: 1.4,
+    strokeLinecap: 'round',
+    strokeLinejoin: 'round',
+    'aria-hidden': 'true',
+  },
+  React.createElement('path', { d: 'M8 3.6v5.2' }),
+  React.createElement('path', { d: 'M8 12v.4' }))
 }
 
 /**
- * Where the camera button is drawn: the panel's own top-right corner, just
- * inside the frame and left of the Shell's expand/close controls.
+ * The Shell has no header slot for the panel, so the camera rides the docking
+ * kit's chrome seat: the element at the end of the top-right pane's tab strip
+ * that already holds the presentation and collapse controls. Portalling into
+ * that element, instead of floating over the panel at fixed coordinates, is what
+ * makes the button share the cluster's gap, its vertical centring and whatever
+ * geometry the strip has docked, fullscreened or split.
  */
-const SHOT_ANCHOR_EDGE = 8
-const SHOT_ANCHOR_BUTTON = 28
-const SHOT_ANCHOR_CONTROLS = 96
+const SHOT_CHROME_SELECTOR = '[data-dockkit-strip-chrome]'
 
 /**
- * Where the open right panel's header ends, in viewport coordinates.
- * @returns the corner, or undefined when no panel is open.
+ * Mirrors the Shell's own strip control: a 28px box with 6px padding around a
+ * 15px glyph, secondary label colour, transparent until hovered.
  */
-function shotAnchor() {
-  const panel = document.querySelector('[data-sidebar-right-session][data-sidebar-right-open]')
-  if (panel === null) return undefined
-  const rect = panel.getBoundingClientRect()
-  if (rect.width < 120 || rect.height < 120) return undefined
-  return {
-    top: rect.top + SHOT_ANCHOR_EDGE,
-    left: Math.max(rect.left + SHOT_ANCHOR_EDGE, rect.right - SHOT_ANCHOR_CONTROLS - SHOT_ANCHOR_BUTTON),
-  }
+const SHOT_BUTTON_STYLE = {
+  display: 'inline-flex',
+  flex: 'none',
+  alignItems: 'center',
+  justifyContent: 'center',
+  width: '28px',
+  height: '28px',
+  padding: '6px',
+  color: 'var(--dsw-alias-label-secondary, #61666b)',
+  lineHeight: 1,
+  background: 'transparent',
+  border: 'none',
+  borderRadius: 'var(--dsw-radius-sm, 6px)',
+  cursor: 'pointer',
+  // Ahead of the Shell's own two controls: the last thing you would reach for,
+  // and never between them and the panel edge.
+  order: -1,
 }
 
 /**
- * The composer context the overlay button attaches through.
+ * The composer context the chrome button attaches through.
  *
- * The camera button lives in a root overlay so it can sit in the panel header,
- * but attaching an image needs the *session-scoped* composer props (`sessionId`
- * and `inputActions`), which only a session slot receives. The composer dock is
+ * The camera renders inside the panel strip, which is root chrome, but attaching
+ * an image needs the *session-scoped* composer props (`sessionId` and
+ * `inputActions`), which only a session slot receives. The composer dock is
  * therefore kept as an invisible publisher and this store carries its context up
- * to the overlay; with no open Session the store is empty and the button hides.
+ * to the chrome button; with no open Session the store is empty and the button
+ * does not render.
  */
 const shotStore = (() => {
   const listeners = new Set()
@@ -1643,24 +1685,8 @@ const shotStore = (() => {
   }
 })()
 
-const SHOT_BUTTON_STYLE = {
-  position: 'fixed',
-  display: 'inline-flex',
-  alignItems: 'center',
-  justifyContent: 'center',
-  width: SHOT_ANCHOR_BUTTON + 'px',
-  height: SHOT_ANCHOR_BUTTON + 'px',
-  padding: '0',
-  border: 'none',
-  borderRadius: 'var(--dsw-radius-sm, 6px)',
-  background: 'transparent',
-  color: 'var(--dsw-alias-label-tertiary, #61666b)',
-  cursor: 'pointer',
-  zIndex: 40,
-}
-
 /**
- * Invisible composer-dock entry that publishes the session context the overlay
+ * Invisible composer-dock entry that publishes the session context the chrome
  * button needs, and nothing else.
  * @param props - session slot props (`sessionId`, `inputActions`) plus the
  * late `conversation` lookup.
@@ -1679,29 +1705,35 @@ function PanelShotContext(props) {
 }
 
 /**
- * Camera button pinned to the right panel's top-right corner: photographs the
- * open tab, copies it, and attaches it to the message being written.
- * @param props - slot props plus the late `conversation` lookup.
- * @returns the button, or null while there is nothing to shoot or nowhere to
- * attach.
+ * Camera button in the right panel's tab strip: photographs the open tab, copies
+ * it, and attaches it to the message being written.
+ * @param props - overlay slot props plus the late `conversation` lookup.
+ * @returns the portalled button, or null while there is no panel or no Session.
  */
 function PanelShotButton(props) {
   const on = useSwitch(props.configForms, 'panelScreenshot', true)
   const context = React.useSyncExternalStore(shotStore.subscribe, shotStore.get)
-  const [anchor, setAnchor] = React.useState(() => shotAnchor())
+  const [host, setHost] = React.useState(undefined)
   const [phase, setPhase] = React.useState('idle')
   const [note, setNote] = React.useState('')
   React.useEffect(() => {
-    const measure = () => setAnchor(shotAnchor())
-    measure()
-    // The panel opens, closes, splits and resizes without any event this
-    // component would otherwise hear, so watch the attribute and the geometry.
-    const observer = new MutationObserver(measure)
-    observer.observe(document.body, { attributes: true, subtree: true, attributeFilter: ['data-sidebar-right-open', 'data-dockkit-pane-active'] })
-    window.addEventListener('resize', measure)
+    // The strip is created, destroyed and re-created as panes open, split and
+    // close, so follow the document rather than measuring it once. Frames are
+    // coalesced because React commits fire many mutations in a row.
+    let frame = 0
+    const find = () => {
+      frame = 0
+      setHost(document.querySelector(SHOT_CHROME_SELECTOR) ?? undefined)
+    }
+    const schedule = () => {
+      if (frame === 0) frame = window.requestAnimationFrame(find)
+    }
+    find()
+    const observer = new MutationObserver(schedule)
+    observer.observe(document.body, { childList: true, subtree: true })
     return () => {
+      if (frame !== 0) window.cancelAnimationFrame(frame)
       observer.disconnect()
-      window.removeEventListener('resize', measure)
     }
   }, [])
   React.useEffect(() => {
@@ -1712,7 +1744,7 @@ function PanelShotButton(props) {
     }, 4000)
     return () => clearTimeout(timer)
   }, [note])
-  if (!on || context === undefined || anchor === undefined) return null
+  if (!on || context === undefined || host === undefined) return null
   const take = async () => {
     if (phase === 'busy') return
     const node = panelTarget()
@@ -1748,63 +1780,46 @@ function PanelShotButton(props) {
         throw new Error('the composer refused the image')
       }
       setPhase('done')
-      setNote(copied ? 'right panel copied and attached' : 'right panel attached, clipboard refused')
+      setNote(copied ? 'Right panel copied and attached' : 'Right panel attached, clipboard refused')
     } catch (error) {
       setPhase('failed')
       setNote(error instanceof Error ? error.message : String(error))
       console.warn('[aryacode-polish] panel screenshot failed:', error)
     }
   }
-  const label = phase === 'done' ? '✓' : phase === 'failed' ? '!' : '●'
-  return React.createElement(React.Fragment, null,
-    React.createElement('span', {
-      'data-polish-shot-anchor': 'panel',
-      style: { position: 'fixed', top: anchor.top + 'px', left: anchor.left + 'px', width: '0', height: '0' },
-    }),
-    React.createElement('button', {
-      type: 'button',
-      'data-polish-shot': phase,
-      title: note === '' ? 'Screenshot this panel into the chat (also copies it)' : note,
-      'aria-label': 'Screenshot this panel',
-      disabled: phase === 'busy',
-      onClick: () => { void take() },
-      onMouseEnter: (event) => { event.currentTarget.style.background = 'var(--dsw-alias-interactive-bg-hover, rgba(0,0,0,0.06))' },
-      onMouseLeave: (event) => { event.currentTarget.style.background = 'transparent' },
-      style: {
-        ...SHOT_BUTTON_STYLE,
-        top: anchor.top + 'px',
-        left: anchor.left + 'px',
-        color: phase === 'failed'
-          ? 'var(--dsw-alias-label-error, #b42318)'
-          : 'var(--dsw-alias-label-tertiary, #61666b)',
-        opacity: phase === 'busy' ? 0.5 : 1,
-        cursor: phase === 'busy' ? 'progress' : 'pointer',
-        fontSize: '11px',
-      },
+  const tip = note !== ''
+    ? note
+    : phase === 'busy' ? 'Capturing the right panel…' : 'Screenshot this panel into the chat (also copies it)'
+  const glyph = phase === 'done'
+    ? React.createElement(CheckGlyph, null)
+    : phase === 'failed'
+      ? React.createElement(BangGlyph, null)
+      : React.createElement(CameraGlyph, null)
+  const button = React.createElement('button', {
+    type: 'button',
+    'data-polish-shot': phase,
+    'aria-label': 'Screenshot this panel',
+    disabled: phase === 'busy',
+    onClick: () => { void take() },
+    onMouseEnter: (event) => { event.currentTarget.style.background = 'var(--dsw-alias-interactive-bg-hover, rgba(0,0,0,0.06))' },
+    onMouseLeave: (event) => { event.currentTarget.style.background = 'transparent' },
+    style: {
+      ...SHOT_BUTTON_STYLE,
+      color: phase === 'failed'
+        ? 'var(--dsw-alias-label-error, #b42318)'
+        : phase === 'done'
+          ? 'var(--dsw-alias-label-primary, #111418)'
+          : SHOT_BUTTON_STYLE.color,
+      cursor: phase === 'busy' ? 'progress' : 'pointer',
     },
-    phase === 'done' || phase === 'failed'
-      ? React.createElement('span', { 'aria-hidden': 'true' }, label)
-      : React.createElement(CameraGlyph, null)),
-    note === ''
-      ? null
-      : React.createElement('span', {
-        'data-polish-shot-note': phase,
-        style: {
-          position: 'fixed',
-          top: anchor.top + SHOT_ANCHOR_BUTTON + 6 + 'px',
-          left: Math.max(12, anchor.left - 140) + 'px',
-          maxWidth: '260px',
-          padding: '3px 8px',
-          borderRadius: 'var(--dsw-radius-sm, 6px)',
-          background: 'Canvas',
-          boxShadow: 'var(--dsw-elevation-prominent, 0 3px 8px rgba(0,0,0,0.12))',
-          color: phase === 'failed' ? 'var(--dsw-alias-label-error, #b42318)' : 'var(--dsw-alias-label-secondary, #61666b)',
-          fontSize: '12px',
-          lineHeight: '18px',
-          whiteSpace: 'nowrap',
-          zIndex: 41,
-        },
-      }, note))
+  }, glyph)
+  const Tooltip = primitives === undefined ? undefined : primitives.Tooltip
+  return ReactDOM.createPortal(
+    Tooltip === undefined
+      ? button
+      : React.createElement(Tooltip, { label: tip, side: 'bottom', delayMs: 500 }, button),
+    host,
+  )
 }
 
 /**
