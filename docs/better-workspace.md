@@ -720,3 +720,15 @@ every open and every step, so **Alt+Left still works after a reload** — verifi
 
 The module-level guard matters: `historyStore` reads storage through
 `typeof window !== 'undefined' && window.localStorage`, because the specs import this module in Node.
+
+
+## Where am I
+
+The workspace that owns the session you last opened from the tree carries an accent edge on its left
+(`data-polish-ws-current`, `aria-current="true"`), and opening a session scrolls it into view with
+`scrollIntoView({ block: 'nearest' })` so a long tree cannot hide the row you are working in.
+
+It is derived, not guessed: `workspaceOwning(allRows, currentSessionId)` walks the groups and returns the
+one whose `sessions` hold the id from the persisted history stack, so the marker is the same fact
+Alt+Left walks. Verified live: no marker at rest, one marked workspace after opening a session
+(`inset 2px` accent bar, `aria-current="true"`), and the same marker after a full reload.

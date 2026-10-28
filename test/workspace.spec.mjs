@@ -9,6 +9,7 @@ import {
   matchesText,
   highlightSegments,
   historyPush,
+  workspaceOwning,
   readHistory,
   writeHistory,
   historyBack,
@@ -1386,5 +1387,29 @@ describe('session history on disk', () => {
     assert.equal(storage.getItem('aryacode-polish:history.v1'), null)
     storage.setItem('aryacode-polish:history.v1', 'not json')
     assert.deepEqual(readHistory(storage), { stack: [], at: -1 })
+  })
+})
+
+describe('the workspace that owns the open session', () => {
+  const groups = [
+    { workspace: { workspaceId: 'w1', title: 'One' }, sessions: [{ id: 'a' }, { id: 'b' }] },
+    { workspace: { workspaceId: 'w2', title: 'Two' }, sessions: [{ id: 'c' }] },
+  ]
+
+  it('names the group holding that session', () => {
+    assert.equal(workspaceOwning(groups, 'b').workspace.workspaceId, 'w1')
+    assert.equal(workspaceOwning(groups, 'c').workspace.workspaceId, 'w2')
+  })
+
+  it('answers nothing for an unknown or missing session', () => {
+    assert.equal(workspaceOwning(groups, 'nope'), undefined)
+    assert.equal(workspaceOwning(groups, undefined), undefined)
+    assert.equal(workspaceOwning(groups, ''), undefined)
+    assert.equal(workspaceOwning(undefined, 'a'), undefined)
+  })
+
+  it('tolerates a group without sessions', () => {
+    const ragged = [{ workspace: { workspaceId: 'w3' } }, ...groups]
+    assert.equal(workspaceOwning(ragged, 'a').workspace.workspaceId, 'w1')
   })
 })

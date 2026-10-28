@@ -1,3 +1,8 @@
+## [0.78.0]
+
+- The workspace that owns the session you last opened from the tree is marked with an accent edge
+  (`aria-current`), and opening a session scrolls that workspace into view.
+
 ## [0.77.0]
 
 - The session history survives a reload: the stack and the position are written to

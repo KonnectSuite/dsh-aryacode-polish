@@ -749,6 +749,15 @@ export function moveTarget(rows, workspaceId, delta) {
 }
 
 /** The first session the tree shows as busy, so a folded tree cannot hide one. */
+/** The group whose sessions include this id, if any. */
+export function workspaceOwning(groups, sessionId) {
+  if (!Array.isArray(groups) || typeof sessionId !== 'string' || sessionId === '') return undefined
+  for (const group of groups) {
+    const list = Array.isArray(group && group.sessions) ? group.sessions : []
+    if (list.some((row) => row && row.id === sessionId)) return group
+  }
+  return undefined
+}
 export function firstRunning(rows, isRunning) {
   const busy = typeof isRunning === 'function' ? isRunning : (row) => row && row.running === true
   for (const group of rows || []) {
@@ -2124,6 +2133,10 @@ export function BetterWorkspace(props) {
   const openWithHistory = React.useCallback((id) => {
     rememberHistory(historyPush(historyStore.value, id))
     services.openSession(id)
+    window.requestAnimationFrame(() => {
+      const node = document.querySelector('[data-polish-ws-current]')
+      if (node && typeof node.scrollIntoView === 'function') node.scrollIntoView({ block: 'nearest' })
+    })
   }, [])
   const [picked, setPicked] = React.useState([])
   const [anchorId, setAnchorId] = React.useState(undefined)
@@ -2280,6 +2293,10 @@ export function BetterWorkspace(props) {
     Object.keys(marks || {}).forEach((id) => { if (marks[id] && marks[id].flag === true) ids.add(id) })
     return ids
   }, [marks])
+  const historyNow = historyStore.value
+  const currentSessionId = historyNow.stack[historyNow.at]
+  const currentGroup = workspaceOwning(allRows, currentSessionId)
+  const currentWorkspaceId = currentGroup ? currentGroup.workspace.workspaceId : undefined
   const rows = filterTree(sortRows(allRows, sort, (group) => sumCost(group.sessions, sessionState)), query, pinned, { isRunning, flagged: flaggedIds, unread: (row) => isUnread(row, seen) })
   const sessionTotal = React.useMemo(() => allRows.reduce((total, group) => total + (group.sessions || []).length, 0), [allRows])
   const totals = React.useMemo(() => treeTotals(allRows, sessionState), [allRows, sessionState])
@@ -4321,6 +4338,7 @@ export function BetterWorkspace(props) {
     const hovered = hover === 'workspace:' + workspace.workspaceId
     const dropHere = dropping === 'workspace:' + workspace.workspaceId
     const looks = appearanceOf(look, workspace.workspaceId)
+    const isCurrent = currentWorkspaceId === workspace.workspaceId
     const rowCost = sumCostLabel(sessions, sessionState)
 
     children.push(React.createElement('div', {
@@ -4334,6 +4352,8 @@ export function BetterWorkspace(props) {
       'aria-expanded': open === true,
       'aria-selected': focused,
       'data-polish-cursor': focused ? 'true' : undefined,
+      'data-polish-ws-current': isCurrent ? 'true' : undefined,
+      'aria-current': isCurrent ? 'true' : undefined,
       draggable: true,
       title: workspace.path || workspaceLabel(workspace),
       style: Object.assign({}, WS_ROW, {
@@ -4341,7 +4361,9 @@ export function BetterWorkspace(props) {
         background: dropHere
           ? 'var(--dsw-alias-interactive-bg-hover, rgba(0, 0, 0, 0.05))'
           : (focused ? 'var(--dsw-alias-interactive-bg-hover, rgba(0, 0, 0, 0.04))' : undefined),
-        boxShadow: focused ? 'inset 0 0 0 1px var(--dsw-alias-border-l2, rgba(0, 0, 0, 0.12))' : undefined,
+        boxShadow: isCurrent
+          ? ('inset 2px 0 0 0 var(--dsw-alias-text-accent, #4d6bfe)' + (focused ? ', inset 0 0 0 1px var(--dsw-alias-border-l2, rgba(0, 0, 0, 0.12))' : ''))
+          : (focused ? 'inset 0 0 0 1px var(--dsw-alias-border-l2, rgba(0, 0, 0, 0.12))' : undefined),
       }),
       onClick: () => toggleWorkspace(workspace.workspaceId),
       onContextMenu: (event) => openWorkspaceMenu(event, workspace),
