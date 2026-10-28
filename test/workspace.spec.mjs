@@ -14,6 +14,7 @@ import {
   startOfToday,
   isUnread,
   unreadIds,
+  unreadInside,
   queryHasToken,
   withToken,
   filterSummary,
@@ -1173,4 +1174,11 @@ it('t:new keeps only what you have not opened here', () => {
   ]
   const kept = filterTree(rows, 't:new', new Set(), { unread: (row) => row.id === 'fresh' })
   assert.deepEqual(kept.flatMap((g) => g.sessions.map((s) => s.id)), ['fresh'])
+})
+
+it('a group knows how many of its sessions want attention', () => {
+  assert.equal(unreadInside(undefined, () => true), 0)
+  assert.equal(unreadInside([{ sessions: [] }], () => true), 0)
+  assert.equal(unreadInside([{ sessions: [{ id: 'a' }, { id: 'b' }] }], (row) => row.id === 'a'), 1)
+  assert.equal(unreadInside([{ sessions: [{ id: 'a' }] }, { sessions: [{ id: 'b' }] }], () => true), 2)
 })

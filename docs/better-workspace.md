@@ -541,3 +541,16 @@ testable.
 The header tooltip reports the count too ("6 sessions in 2 workspaces · 4 priced · 5 new"), and
 because the chip, the dots and the tooltip all read the same map, opening a row under the New
 filter drops it from the list, the dots and the count in one step.
+
+
+## New above the fold
+
+A folded workspace used to hide the one thing worth knowing. Now a workspace row and a folder
+header carry a hollow accent ring while anything inside is unread (`unreadInside`), so the state
+of a collapsed branch reads from the header alone.
+
+The ring is deliberately not the running dot: running is green and filled, new is hollow and
+accent-coloured, and neither can be mistaken for the other.
+
+`Alt+ArrowDown` / `Alt+ArrowUp` walk to the next or previous new session and wrap once, with
+"No new session that way." when the walk finds nothing — the keyboard equivalent of the New chip.

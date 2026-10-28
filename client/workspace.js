@@ -444,6 +444,15 @@ export function unreadIds(rows, seen) {
   return ids
 }
 
+/** How many sessions inside a group still want attention. */
+export function unreadInside(inside, isUnreadRow) {
+  let count = 0
+  ;(inside || []).forEach((entry) => {
+    ;(entry.sessions || []).forEach((row) => { if (isUnreadRow(row)) count += 1 })
+  })
+  return count
+}
+
 /** Midnight, local time, for "today". */
 export function startOfToday(now) {
   const at = new Date(typeof now === 'number' && Number.isFinite(now) ? now : Date.now())
@@ -1713,6 +1722,16 @@ const WS_PAINT_ROW = {
 }
 
 const WS_UNREAD = { color: 'var(--dsw-alias-text-accent, #4d6bfe)', fontSize: '14px', lineHeight: '1', marginRight: '2px' }
+const WS_UNREAD_DOT = {
+  width: '6px',
+  height: '6px',
+  borderRadius: '999px',
+  background: 'transparent',
+  border: '1.5px solid var(--dsw-alias-text-accent, #4d6bfe)',
+  display: 'inline-block',
+  flexShrink: 0,
+  marginLeft: '5px',
+}
 const WS_CHIPS = { display: 'flex', gap: '4px', padding: '2px 8px 6px', flexWrap: 'wrap' }
 const WS_CHIP = { font: 'inherit', fontSize: 'calc(var(--dsh-content-font-size-secondary, 13px) - 4px)', padding: '2px 8px', borderRadius: '999px', border: '1px solid color-mix(in srgb, CanvasText 16%, transparent)', background: 'transparent', color: 'inherit', opacity: 0.7, cursor: 'pointer' }
 const WS_CHIP_ON = { opacity: 1, borderColor: 'color-mix(in srgb, CanvasText 34%, transparent)', background: 'color-mix(in srgb, CanvasText 10%, transparent)', fontWeight: 600 }
@@ -2223,6 +2242,25 @@ export function BetterWorkspace(props) {
         return String(title).toLowerCase().startsWith(next)
       })
       if (found >= 0) setCursor(found)
+      return
+    }
+    if (event.altKey && (event.key === 'ArrowDown' || event.key === 'ArrowUp') && walk.length > 0) {
+      event.preventDefault()
+      const step = event.key === 'ArrowDown' ? 1 : -1
+      const wantsAttention = (entry) => {
+        if (entry.kind !== 'session') return false
+        const group = rows.find((item) => item.workspace.workspaceId === entry.workspaceId) || {}
+        const row = (group.sessions || []).find((item) => item.id === entry.id)
+        return Boolean(row) && isUnread(row, seen)
+      }
+      for (let stepIndex = 1; stepIndex <= walk.length; stepIndex += 1) {
+        const at = ((cursor + step * stepIndex) % walk.length + walk.length) % walk.length
+        if (!wantsAttention(walk[at])) continue
+        setCursor(at)
+        setNotice('Jumped to a new session.')
+        return
+      }
+      setNotice(unreadTotal > 0 ? 'No new session that way.' : 'Nothing is new.')
       return
     }
     if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
@@ -3779,6 +3817,9 @@ export function BetterWorkspace(props) {
         },
       }, '✎'),
       React.createElement('span', { style: WS_COUNT }, [String(inside.reduce((sum, entry) => sum + entry.sessions.length, 0)), folderCostNode(inside, sessionState, folder),
+      unreadInside(inside, (row) => isUnread(row, seen)) > 0
+        ? React.createElement('span', { 'data-polish-folder-unread': folder, title: 'Something inside is new', style: WS_UNREAD_DOT })
+        : null,
       folderHasRunning(inside, isRunning)
         ? React.createElement('span', { 'data-polish-folder-running': folder, title: 'A session inside is running', style: WS_DOT })
         : null,
@@ -3860,6 +3901,13 @@ export function BetterWorkspace(props) {
       style: Object.assign({}, WS_TITLE, { fontWeight: looks.strong ? 600 : undefined }),
     }, titleNode(workspaceLabel(workspace))),
     React.createElement('span', { style: WS_COUNT }, String(sessions.length)),
+    unreadInside([{ sessions }], (row) => isUnread(row, seen)) > 0
+      ? React.createElement('span', {
+        'data-polish-ws-unread': workspace.workspaceId,
+        title: unreadInside([{ sessions }], (row) => isUnread(row, seen)) + ' new session(s) here',
+        style: Object.assign({}, WS_UNREAD_DOT, { marginLeft: '4px' }),
+      })
+      : null,
     rowCost
       ? React.createElement('button', {
         type: 'button',

@@ -544,3 +544,9 @@ test('the New chip filters by what changed', () => {
     assert.ok(workspaceSource.includes(marker), 'bundle should carry ' + marker)
   }
 })
+
+test('new sessions are visible above a folded workspace', () => {
+  for (const marker of ["'data-polish-ws-unread'", "'data-polish-folder-unread'", 'unreadInside(']) {
+    assert.ok(workspaceSource.includes(marker), 'bundle should carry ' + marker)
+  }
+})

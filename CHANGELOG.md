@@ -1,3 +1,13 @@
+## [0.57.0]
+
+New work is visible without unfolding anything.
+
+### Added
+- A dot on a workspace row and on a folder header while anything inside still wants attention
+  (`unreadInside`), so a folded workspace cannot hide a session that changed.
+- `Alt+ArrowDown` / `Alt+ArrowUp` jump to the next or previous new session, wrapping once, with
+  a notice when there is nothing new that way.
+
 ## [0.56.0]
 
 The unread dots got a filter of their own.
