@@ -779,3 +779,12 @@ emptied the direction — says "Skipped a session that no longer exists." rather
 Verified live by planting a dead id in `aryacode-polish:history.v1` ahead of a real session, reloading,
 and pressing Alt+Left: the notice read "Skipped a session that no longer exists." and storage became
 `{"stack":[<live>],"at":0}`.
+
+
+### Marking a selection read
+
+The bulk bar carries **Read** beside pin / flag / archive / copy / clear. It stamps every picked id into the
+same `seen` map the dots and the New filter read, so a whole day can be cleared without opening a row.
+
+Verified live: 26 sessions with 26 dots, two picked, Read → "Marked 2 sessions read.", dots fell to 24 and
+`aryacode-polish:seen.v1` held exactly those two ids.

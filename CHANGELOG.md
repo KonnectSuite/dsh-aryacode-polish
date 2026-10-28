@@ -1,3 +1,9 @@
+## [0.83.0]
+
+### Added
+- A **Read** action in the bulk bar: mark every picked session as read in one step, so a
+  selection can be cleared from the day’s work without opening each row.
+
 ## [0.82.1]
 
 - When back/forward skips a session that no longer exists it says so, instead of claiming there is

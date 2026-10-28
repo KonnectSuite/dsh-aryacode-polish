@@ -4038,6 +4038,17 @@ export function BetterWorkspace(props) {
       setNotice('Flagged ' + pickedLive.length + (pickedLive.length === 1 ? ' session.' : ' sessions.'))
       setPicked([])
     }),
+    bulkButton('read', 'Read', () => {
+      const now = Date.now()
+      setSeen((previous) => {
+        const next = Object.assign({}, previous)
+        pickedLive.forEach((id) => { next[id] = now })
+        writeSeen(next, window.localStorage)
+        return next
+      })
+      setNotice('Marked ' + pickedLive.length + (pickedLive.length === 1 ? ' session read.' : ' sessions read.'))
+      setPicked([])
+    }),
     bulkButton('archive', 'Archive', async () => {
       const archived = []
       for (let at = 0; at < pickedLive.length; at += 1) {
