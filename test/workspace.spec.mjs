@@ -26,6 +26,8 @@ import {
   SORTS,
   SORT_TITLES,
   costDetail,
+  ageLabel,
+  ageTitle,
   sumTokens,
   readSort,
   writeSort,
@@ -786,6 +788,34 @@ it('A workspace with no spend sinks below a priced one, whatever its name', () =
   const totals = { zzz: { usd: 0.01 } }
   const ranked = sortRows(groups, 'cost', (group) => totals[group.workspace.workspaceId])
   assert.deepEqual(ranked.map((group) => group.workspace.workspaceId), ['zzz', 'aaa'])
+})
+
+it('Ages read in the shortest honest unit', () => {
+  const now = 1_700_000_000_000
+  assert.equal(ageLabel(now - 5_000, now), 'now')
+  assert.equal(ageLabel(now - 59_000, now), 'now')
+  assert.equal(ageLabel(now - 60_000, now), '1m')
+  assert.equal(ageLabel(now - 59 * 60_000, now), '59m')
+  assert.equal(ageLabel(now - 60 * 60_000, now), '1h')
+  assert.equal(ageLabel(now - 23 * 3_600_000, now), '23h')
+  assert.equal(ageLabel(now - 24 * 3_600_000, now), '1d')
+  assert.equal(ageLabel(now - 6 * 86_400_000, now), '6d')
+  assert.equal(ageLabel(now - 7 * 86_400_000, now), '1w')
+})
+
+it('A row with no usable stamp shows no age', () => {
+  const now = 1_700_000_000_000
+  assert.equal(ageLabel(undefined, now), '')
+  assert.equal(ageLabel(0, now), '')
+  assert.equal(ageLabel('nope', now), '')
+  assert.equal(ageLabel(now + 5_000, now), 'now')
+  assert.equal(ageTitle(0), '')
+})
+
+it('The age tooltip carries the exact moment, not the label itself', () => {
+  const shown = ageTitle(Date.UTC(2026, 9, 28, 9, 15))
+  assert.ok(shown.length > 0)
+  assert.ok(!/^(now|[0-9]+[mhdw])$/.test(shown))
 })
 
 it('Sort by recency puts the workspace touched last on top', () => {

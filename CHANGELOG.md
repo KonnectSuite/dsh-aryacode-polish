@@ -1,3 +1,10 @@
+## [0.45.0] - 2026-10-28
+
+### Added
+
+- Every session row says how long ago it was touched (`now`, `5m`, `3h`, `2d`, `1w`), refreshed on a
+  half-minute tick, with the exact moment in the tooltip. Rows without a usable stamp show nothing.
+
 ## [0.44.0] - 2026-10-28
 
 ### Added

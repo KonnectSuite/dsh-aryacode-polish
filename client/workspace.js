@@ -785,6 +785,33 @@ export function costLabel(cost) {
   return approx + symbol + shown
 }
 
+/** How long ago a stamp happened, in the shortest honest unit. */
+export function ageLabel(stamp, now) {
+  const at = Number(stamp)
+  const current = Number.isFinite(Number(now)) ? Number(now) : Date.now()
+  if (!Number.isFinite(at) || at <= 0) return ''
+  const seconds = Math.max(0, Math.round((current - at) / 1000))
+  if (seconds < 60) return 'now'
+  const minutes = Math.floor(seconds / 60)
+  if (minutes < 60) return minutes + 'm'
+  const hours = Math.floor(minutes / 60)
+  if (hours < 24) return hours + 'h'
+  const days = Math.floor(hours / 24)
+  if (days < 7) return days + 'd'
+  return Math.floor(days / 7) + 'w'
+}
+
+/** The exact moment behind an age label, for the tooltip. */
+export function ageTitle(stamp) {
+  const at = Number(stamp)
+  if (!Number.isFinite(at) || at <= 0) return ''
+  try {
+    return new Intl.DateTimeFormat(undefined, { dateStyle: 'medium', timeStyle: 'short' }).format(new Date(at))
+  } catch {
+    return new Date(at).toLocaleString()
+  }
+}
+
 /** True when any session filed under these workspaces is running right now. */
 const HELP_KEY = 'aryacode-polish:help.v1'
 
@@ -1394,6 +1421,13 @@ const WS_PIN = {
 const WS_PIN_COUNT = WS_PIN
 
 const WS_COST = { flex: 'none', marginLeft: '6px', color: 'var(--dsw-alias-label-quaternary, #8a8a8a)', fontVariantNumeric: 'tabular-nums' }
+const WS_AGE = {
+  flex: 'none',
+  marginLeft: '6px',
+  color: 'var(--dsw-alias-label-quaternary, #8a8a8a)',
+  fontVariantNumeric: 'tabular-nums',
+  fontSize: 'calc(var(--dsh-content-font-size-secondary, 13px) - 3px)',
+}
 const WS_COUNT_NOTE = {
   margin: '2px 4px 0',
   fontSize: 'calc(var(--dsh-content-font-size-secondary, 13px) - 3px)',
@@ -1474,6 +1508,13 @@ export function BetterWorkspace(props) {
   const filterRef = React.useRef(null)
 
   const workspaceState = useLive(services.workspacesLive)
+  // Ages only need to be roughly right, so one tick every half minute is plenty.
+  const [clock, setClock] = React.useState(() => Date.now())
+  React.useEffect(() => {
+    if (typeof setInterval !== 'function') return undefined
+    const timer = setInterval(() => setClock(Date.now()), 30000)
+    return () => clearInterval(timer)
+  }, [])
   const statusesOf = props.useSessionStatus
   const statuses = statusesOf ? statusesOf((state) => state) : undefined
   const runningIds = React.useMemo(() => {
@@ -2817,6 +2858,14 @@ export function BetterWorkspace(props) {
         fontStyle: markOf(marks, row.id).note ? 'italic' : undefined,
       }),
     }, titleNode(row.displayTitle || row.id)),
+    ageLabel(row.updatedAt, clock)
+      ? React.createElement('span', {
+        'data-polish-ws-age': row.id,
+        'data-polish-session-age': row.id,
+        title: ageTitle(row.updatedAt),
+        style: WS_AGE,
+      }, ageLabel(row.updatedAt, clock))
+      : null,
     sessionCost
       ? React.createElement('button', {
       type: 'button',

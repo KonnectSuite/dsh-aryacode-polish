@@ -28,6 +28,12 @@ test('the header menu names every tree action, and can reset the view', () => {
   assert.match(workspaceSource, /treeDefaults\(\)/)
 })
 
+test('a session says how long ago it was touched', () => {
+  assert.match(workspaceSource, /'data-polish-session-age'/)
+  assert.match(workspaceSource, /ageLabel\(row\.updatedAt, clock\)/)
+  assert.match(bundle, /data-polish-session-age/)
+})
+
 test('the tree can sort by what was touched last', () => {
   assert.match(workspaceSource, /recent: 'Recent first'/)
   assert.match(workspaceSource, /kind === 'recent'/)
