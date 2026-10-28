@@ -1,3 +1,11 @@
+## [0.33.0] - 2026-10-28
+
+Changed: a pinned row now shows what that session has cost and carries its own hover unpin star, so
+the pinned section is a working surface rather than a shortcut list.
+
+Added: the running indicator is named (`data-polish-session-running`) and mirrored onto pinned rows,
+so a busy session reads the same wherever it appears.
+
 ## [0.32.0] - 2026-10-28
 
 Added: a shortcut sheet (? or the header's ? button) listing every gesture the tree answers to, and a

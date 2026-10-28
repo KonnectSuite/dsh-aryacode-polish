@@ -2275,7 +2275,7 @@ export function BetterWorkspace(props) {
       onDragLeave: () => setDropping(null),
       onDrop: (event) => { event.preventDefault(); dropOnSession(workspace.workspaceId, row.id) },
     },
-    row.running ? React.createElement('span', { style: WS_DOT, title: 'Running' }) : null,
+    row.running ? React.createElement('span', { 'data-polish-session-running': row.id, style: WS_DOT, title: 'Running' }) : null,
     pinned.has(row.id) ? React.createElement('span', { style: WS_PIN, title: 'Pinned' }, '\u2605') : null,
     markOf(marks, row.id).flag
       ? React.createElement('span', { 'data-polish-mark-flag': row.id, style: WS_PIN, title: 'Flagged' }, '⚑')
@@ -2565,6 +2565,8 @@ export function BetterWorkspace(props) {
         children.push(React.createElement('div', {
           key: 'pinned:' + row.id,
           'data-polish-ws-pinned-row': row.id,
+          onMouseEnter: () => setHover('pinned:' + row.id),
+          onMouseLeave: () => setHover(null),
           title: 'Pinned session',
           style: WS_ROW,
           onClick: () => services.openSession(row.id),
@@ -2575,8 +2577,22 @@ export function BetterWorkspace(props) {
           },
         },
         React.createElement('span', { style: WS_PIN, 'aria-hidden': 'true' }, '\u2605'),
+        row.running ? React.createElement('span', { 'data-polish-pinned-running': row.id, style: WS_DOT, title: 'Running' }) : null,
         React.createElement('span', { style: WS_TITLE }, row.displayTitle || row.id),
-        React.createElement('span', { style: WS_COUNT_NOTE }, group ? workspaceLabel(group) : '')))
+        costLabel(costOf(sessionState, row.id))
+          ? React.createElement('span', { 'data-polish-pinned-cost': row.id, style: WS_COST }, costLabel(costOf(sessionState, row.id)))
+          : null,
+        React.createElement('span', { style: WS_COUNT_NOTE }, group ? workspaceLabel(group) : ''),
+        hover === 'pinned:' + row.id
+          ? React.createElement('button', {
+            type: 'button',
+            'data-polish-pinned-unpin': row.id,
+            title: 'Unpin this session',
+            'aria-label': 'Unpin this session',
+            style: WS_ROW_ACTION,
+            onClick: (event) => { event.stopPropagation(); services.unpinSession(row.id) },
+          }, '\u2605')
+          : null))
       }
     }
   }

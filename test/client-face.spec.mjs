@@ -444,3 +444,18 @@ test('the tree can explain itself, and stops hinting once it has', () => {
   assert.ok(bundle.includes('aryacode-polish:help.v1'))
   assert.ok(bundle.includes("event.key !== '?'"))
 })
+
+
+test('a pinned row shows its cost and can be unpinned in place', () => {
+  const bundle = read('lib/client.js')
+  assert.ok(bundle.includes("'data-polish-pinned-cost'"))
+  assert.ok(bundle.includes("'data-polish-pinned-unpin'"))
+  assert.ok(bundle.includes("hover === 'pinned:' + row.id"))
+})
+
+
+test('a running session is marked the same way in its workspace and when pinned', () => {
+  const bundle = read('lib/client.js')
+  assert.ok(bundle.includes("'data-polish-session-running'"))
+  assert.ok(bundle.includes("'data-polish-pinned-running'"))
+})

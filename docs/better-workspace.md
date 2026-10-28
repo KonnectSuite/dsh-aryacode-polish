@@ -378,3 +378,9 @@ repositions it immediately before the target. Two Host calls, one gesture — `r
 Shift+F10, Alt+click, double-click, drag. Until that sheet has been opened once, one dim line under
 the filter says so; opening it stores `aryacode-polish:help.v1` and the hint stops. A storage that
 refuses to remember only means the hint stays.
+
+## The pinned section is a surface
+
+A pinned row carries the same information as a session row in its workspace: title, running dot, what
+it has cost, and a hover star that unpins it in place. Its context menu is the shipped session menu,
+so Pin/Rename/Fork/Archive/Copy ID/Open workspace folder all work there too — including duplication.
