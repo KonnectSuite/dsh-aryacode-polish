@@ -1775,6 +1775,34 @@ export const FOLDER_LOOK_PREFIX = 'folder:'
  * Splits a title around the first case-insensitive occurrence of the filter, so a row can show WHY it
  * survived the filter instead of just being one of the survivors.
  */
+export function historyPush(state, id, limit) {
+  const cap = typeof limit === 'number' && limit > 0 ? limit : 50
+  const stack = state && Array.isArray(state.stack) ? state.stack : []
+  const at = state && typeof state.at === 'number' ? state.at : -1
+  const head = stack.slice(0, at + 1)
+  if (id === undefined || id === null) return { stack: head, at: head.length - 1 }
+  if (head[head.length - 1] === id) return { stack: head, at: head.length - 1 }
+  const grown = head.concat([id])
+  const capped = grown.length > cap ? grown.slice(grown.length - cap) : grown
+  return { stack: capped, at: capped.length - 1 }
+}
+
+const historyStore = { value: { stack: [], at: -1 } }
+
+export function historyBack(state) {
+  if (!state || !Array.isArray(state.stack)) return undefined
+  const at = typeof state.at === 'number' ? state.at : -1
+  if (at <= 0) return undefined
+  return { at: at - 1, id: state.stack[at - 1] }
+}
+
+export function historyForward(state) {
+  if (!state || !Array.isArray(state.stack)) return undefined
+  const at = typeof state.at === 'number' ? state.at : -1
+  if (at < 0 || at >= state.stack.length - 1) return undefined
+  return { at: at + 1, id: state.stack[at + 1] }
+}
+
 export function subsequenceIndex(text, query) {
   const haystack = String(text === undefined ? '' : text).toLowerCase()
   const needle = String(query === undefined ? '' : query).trim().toLowerCase().replace(/\s+/g, '')
@@ -2028,6 +2056,12 @@ export function BetterWorkspace(props) {
   const [hover, setHover] = React.useState(null)
   const [drag, setDrag] = React.useState(null)
   const [dropping, setDropping] = React.useState(null)
+  const history = historyStore.value
+  const sessionsRef = React.useRef([])
+  const openWithHistory = React.useCallback((id) => {
+    historyStore.value = historyPush(historyStore.value, id)
+    services.openSession(id)
+  }, [])
   const [picked, setPicked] = React.useState([])
   const [anchorId, setAnchorId] = React.useState(undefined)
   const [look, setLook] = React.useState(() => readAppearance())
@@ -2149,7 +2183,8 @@ export function BetterWorkspace(props) {
   const workspaceList = (workspaceState && (workspaceState.items || workspaceState.workspaces)) || []
   const sessionList = sessionState && sessionState.ids && sessionState.byId
     ? sessionState.ids.map(id => sessionState.byId[id]).filter(Boolean)
-    : (sessionState && (sessionState.items || sessionState.sessions)) || []
+    : ((sessionState && (sessionState.items || sessionState.sessions)) || [])
+  sessionsRef.current = sessionList
   const pinned = React.useMemo(
     () => new Set((workspaceState && workspaceState.pinnedSessionIds) || []),
     [workspaceState],
@@ -2168,7 +2203,13 @@ export function BetterWorkspace(props) {
     }
     return undefined
   }
-  const allRows = workspaceRows(workspaceList, byPin.rest)
+  const groupedRows = workspaceRows(workspaceList, byPin.rest)
+  const attachedIds = new Set()
+  groupedRows.forEach((group) => (group.sessions || []).forEach((row) => attachedIds.add(row.id)))
+  const looseSessions = byPin.rest.filter((row) => !attachedIds.has(row.id))
+  const allRows = looseSessions.length > 0
+    ? groupedRows.concat([{ workspace: { workspaceId: 'polish-loose', title: 'Other sessions' }, sessions: looseSessions }])
+    : groupedRows
   const archivedSessions = split.archived
   const flaggedIds = React.useMemo(() => {
     const ids = new Set()
@@ -2265,6 +2306,21 @@ export function BetterWorkspace(props) {
     const onEscape = (event) => {
       if (event.key === 'Escape') setSwitcher(null)
     }
+    const onHistory = (event) => {
+      if (!event.altKey || event.ctrlKey || event.metaKey) return
+      if (event.key !== 'ArrowLeft' && event.key !== 'ArrowRight') return
+      const target = event.target
+      if (target && (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable)) return
+      const forward = event.key === 'ArrowRight'
+      const current = historyStore.value
+      const step = forward ? historyForward(current) : historyBack(current)
+      event.preventDefault()
+      if (!step) { setNotice(forward ? 'Nothing to go forward to.' : 'Nothing to go back to.'); return }
+      historyStore.value = { stack: current.stack, at: step.at }
+      services.openSession(step.id)
+      const named = ((sessionsRef.current || []).filter((entry) => entry && entry.id === step.id)[0] || {}).displayTitle
+      setNotice((forward ? 'Forward to ' : 'Back to ') + (named || 'that session') + '.')
+    }
     const onHelp = (event) => {
       if (event.ctrlKey || event.metaKey || event.altKey) return
       const target = event.target
@@ -2279,9 +2335,11 @@ export function BetterWorkspace(props) {
     document.addEventListener('keydown', onHelp)
     document.addEventListener('keydown', onOpen)
     document.addEventListener('keydown', onEscape)
+    document.addEventListener('keydown', onHistory)
     return () => {
       document.removeEventListener('keydown', onOpen)
       document.removeEventListener('keydown', onEscape)
+      document.removeEventListener('keydown', onHistory)
       document.removeEventListener('keydown', onHelp)
     }
   }, [])
@@ -2407,7 +2465,7 @@ export function BetterWorkspace(props) {
   const activate = (item) => {
     if (!item) return
     if (item.kind === 'workspace') toggleWorkspace(item.workspaceId)
-    else services.openSession(item.id)
+    else openWithHistory(item.id)
   }
   /** [ and ] hop between workspace heads: the fast way through a long tree. */
   const hopWorkspace = (step) => {
@@ -2780,7 +2838,7 @@ export function BetterWorkspace(props) {
         onClick: () => {
           const row = menu.row
           closeMenu()
-          try { markSeen(row); services.openSession(row.id) } catch { setNotice('Could not open that session.') }
+          try { markSeen(row); openWithHistory(row.id) } catch { setNotice('Could not open that session.') }
         },
       }, 'Open session'),
       React.createElement('button', {
@@ -3246,6 +3304,7 @@ export function BetterWorkspace(props) {
     ['/', 'focus the filter; Escape clears it'],
     ['Ctrl+K', 'jump to any session or workspace'],
     ['Ctrl+Alt+Up / Down', 'move the focused workspace up or down'],
+    ['Alt+Left / Right', 'go back or forward between the sessions you opened'],
     ['F2', 'rename the focused workspace or session'],
     ['Space', 'pick or unpick the focused session'],
     ['Shift+F10', 'open the row menu'],
@@ -3551,7 +3610,7 @@ export function BetterWorkspace(props) {
               runAction(hit)
               return
             }
-            services.openSession(hit.id)
+            openWithHistory(hit.id)
           }
         },
       }),
@@ -3571,7 +3630,7 @@ export function BetterWorkspace(props) {
               setSwitcher(null)
               if (hit.kind === 'workspace') { revealWorkspace(hit.workspaceId); return }
               if (hit.kind === 'action') { runAction(hit); return }
-              services.openSession(hit.id)
+              openWithHistory(hit.id)
             },
           },
           React.createElement('span', { style: WS_TITLE }, hit.kind === 'workspace' ? '\u2302 ' + hit.title : (hit.kind === 'action' ? '\u25B8 ' + hit.title : hit.title)),
@@ -3936,7 +3995,7 @@ export function BetterWorkspace(props) {
         }
         if (picked.length > 0) { setPicked([]); return }
         markSeen(row)
-        services.openSession(row.id)
+        openWithHistory(row.id)
       },
       onDoubleClick: (event) => {
         event.preventDefault()
@@ -4413,7 +4472,7 @@ export function BetterWorkspace(props) {
           onMouseLeave: () => setHover(null),
           title: 'Pinned session',
           style: WS_ROW,
-          onClick: () => services.openSession(row.id),
+          onClick: () => openWithHistory(row.id),
           onContextMenu: (event) => {
             event.preventDefault()
             event.stopPropagation()
@@ -4473,7 +4532,7 @@ export function BetterWorkspace(props) {
           'aria-level': 2,
           title: 'Archived session',
           style: Object.assign({}, WS_ROW, { opacity: 0.7, fontStyle: 'italic' }),
-          onClick: () => services.openSession(row.id),
+          onClick: () => openWithHistory(row.id),
           onContextMenu: (event) => {
             event.preventDefault()
             event.stopPropagation()

@@ -1,3 +1,30 @@
+## [0.74.0]
+
+### Added
+- **Alt+Left / Alt+Right** walk back and forward through the sessions you opened from the tree, naming
+  each stop ("Back to Documents.", "Forward to …"), and say "Nothing to go back to." at the ends. They
+  stand aside while a text field has focus so Alt+Arrow keeps moving the caret.
+
+### Fixed
+- The tree read `sessionList` from the boolean test instead of the mapped rows, so every profile
+  rendered as empty ("No sessions in these workspaces yet.") while sessions existed. The rows are
+  now bound to the mapped list, and sessions whose workspace is not in the workspace list appear
+  under an "Other sessions" group instead of being dropped.
+
+## [0.73.0]
+
+### Fixed
+- Sessions whose workspace is not in the workspace list were silently dropped, which made a whole
+  profile look empty ("No sessions in these workspaces yet.") while conversations were running.
+  They now appear under an "Other sessions" group.
+
+## [0.72.0]
+
+### Added
+- **Alt+Left / Alt+Right** walk the sessions you opened from the tree, with a "Back to …" /
+  "Forward to …" notice. The stack lives outside component state because the sidebar remounts on
+  every session switch.
+
 ## [0.71.0]
 
 ### Added

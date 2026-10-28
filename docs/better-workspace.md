@@ -674,3 +674,19 @@ subsequence match with the query's spaces removed, so `dcp` finds **dsh-aryacode
 The highlight follows the same decision: a substring match marks one contiguous run, a fuzzy match
 marks the individual characters it actually matched, so the mark never claims a range that is not
 there. `highlightSegments` (not `highlightParts`) is what the rows render.
+
+
+## Session list and history
+
+The tree draws from `services.sessionsLive`, whose payload is `{ ids, byId, phase, projectionsBySession }`.
+Two rules keep the list honest:
+
+- The rows come from `sessionList`, the MAPPED array (`ids.map(id => byId[id]).filter(Boolean)`). Binding the
+  rows to the boolean test instead rendered every profile as empty while sessions existed — the bug that
+  hid this tree for several rounds.
+- A session whose `workspaceId` matches no workspace is not dropped; it lands in an **Other sessions**
+  group, because a profile can hold conversations the workspace list does not know about.
+
+**Alt+Left / Alt+Right** step through the sessions opened from the tree (`historyPush`, `historyBack`,
+`historyForward`, a 50-entry stack that drops the forward branch on a new open). The handler ignores the
+keys while an input, textarea or contenteditable has focus, so Alt+Arrow still moves the caret there.
