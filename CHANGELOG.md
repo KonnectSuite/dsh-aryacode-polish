@@ -1,3 +1,8 @@
+## [0.80.0]
+
+- The tree's sort now reaches inside a workspace: **Sort A to Z**, **Most spent first** and
+  **Recent first** also order the sessions within each group instead of only the groups themselves.
+
 ## [0.79.0]
 
 - The header total is a door: it opens **Spend by workspace**, every workspace that spent something,

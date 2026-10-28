@@ -746,3 +746,14 @@ the helper converts to numbers before sorting and keeps the money in `costLabel`
 
 Verified live: header `≈$0.0065` → card `default-workspace ≈$0.0053 · 11` then `Documents ≈$0.0012 · 10`,
 which add up to the header exactly, and Close dismisses it.
+
+
+### Order inside a workspace
+
+The tree's sort mode reaches inside each group: **Sort A to Z** orders sessions by name, **Recent first** by
+`updatedAt` (undated rows sink), **Most spent first** by the numeric `usd` from `costOf`, and the host
+order leaves them as the Host sent them. `sortSessions(sessions, mode, costOf)` is pure, tolerates a
+missing list, and breaks ties by lowercased name then arrival index, which keeps a rebuild stable.
+
+Verified live: under **Most spent first** one workspace read `ok ≈$0.0030`, `Greeting ≈$0.0016`,
+`Greeting ≈$0.000096`; **Sort A to Z** changed the names; host order restored the original sequence.

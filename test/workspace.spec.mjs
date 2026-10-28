@@ -9,6 +9,7 @@ import {
   matchesText,
   highlightSegments,
   historyPush,
+  sortSessions,
   spendByWorkspace,
   workspaceOwning,
   readHistory,
@@ -1440,5 +1441,35 @@ describe('spend by workspace', () => {
   it('survives junk input', () => {
     assert.deepEqual(spendByWorkspace(undefined, snapshot), [])
     assert.deepEqual(spendByWorkspace([{ sessions: [] }], snapshot), [])
+  })
+})
+
+describe('session order inside a workspace', () => {
+  const sessions = [
+    { id: 'a', displayTitle: 'Alpha', updatedAt: 1_000 },
+    { id: 'b', displayTitle: 'beta', updatedAt: 3_000 },
+    { id: 'c', updatedAt: 2_000 },
+  ]
+  const priced = new Map([['a', { usd: 0.5 }], ['b', { usd: 2 }], ['c', undefined]])
+
+  it('host order is the order it was given', () => {
+    assert.deepEqual(sortSessions(sessions, 'host').map((row) => row.id), ['a', 'b', 'c'])
+  })
+
+  it('by name, ignoring case, with the id as a fallback', () => {
+    assert.deepEqual(sortSessions(sessions, 'name').map((row) => row.id), ['a', 'b', 'c'])
+  })
+
+  it('recent first, and an undated row sinks', () => {
+    assert.deepEqual(sortSessions(sessions, 'recent').map((row) => row.id), ['b', 'c', 'a'])
+  })
+
+  it('dearest first, with unpriced rows last and names breaking ties', () => {
+    assert.deepEqual(sortSessions(sessions, 'cost', (row) => priced.get(row.id)).map((row) => row.id), ['b', 'a', 'c'])
+  })
+
+  it('tolerates junk', () => {
+    assert.deepEqual(sortSessions(undefined, 'name'), [])
+    assert.deepEqual(sortSessions([{ id: 'z' }], 'cost'), [{ id: 'z' }])
   })
 })

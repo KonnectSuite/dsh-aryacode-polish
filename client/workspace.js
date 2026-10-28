@@ -1069,6 +1069,32 @@ export function writeSort(value, storage) {
 
 // Folder membership is the primary key so a folder's workspaces stay together;
 // '' sorts before any folder name, which keeps unfiled workspaces on top.
+/** Order the sessions inside a workspace by the same mode the tree is sorted with. */
+export function sortSessions(sessions, mode, costOf) {
+  const list = Array.isArray(sessions) ? sessions.slice() : []
+  if (mode !== 'name' && mode !== 'cost' && mode !== 'recent') return list
+  const nameOf = (row) => String((row && (row.displayTitle || row.title || row.id)) || '')
+  const valueOf = (row) => {
+    if (mode === 'name') return 0
+    if (mode === 'recent') {
+      const stamp = Number(row && row.updatedAt)
+      return Number.isFinite(stamp) && stamp > 0 ? stamp : undefined
+    }
+    const priced = typeof costOf === 'function' ? costOf(row) : undefined
+    const usd = priced && typeof priced === 'object' ? Number(priced.usd) : undefined
+    return Number.isFinite(usd) ? usd : undefined
+  }
+  const ordered = list.map((row, index) => ({ row, index, at: valueOf(row), name: nameOf(row).toLowerCase() }))
+  ordered.sort((a, b) => {
+    const aHas = typeof a.at === 'number'
+    const bHas = typeof b.at === 'number'
+    if (aHas && bHas && a.at !== b.at) return b.at - a.at
+    if (aHas !== bHas) return aHas ? -1 : 1
+    if (a.name !== b.name) return a.name < b.name ? -1 : 1
+    return a.index - b.index
+  })
+  return ordered.map((entry) => entry.row)
+}
 export function sortRows(rows, mode, totalOf) {
   const kind = sortOf(mode)
   if (kind === 'host') return rows
@@ -4269,7 +4295,11 @@ export function BetterWorkspace(props) {
       : null)
   }
 
-  const drawnRows = hideEmpty ? orderedRows.filter((group) => (group.sessions || []).length > 0) : orderedRows
+  const sessionSorted = React.useMemo(() => orderedRows.map((group) => ({
+  workspace: group.workspace,
+  sessions: sortSessions(group.sessions, sort, (row) => costOf(sessionState, row && row.id)),
+})), [orderedRows, sort, sessionState])
+  const drawnRows = hideEmpty ? sessionSorted.filter((group) => (group.sessions || []).length > 0) : sessionSorted
 
   drawnRows.forEach((group) => {
     const workspace = group.workspace
