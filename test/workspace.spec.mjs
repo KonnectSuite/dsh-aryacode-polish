@@ -2,6 +2,7 @@ import assert from 'node:assert/strict'
 import { describe, it } from 'node:test'
 
 import {
+  subagentIds,
   HELP_ROWS,
   parentWorkspaceAt,
   capSessions,
@@ -1623,4 +1624,20 @@ it('the shortcut sheet names every key the tree honours', () => {
     assert.equal(row.length, 2)
     assert.ok(row[1].length > 0, 'the ' + row[0] + ' row needs a description')
   })
+})
+
+it('subagentIds reads the summary projections, not a route', () => {
+  const rows = [
+    { id: 'parent', projections: { values: { subagentCatalog: [{ sessionId: 'child-a' }, { id: 'child-b' }], subagent: null } } },
+    { id: 'child-a', projections: { values: { subagent: { label: 'research' } } } },
+    { id: 'child-b', projections: { values: {} } },
+    { id: 'plain', projections: { values: { subagent: null, subagentCatalog: [] } } },
+    { id: 'bare' },
+    null,
+  ]
+  const ids = subagentIds(rows)
+  assert.deepEqual([...ids].sort(), ['child-a', 'child-b'])
+  assert.equal(ids.has('parent'), false)
+  assert.equal(ids.has('plain'), false)
+  assert.equal(subagentIds(undefined).size, 0)
 })

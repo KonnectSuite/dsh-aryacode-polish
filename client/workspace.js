@@ -862,6 +862,52 @@ export function writePresets(map, storage) {
   }
 }
 
+/**
+ * Which listed sessions are subagent sessions.
+ *
+ * The sidebar payload carries no `origin`/`parentSessionId`, but each row's summary projections do carry
+ * `subagent` (set on a child) and `subagentCatalog` (the children of a parent), so the split is derivable
+ * without asking the Host anything.
+ */
+export function subagentIds(sessions) {
+  const list = Array.isArray(sessions) ? sessions : []
+  const out = new Set()
+  list.forEach((row) => {
+    if (!row || typeof row.id !== 'string') return
+    const values = row.projections && row.projections.values
+    if (!values) return
+    const own = values.subagent
+    if (own && typeof own === 'object') out.add(row.id)
+    const catalog = values.subagentCatalog
+    if (Array.isArray(catalog)) {
+      catalog.forEach((entry) => {
+        const child = entry && (entry.sessionId || entry.id)
+        if (typeof child === 'string' && child !== '') out.add(child)
+      })
+    }
+  })
+  return out
+}
+
+/** Read the shown-subagents flag: hidden unless the user switched it on. */
+export function readShowSubagents(storage) {
+  try {
+    return storage.getItem(SUBAGENT_KEY) === '1'
+  } catch {
+    return false
+  }
+}
+
+/** Persist the shown-subagents flag; off removes the key. */
+export function writeShowSubagents(show, storage) {
+  try {
+    if (show) storage.setItem(SUBAGENT_KEY, '1')
+    else storage.removeItem(SUBAGENT_KEY)
+  } catch {
+    /* storage may be full or denied */
+  }
+}
+
 /** Add or replace a preset; the name is trimmed and capped, and empty looks are refused. */
 export function withPreset(map, name, look) {
   const key = String(name || '').trim().slice(0, 24)
@@ -915,6 +961,7 @@ const FOLD_KEY = 'aryacode-polish:folded.v1'
 const SESSION_CAP = 8
 const DENSITY_KEY = 'aryacode-polish:density.v1'
 const FOLDER_KEY = 'aryacode-polish:folders.v1'
+const SUBAGENT_KEY = 'aryacode-polish:subagents.v1'
 const MARK_KEY = 'aryacode-polish:session-marks.v1'
 
 export function markOf(map, sessionId) {
@@ -2200,6 +2247,7 @@ export function BetterWorkspace(props) {
   const services = props.services || {}
   const { ctx, slots } = services
   const standard = { wide: props.wide === true, expandSidebar: props.expandSidebar }
+  const [showSubagents, setShowSubagents] = React.useState(() => readShowSubagents(window.localStorage))
   const [expanded, setExpanded] = React.useState(() => readFolded().workspaces)
   const [folderOrder, setFolderOrder] = React.useState(() => readFolderOrder(window.localStorage))
   const [starred, setStarred] = React.useState(() => readStarred(window.localStorage))
@@ -2413,7 +2461,12 @@ export function BetterWorkspace(props) {
   const [viewDraft, setViewDraft] = React.useState('')
   const metrics = DENSITY_METRICS[densityOf(density)]
   const archiveSet = new Set((workspaceState && workspaceState.archivedSessionIds) || [])
-  const split = splitArchived(sessionList, archiveSet)
+  const subagents = React.useMemo(() => subagentIds(sessionList), [sessionList])
+  const visibleSessions = React.useMemo(
+    () => (showSubagents ? sessionList : sessionList.filter((row) => row && !subagents.has(row.id))),
+    [sessionList, showSubagents, subagents],
+  )
+  const split = splitArchived(visibleSessions, archiveSet)
   const byPin = splitPinned(split.active, (workspaceState && workspaceState.pinnedSessionIds) || [])
   const pinnedSessions = byPin.pinned
   const workspaceOfPinned = (sessionId) => {
@@ -3840,6 +3893,19 @@ export function BetterWorkspace(props) {
       style: WS_MENU_ITEM,
       onClick: () => { setMenu(null); paintDayGroups(!dayGroupsOn); setNotice(dayGroupsOn ? 'Sessions are one list again.' : 'Sessions are grouped by day.') },
     }, (dayGroupsOn ? '\u2713 ' : '') + 'Group sessions by day'))
+    items.push(React.createElement('button', {
+      key: 'subagents',
+      type: 'button',
+      'data-polish-tree-subagents': showSubagents ? 'on' : 'off',
+      style: WS_MENU_ITEM,
+      onClick: () => {
+        setMenu(null)
+        const next = !showSubagents
+        setShowSubagents(next)
+        writeShowSubagents(next, window.localStorage)
+        setNotice(next ? 'Subagent sessions are listed.' : 'Subagent sessions are hidden.')
+      },
+    }, (showSubagents ? '\u2713 ' : '') + 'Show subagent sessions'))
     views.forEach((view) => {
       items.push(React.createElement('div', {
         key: 'view:' + view.name,
@@ -4437,7 +4503,7 @@ export function BetterWorkspace(props) {
       style: Object.assign({}, WS_TITLE, {
         fontStyle: markOf(marks, row.id).note ? 'italic' : undefined,
       }),
-    }, titleNode(row.displayTitle || row.id)),
+    }, subagents.has(row.id) ? '\u21b3 ' : '', titleNode(row.displayTitle || row.id)),
     ageLabel(row.updatedAt, clock)
       ? React.createElement('span', {
         'data-polish-ws-age': row.id,

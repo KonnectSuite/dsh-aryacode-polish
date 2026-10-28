@@ -854,3 +854,17 @@ sessions that started somewhere other than their workspace’s folder (the "Othe
 A declared-but-empty folder now carries the same **+** its filled counterpart has
 (`[data-polish-empty-add]`), opening the usual source picker with that folder as the target. Before this the
 only way in was the folder’s own menu, which a first-time folder does not obviously advertise.
+
+
+### Subagent sessions
+
+Every `subagent` call runs as a real session in the same workspace, titled from its task, so a research turn
+that fans out ten of them buries the conversations you actually open. The tree hides them.
+
+The split needs no host route: each session row's summary projections already carry `subagent` (set on a
+child) and `subagentCatalog` (a parent's children), so `subagentIds(sessions)` derives the set from the payload
+the sidebar already has. A shown subagent row is prefixed with ↳.
+
+The header menu's **Show subagent sessions** row flips the behaviour and remembers it
+(`aryacode-polish:subagents.v1`; off removes the key). Verified in dev: the row reads off, clicking says
+"Subagent sessions are listed.", the key becomes "1", and a reload keeps it.

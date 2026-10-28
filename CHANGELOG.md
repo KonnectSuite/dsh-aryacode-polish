@@ -1,3 +1,27 @@
+## [0.93.4]
+
+- Hide subagent sessions from the tree, with a menu row to list them again. Derived from each session row’s own summary projections (subagent, subagentCatalog) — no host route, so nothing to go wrong between the two halves.
+
+## [0.93.3]
+
+- Temporary: the route also reports which projections a session row carries.
+
+## [0.93.2]
+
+- Temporary: the subagent route reports item keys and origin values so the discriminator can be confirmed.
+
+## [0.93.1]
+
+- The subagent route also reports how many sessions it read, so a profile with no subagent sessions is
+  distinguishable from a route that cannot reach the session controller.
+
+## [0.93.0]
+
+- Hide subagent sessions from the tree. A session a subagent ran is a real session in the same
+  workspace, so a research turn that spawns ten of them buried the conversations you actually open.
+  The tree now asks the Host which sessions carry `origin: 'subagent'` (`POST api/polish.sessions`) and
+  leaves them out; a shown subagent is prefixed with a corner arrow.
+
 ## [0.92.1]
 
 ### Fixed
