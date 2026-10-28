@@ -55,6 +55,12 @@ If the harness ever declares a workspace-scoped menu slot, this feature should m
 there: the Host call and the path resolution stay exactly as they are, and only the
 registration line changes.
 
+**Owner's decision (2026-10-27):** asked again, after the Session row menu shipped,
+whether to add that slot to the harness and release a harness patch, the owner
+declined — "then forget it". The workspace row stays untouched and the feature stays
+on the Session row menu. The question has been asked and answered; do not re-open it
+without a new instruction.
+
 ## Evidence for the next reader
 
 - Slot contract: `packages/client/ui-workspace/src/client/contract/slots.ts:152-205`.
