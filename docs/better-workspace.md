@@ -819,3 +819,14 @@ no longer buries every other one, and the day-grouped path is unaffected because
 
 Verified live: 21 rows with two `Show 3 more` / `Show 2 more` rows → opening one workspace's remaining
 sessions took the tree from 13 to 15 rows and removed that workspace's button.
+
+
+### Left and Right walk the tree
+
+With the tree focused, **Right** opens the focused workspace — or steps into its first session when it is
+already open — and **Left** closes it, or lifts the cursor to the workspace that owns the focused session.
+The notices say which happened (`Expanded AryaCode.`, `Collapsed AryaCode.`).
+
+This is the behaviour the `role="treeitem" / aria-expanded` markup in 0.65.0 promised and the arrow keys did
+not deliver: they moved the cursor like a flat list. `parentWorkspaceAt(walk, at)` answers which workspace
+owns a session row, which is what Left climbs to.

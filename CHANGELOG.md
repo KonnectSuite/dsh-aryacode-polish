@@ -1,3 +1,9 @@
+## [0.87.0]
+
+### Added
+- Left and Right arrows now walk the tree like a tree: Right opens the focused workspace (or steps into its
+  first session), Left closes it (or lifts the cursor to the workspace that owns the focused session).
+
 ## [0.86.0]
 
 ### Added

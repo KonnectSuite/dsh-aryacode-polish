@@ -2,6 +2,7 @@ import assert from 'node:assert/strict'
 import { describe, it } from 'node:test'
 
 import {
+  parentWorkspaceAt,
   capSessions,
   focusPlan,
   folderNameOf,
@@ -1572,4 +1573,21 @@ it('a short workspace is never capped', () => {
   const sessions = [{ id: 'a' }, { id: 'b' }]
 
   assert.deepEqual(capSessions(sessions, 8), { shown: sessions, hidden: 0 })
+})
+
+it('a session row knows the workspace that owns it', () => {
+  const walk = [
+    { kind: 'workspace', id: 'w1', workspaceId: 'w1' },
+    { kind: 'session', id: 's1', workspaceId: 'w1' },
+    { kind: 'session', id: 's2', workspaceId: 'w1' },
+    { kind: 'workspace', id: 'w2', workspaceId: 'w2' },
+    { kind: 'session', id: 's3', workspaceId: 'w2' },
+  ]
+
+  assert.equal(parentWorkspaceAt(walk, 1), 0)
+  assert.equal(parentWorkspaceAt(walk, 2), 0)
+  assert.equal(parentWorkspaceAt(walk, 4), 3)
+  assert.equal(parentWorkspaceAt(walk, 0), 0)
+  assert.equal(parentWorkspaceAt(walk, 99), -1)
+  assert.equal(parentWorkspaceAt(undefined, 1), -1)
 })
