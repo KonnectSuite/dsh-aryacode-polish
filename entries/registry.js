@@ -24,6 +24,7 @@
  */
 
 import { mountCost } from './cost.js'
+import { mountGithub } from './github.js'
 
 /**
  * Every feature this bundle ships. Spelling corrections are investigated and
@@ -51,6 +52,13 @@ export const features = [
     label: 'Open workspace folder',
     description: 'Add an "Open workspace folder" row to a Session\u2019s menu that opens its workspace in the file browser.',
     defaultOn: true,
+  },
+  {
+    id: 'githubWorkspace',
+    label: 'Add a workspace from GitHub',
+    description: 'Sign in with the GitHub CLI, browse your repositories, and clone one as a workspace.',
+    defaultOn: true,
+    mount: mountGithub,
   },
 ]
 

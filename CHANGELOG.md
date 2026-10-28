@@ -1,5 +1,33 @@
 # Changelog
 
+## [0.5.0] - 2026-10-27
+
+### Added
+
+- **Add a workspace from GitHub.** A new switch (`githubWorkspace`) adds an
+  **Add workspace from GitHub** entry to the sidebar foot. It lists the
+  repositories the GitHub CLI session can clone, clones the chosen one into
+  `<home>\AryaCode\<owner>\<repo>`, and registers that folder as a workspace
+  through the same controller call the "+" menu uses. The token never reaches the
+  browser: the Host reads it with `gh auth token` and hands it to git as an
+  `http.extraHeader` in git's environment, so it stays out of the URL, the
+  command line, and any stored remote. See
+  [`docs/github-workspaces.md`](docs/github-workspaces.md).
+
+### Fixed
+
+- **A clone would have failed on a real machine.** `cloneRepo` spawned the
+  argument list without the `git` command name and passed the token as an option
+  the runner never read, so the clone carried no authentication at all. It now
+  spawns `git` with the token in `GIT_CONFIG_*`, which is what GitHub's git
+  server accepts, and `test/github.spec.mjs` pins the spawn shape.
+- **The signed-out reason told you nothing you could act on.** It now names the
+  command that fixes it (`gh auth login`).
+
+### Changed
+
+- `pnpm test` also runs `test/github.spec.mjs`; the suite is 87 tests.
+
 ## [0.4.4] - 2026-10-27
 
 ### Fixed
@@ -232,8 +260,8 @@
 
 ### Fixed
 
-- The pill's `≈` was stored as cp1252 mojibake (`â‰ˆ`), so a real turn rendered
-  `â‰ˆ$0.003` instead of `≈$0.003`. Same cause as the two strings repaired in
+- The pill's `≈` was stored as cp1252 mojibake (`≈`), so a real turn rendered
+  `≈$0.003` instead of `≈$0.003`. Same cause as the two strings repaired in
   0.2.1 — a PowerShell round-trip over the face source — and the last of that
   damage. Verified against a real turn in Dev AryaCode.
 

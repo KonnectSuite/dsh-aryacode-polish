@@ -116,6 +116,8 @@ test('apply follows the switches and survives a volatile-only update', () => {
   assert.deepEqual(fibers.map(fiber => fiber.plugin), features.filter(feature => typeof feature.mount === 'function').map(feature => feature.mount))
 
   // A volatile-only change re-runs the same apply; the switch turning off disposes that feature.
+  const hostHalves = features.filter(feature => typeof feature.mount === 'function').length
+  assert.equal(fibers.length, hostHalves)
   form.sessionCost = { get: () => false }
   events[0][1]()
   assert.equal(fibers[0].disposed, true)
@@ -123,6 +125,6 @@ test('apply follows the switches and survives a volatile-only update', () => {
   // Turning it back on mounts a fresh fiber instead of reusing a disposed one.
   form.sessionCost = { get: () => true }
   events[0][1]()
-  assert.equal(fibers.length, 2)
-  assert.equal(fibers[1].disposed, false)
+  assert.equal(fibers.length, hostHalves + 1)
+  assert.equal(fibers[hostHalves].disposed, false)
 })

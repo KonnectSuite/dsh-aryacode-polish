@@ -78,6 +78,24 @@ test('the face registers every surface it ships, each under its own key', () => 
   assert.match(bundle, /id: 'polish-cost'/)
   assert.match(bundle, /id: 'polish-balance'/)
   assert.match(bundle, /id: 'polish-open-folder'/)
+  assert.match(bundle, /id: 'polish-github'/)
+  assert.match(bundle, /id: 'polish-github-entry'/)
+})
+
+test('a cloned repository becomes a workspace through the Workspace service', () => {
+  assert.ok(
+    bundle.includes("inject(['workspaces']"),
+    'the workspace create call needs the workspaces service declared, or the Shell refuses it',
+  )
+  assert.ok(
+    bundle.includes('workspaces.create({ path })'),
+    'a clone is registered through the same create call the "+" menu uses',
+  )
+  assert.ok(
+    !bundle.includes('remote.workspaces'),
+    'the Remote namespace is remote.workspace (singular); the service is the documented door',
+  )
+  assert.ok(bundle.includes('data-polish-github'), 'the dialog and its entry are addressable for verification')
 })
 
 test('the workspace row opens the folder through the Session Remote', () => {

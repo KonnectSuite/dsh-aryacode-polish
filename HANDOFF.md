@@ -98,8 +98,8 @@ locale/en.json, zh.json  card title + description (keys must match)
 
 Never round-trip them through PowerShell string operations. `Set-Content
 -Encoding utf8` writes a BOM that kills the specs (`SyntaxError: Unexpected token
-''`), and a `-replace` round-trip once stored cp1252 bytes (`â€”`, `â€¦`,
-`â‰ˆ`) that shipped to the UI. Bump versions with `npm pkg set version=…`
+''`), and a `-replace` round-trip once stored cp1252 bytes (`—`, `…`,
+`≈`) that shipped to the UI. Bump versions with `npm pkg set version=…`
 (`pnpm pkg` is not implemented in pnpm 11.0.9), and rewrite JSON through node.
 
 ## Development loop
