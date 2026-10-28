@@ -1,0 +1,5 @@
+﻿const fs = require('node:fs')
+let s = fs.readFileSync('test/client-face.spec.mjs', 'utf8')
+s = s.replace("const workspaceSource = read('../client/workspace.js')", "const workspaceSource = read('client/workspace.js')")
+fs.writeFileSync('test/client-face.spec.mjs', s)
+console.log('path fixed')

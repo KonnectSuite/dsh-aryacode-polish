@@ -15,6 +15,7 @@ import { features } from '../entries/registry.js'
 
 const root = new URL('../', import.meta.url)
 const read = path => readFileSync(new URL(path, root), 'utf8')
+const workspaceSource = read('client/workspace.js')
 const manifest = JSON.parse(read('package.json'))
 const declaration = JSON.parse(read('client/switches.json'))
 const bundle = read('lib/client.js')
@@ -277,4 +278,12 @@ test('the better workspace seat shadows the shipped browser without re-declaring
   assert.ok(bundle.includes('menuOpenState'))
   assert.ok(bundle.includes('installWorkspaceSeat('))
   assert.ok(!bundle.includes('children: {'), 'no child-hole declaration may ride this registration')
+})
+
+test('the workspace seat also offers the Hero picker, with the same colours', () => {
+  assert.ok(bundle.includes('conversation.hero.workspace'), 'the Hero seat is registered')
+  assert.ok(bundle.includes('data-polish-hero'), 'the picker marks its rows')
+  assert.ok(bundle.includes('data-polish-tone'), 'the palette exposes one button per tone')
+  assert.ok(workspaceSource.includes('aryacode-polish:workspace-appearance'), 'the palette has a storage key')
+  assert.ok(workspaceSource.includes('writeAppearance(next)'), 'a colour is written when it is chosen')
 })

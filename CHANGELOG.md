@@ -1,5 +1,27 @@
 # Changelog
 
+## [0.12.1] - 2026-10-28
+
+### Fixed
+
+- The Hero list now only appears when the workspace chip is open, and it paints a
+  card of its own instead of an unstyled list floating over the Hero copy.
+
+## [0.12.0] - 2026-10-28
+
+### Added
+
+- **Colour and weight per workspace.** Right-click a workspace → "Colour and
+  weight…" paints it one of six tones (slate, blue, green, amber, rose, violet) or
+  none, and can make its label bold. The choice is stored under
+  `aryacode-polish:workspace-appearance` in the app's own storage, so it survives a
+  restart, and a broken or missing store degrades to the plain tree instead of
+  throwing.
+- **The same workspaces in the Hero picker.** The blank-session Hero now offers this
+  bundle's workspace list (tone dots, bold labels, session counts) instead of the
+  stock picker, through `conversation.hero.workspace` at priority -1 — same data,
+  same colours, one switch.
+
 ## [0.11.2] - 2026-10-28
 
 ### Verified

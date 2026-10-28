@@ -382,6 +382,82 @@ export function moveBefore(list, movingId, beforeId) {
   return next
 }
 
+const LOOK_KEY = 'aryacode-polish:workspace-appearance.v1'
+
+export const TONE_ORDER = ['slate', 'blue', 'green', 'amber', 'rose', 'violet']
+
+export const TONE_COLOR = {
+  slate: '#8a8f98',
+  blue: '#4a72d0',
+  green: '#2f9e6b',
+  amber: '#c8892f',
+  rose: '#c2496a',
+  violet: '#7a5cc4',
+}
+
+export function appearanceOf(map, workspaceId) {
+  const entry = (map && map[workspaceId]) || {}
+  return {
+    tone: TONE_COLOR[entry.tone] ? entry.tone : undefined,
+    strong: entry.strong === true,
+  }
+}
+
+export function withAppearance(map, workspaceId, patch) {
+  const next = Object.assign({}, map || {})
+  const merged = Object.assign({}, appearanceOf(next, workspaceId), patch || {})
+  if (!merged.tone && merged.strong !== true) delete next[workspaceId]
+  else next[workspaceId] = { tone: merged.tone, strong: merged.strong === true }
+  return next
+}
+
+export function readAppearance(storage) {
+  try {
+    const store = storage || (typeof localStorage === 'undefined' ? undefined : localStorage)
+    if (!store) return {}
+    const raw = store.getItem(LOOK_KEY)
+    if (!raw) return {}
+    const parsed = JSON.parse(raw)
+    return parsed && typeof parsed === 'object' ? parsed : {}
+  } catch {
+    return {}
+  }
+}
+
+export function writeAppearance(map, storage) {
+  try {
+    const store = storage || (typeof localStorage === 'undefined' ? undefined : localStorage)
+    if (!store) return
+    store.setItem(LOOK_KEY, JSON.stringify(map || {}))
+  } catch {
+    /* a locked-down webview must not break the tree */
+  }
+}
+
+const WS_TONE = {
+  flex: 'none',
+  width: '6px',
+  height: '6px',
+  borderRadius: '50%',
+  boxShadow: '0 0 0 2px var(--dsw-alias-bg-base, transparent)',
+}
+
+const WS_SWATCH = {
+  width: '18px',
+  height: '18px',
+  borderRadius: '50%',
+  border: '0.5px solid var(--dsw-alias-border-l2, rgba(0,0,0,0.12))',
+  cursor: 'pointer',
+  padding: 0,
+}
+
+const WS_PAINT_ROW = {
+  display: 'flex',
+  alignItems: 'center',
+  gap: '6px',
+  padding: '6px 8px',
+}
+
 const WS_FILTER = {
   margin: '2px 2px 6px',
   padding: '4px 8px',
@@ -447,6 +523,14 @@ export function BetterWorkspace(props) {
   const [hover, setHover] = React.useState(null)
   const [drag, setDrag] = React.useState(null)
   const [dropping, setDropping] = React.useState(null)
+  const [look, setLook] = React.useState(() => readAppearance())
+  const paintLook = (workspaceId, patch) => {
+    setLook((prev) => {
+      const next = withAppearance(prev, workspaceId, patch)
+      writeAppearance(next)
+      return next
+    })
+  }
   const filterRef = React.useRef(null)
 
   const workspaceState = useLive(services.workspacesLive)
@@ -590,6 +674,15 @@ export function BetterWorkspace(props) {
       }, 'Copy path'),
       React.createElement('button', {
         type: 'button',
+        'data-polish-ws-appearance': 'open',
+        style: WS_MENU_ITEM,
+        onClick: () => {
+          const workspace = menu.workspace
+          setMenu({ kind: 'paint', workspace, anchor: menu.anchor })
+        },
+      }, 'Colour and weight…'),
+      React.createElement('button', {
+        type: 'button',
         style: Object.assign({}, WS_MENU_ITEM, { color: 'var(--dsw-alias-label-error, #d92d20)' }),
         onClick: async () => {
           const workspace = menu.workspace
@@ -602,6 +695,44 @@ export function BetterWorkspace(props) {
           try { await services.removeWorkspace(workspace.workspaceId) } catch {}
         },
       }, armed && armed === menu.workspace.workspaceId ? 'Remove workspace?' : 'Remove workspace'))
+    : null
+
+  const paintMenu = menu && menu.kind === 'paint'
+    ? (() => {
+      const workspace = menu.workspace
+      const current = appearanceOf(look, workspace.workspaceId)
+      return React.createElement(RowMenu, { anchor: menu.anchor, onClose: closeMenu },
+        React.createElement('div', { style: WS_PAINT_ROW },
+          TONE_ORDER.map((tone) => React.createElement('button', {
+            key: tone,
+            type: 'button',
+            'data-polish-tone': tone,
+            'aria-label': 'Colour ' + tone,
+            title: tone,
+            style: Object.assign({}, WS_SWATCH, {
+              background: TONE_COLOR[tone],
+              boxShadow: current.tone === tone
+                ? '0 0 0 1.5px var(--dsw-alias-label-secondary, #61666b)'
+                : undefined,
+            }),
+            onClick: () => paintLook(workspace.workspaceId, { tone }),
+          })),
+          React.createElement('button', {
+            key: 'none',
+            type: 'button',
+            'data-polish-tone': 'none',
+            'aria-label': 'No colour',
+            title: 'No colour',
+            style: Object.assign({}, WS_SWATCH, { background: 'transparent' }),
+            onClick: () => paintLook(workspace.workspaceId, { tone: undefined }),
+          })),
+        React.createElement('button', {
+          type: 'button',
+          'data-polish-ws-strong': current.strong ? 'on' : 'off',
+          style: WS_MENU_ITEM,
+          onClick: () => paintLook(workspace.workspaceId, { strong: !current.strong }),
+        }, current.strong ? 'Weight: bold ✓' : 'Weight: normal'))
+    })()
     : null
 
   const sessionMenu = menu && menu.kind === 'session'
@@ -724,7 +855,16 @@ export function BetterWorkspace(props) {
     },
     React.createElement(CaretGlyph, { open }),
     React.createElement(FolderGlyph),
-    React.createElement('span', { style: WS_TITLE }, workspaceLabel(workspace)),
+    look[workspace.workspaceId] && appearanceOf(look, workspace.workspaceId).tone
+      ? React.createElement('span', {
+        style: Object.assign({}, WS_TONE, { background: TONE_COLOR[appearanceOf(look, workspace.workspaceId).tone] }),
+      })
+      : null,
+    React.createElement('span', {
+      style: Object.assign({}, WS_TITLE, {
+        fontWeight: appearanceOf(look, workspace.workspaceId).strong ? 600 : undefined,
+      }),
+    }, workspaceLabel(workspace)),
     React.createElement('span', { style: WS_COUNT }, String(sessions.length)),
     hovered || focused
       ? React.createElement('button', {
@@ -806,7 +946,79 @@ export function BetterWorkspace(props) {
     ? React.createElement('div', { key: 'count', style: WS_COUNT_NOTE }, String(shownCount) + ' of ' + String(totalCount) + ' sessions')
     : null,
   sessionMenu,
+  paintMenu,
   workspaceMenu)
+}
+
+const WS_HERO = {
+  display: 'flex',
+  flexDirection: 'column',
+  gap: '1px',
+  minWidth: '220px',
+  maxHeight: '320px',
+  overflowY: 'auto',
+  padding: '4px',
+}
+
+const WS_HERO_TITLE = {
+  fontSize: 'calc(' + "var(--dsh-content-font-size-secondary, 13px)" + ' - 2px)',
+  letterSpacing: '0.02em',
+  textTransform: 'uppercase',
+  color: 'var(--dsw-alias-label-quaternary, #8a8a8a)',
+  padding: '4px 6px 2px',
+}
+
+/**
+ * The Hero's workspace picker. Same data and same colours as the sidebar tree,
+ * reachable before a session exists — the Hero slot wants a list that calls
+ * `onPick(workspaceId)`, so this is a flat list rather than the tree.
+ */
+export function HeroWorkspacePicker(props) {
+  const services = (props && props.services) || {}
+  const workspaceState = useLive(services.workspacesLive)
+  const look = React.useMemo(() => readAppearance(), [])
+  const list = (workspaceState && (workspaceState.items || workspaceState.workspaces)) || []
+  // The slot hands over `open`: the chip is closed most of the time, and rendering
+  // the list unconditionally left it floating over the Hero copy.
+  if (!props || props.open !== true || list.length === 0) return null
+  const anchor = props.anchorRef && props.anchorRef.current
+  const spot = anchor && anchor.getBoundingClientRect
+    ? (() => {
+      const box = anchor.getBoundingClientRect()
+      return {
+        position: 'fixed',
+        top: Math.round(box.bottom + 6) + 'px',
+        left: Math.max(8, Math.round(box.left)) + 'px',
+        zIndex: 1200,
+      }
+    })()
+    : {}
+  return ReactDOM.createPortal(React.createElement('div', { 'data-polish-hero': 'true', style: Object.assign({}, WS_MENU, WS_HERO, spot, { maxHeight: '320px' }) },
+    React.createElement('div', { style: WS_HERO_TITLE }, 'Workspaces'),
+    list.map((workspace) => {
+      const looks = appearanceOf(look, workspace.workspaceId)
+      return React.createElement('button', {
+        key: workspace.workspaceId,
+        type: 'button',
+        'data-polish-hero-row': workspace.workspaceId,
+        style: Object.assign({}, WS_ROW, {
+          fontWeight: looks.strong ? 600 : 500,
+          background: 'transparent',
+          border: 'none',
+          textAlign: 'left',
+        }),
+        onClick: () => {
+          if (props.onPick) props.onPick(workspace.workspaceId)
+          if (props.onClose) props.onClose()
+        },
+      },
+      React.createElement(FolderGlyph),
+      looks.tone
+        ? React.createElement('span', { style: Object.assign({}, WS_TONE, { background: TONE_COLOR[looks.tone] }) })
+        : null,
+      React.createElement('span', { style: WS_TITLE }, workspaceLabel(workspace)),
+      React.createElement('span', { style: WS_COUNT }, String((workspace.sessionIds || []).length)))
+    })), document.body)
 }
 
 /**
@@ -816,6 +1028,7 @@ export function BetterWorkspace(props) {
  */
 export function installWorkspaceSeat(ctx, configForms, extras = {}) {
   let dispose
+  let disposeHero
   let unlisten
   const scope = () => {
     try {
@@ -868,6 +1081,13 @@ export function installWorkspaceSeat(ctx, configForms, extras = {}) {
             priority: -1,
             inject: () => ({ services }),
           }, BetterWorkspace))
+          // The Hero picker is its own single slot, so it needs its own -1 seat;
+          // both live and die with the one switch.
+          disposeHero = seated.slots.inject('conversation.hero.workspace', () => seated.slots.register({
+            name: 'conversation.hero.workspace',
+            priority: -1,
+            inject: () => ({ services }),
+          }, HeroWorkspacePicker))
         },
       )
     } catch (error) {
@@ -880,6 +1100,12 @@ export function installWorkspaceSeat(ctx, configForms, extras = {}) {
       install()
       return
     }
+    if (typeof disposeHero === 'function') {
+      try {
+        disposeHero()
+      } catch {}
+    }
+    disposeHero = undefined
     if (typeof dispose === 'function') {
       try {
         dispose()
@@ -897,6 +1123,7 @@ export function installWorkspaceSeat(ctx, configForms, extras = {}) {
   }
   return () => {
     if (typeof unlisten === 'function') unlisten()
+    if (typeof disposeHero === 'function') disposeHero()
     if (typeof dispose === 'function') dispose()
   }
 }

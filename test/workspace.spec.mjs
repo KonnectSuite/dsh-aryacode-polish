@@ -5,6 +5,12 @@ import {
   filterTree,
   flattenRows,
   moveBefore,
+  TONE_ORDER,
+  TONE_COLOR,
+  appearanceOf,
+  withAppearance,
+  readAppearance,
+  writeAppearance,
   menuRuntime,
   rowMenuEntries,
   workspaceLabel,
@@ -154,5 +160,41 @@ describe('menu runtime', () => {
     assert.equal(workspaceLabel({ workspaceId: 'default-workspace1', title: 'default-workspace1' }), 'Default workspace1')
     assert.equal(workspaceLabel({ workspaceId: 'w', title: 'Rockwell line' }), 'Rockwell line')
     assert.equal(workspaceLabel({ workspaceId: '' }), 'Workspace')
+  })
+})
+
+describe('appearance', () => {
+  it('keeps a tone and a weight per workspace', () => {
+    const one = withAppearance({}, 'ws1', { tone: 'blue' })
+    assert.deepEqual(appearanceOf(one, 'ws1'), { tone: 'blue', strong: false })
+    const two = withAppearance(one, 'ws1', { strong: true })
+    assert.deepEqual(appearanceOf(two, 'ws1'), { tone: 'blue', strong: true })
+    assert.deepEqual(appearanceOf(one, 'ws1'), { tone: 'blue', strong: false }, 'the first map is untouched')
+  })
+
+  it('drops an entry once nothing is left to say', () => {
+    const painted = withAppearance({}, 'ws1', { tone: 'rose' })
+    const cleared = withAppearance(painted, 'ws1', { tone: undefined })
+    assert.deepEqual(cleared, {})
+  })
+
+  it('ignores a tone it does not know', () => {
+    assert.equal(appearanceOf({ ws1: { tone: 'chartreuse' } }, 'ws1').tone, undefined)
+    assert.equal(appearanceOf(undefined, 'ws1').strong, false)
+  })
+
+  it('offers six tones in a fixed order, each with a colour', () => {
+    assert.deepEqual(TONE_ORDER, ['slate', 'blue', 'green', 'amber', 'rose', 'violet'])
+    for (const tone of TONE_ORDER) assert.match(TONE_COLOR[tone], /^#[0-9a-f]{6}$/)
+  })
+
+  it('round-trips through a storage shim and survives a broken one', () => {
+    const memory = new Map()
+    const storage = { getItem: k => (memory.has(k) ? memory.get(k) : null), setItem: (k, v) => memory.set(k, v) }
+    const map = withAppearance({}, 'ws1', { tone: 'green', strong: true })
+    writeAppearance(map, storage)
+    assert.deepEqual(readAppearance(storage), map)
+    assert.deepEqual(readAppearance({ getItem: () => '{not json', setItem: () => {} }), {})
+    assert.deepEqual(readAppearance(undefined), {})
   })
 })
