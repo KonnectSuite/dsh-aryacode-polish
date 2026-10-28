@@ -9,6 +9,7 @@ import {
   matchesText,
   highlightSegments,
   historyPush,
+  pruneHistory,
   sessionTip,
   sortSessions,
   spendByWorkspace,
@@ -1492,5 +1493,27 @@ describe('the tooltip of a session row', () => {
   it('skips the extras that are missing or blank', () => {
     const tip = sessionTip({ displayTitle: 'Only a title' }, { note: '', cost: '   ', age: undefined })
     assert.equal(tip, 'Only a title')
+  })
+})
+describe('a history that loses a session', () => {
+  const live = new Set(['a', 'b'])
+
+  it('drops the dead entries and keeps the cursor on the nearest survivor', () => {
+    const pruned = pruneHistory({ stack: ['a', 'gone', 'b'], at: 2 }, (id) => live.has(id))
+    assert.deepEqual(pruned, { stack: ['a', 'b'], at: 1 })
+  })
+
+  it('steps the cursor back when the current entry itself is gone', () => {
+    const pruned = pruneHistory({ stack: ['a', 'b', 'gone'], at: 2 }, (id) => live.has(id))
+    assert.deepEqual(pruned, { stack: ['a', 'b'], at: 1 })
+  })
+
+  it('empties out when nothing survives', () => {
+    assert.deepEqual(pruneHistory({ stack: ['gone'], at: 0 }, () => false), { stack: [], at: -1 })
+  })
+
+  it('leaves a healthy stack alone', () => {
+    const state = { stack: ['a', 'b'], at: 0 }
+    assert.deepEqual(pruneHistory(state, (id) => live.has(id)), state)
   })
 })

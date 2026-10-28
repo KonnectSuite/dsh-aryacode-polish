@@ -1,3 +1,13 @@
+## [0.82.1]
+
+- When back/forward skips a session that no longer exists it says so, instead of claiming there is
+  nothing to go back to.
+
+## [0.82.0]
+
+- The back/forward history forgets sessions that no longer exist instead of stepping into a dead id, and
+  says where it landed when it skips one.
+
 ## [0.81.0]
 
 - A session row answers a hover with its full title, its note, its money and the date it was last touched,

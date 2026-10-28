@@ -767,3 +767,15 @@ one per line, skipping whatever is missing and saying "Untitled session" when th
 
 Verified live: `Delta reply request\n≈$0.00011\nOct 28, 2026, 9:19 AM` on a priced row, and just
 `AryaCode\nOct 28, 2026, 9:47 AM` on one that has spent nothing.
+
+
+### A history that loses a session
+
+`pruneHistory(state, isLive)` drops entries whose session is gone and parks the cursor on the nearest
+survivor: deleting a session from another window cannot leave Back pointing at an id that no longer
+resolves. The handler prunes before it steps, writes the pruned stack, and — when pruning is what
+emptied the direction — says "Skipped a session that no longer exists." rather than "Nothing to go back to."
+
+Verified live by planting a dead id in `aryacode-polish:history.v1` ahead of a real session, reloading,
+and pressing Alt+Left: the notice read "Skipped a session that no longer exists." and storage became
+`{"stack":[<live>],"at":0}`.

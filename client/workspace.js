@@ -1913,6 +1913,20 @@ export function writeHistory(state, storage) {
   }
 }
 
+/** Drop history entries whose session no longer exists, keeping the cursor on the nearest survivor. */
+export function pruneHistory(state, isLive) {
+  const stack = Array.isArray(state && state.stack) ? state.stack : []
+  const at = typeof (state && state.at) === 'number' ? state.at : stack.length - 1
+  const keep = []
+  let nextAt = -1
+  stack.forEach((id, index) => {
+    if (typeof isLive === 'function' && !isLive(id)) return
+    keep.push(id)
+    if (index <= at) nextAt = keep.length - 1
+  })
+  if (keep.length === 0) return { stack: [], at: -1 }
+  return { stack: keep, at: Math.max(0, Math.min(keep.length - 1, nextAt)) }
+}
 const historyStore = {
   value: typeof window !== 'undefined' && window.localStorage ? readHistory(window.localStorage) : { stack: [], at: -1 },
 }
@@ -2456,10 +2470,17 @@ export function BetterWorkspace(props) {
       if (target && (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable)) return
       const forward = event.key === 'ArrowRight'
       const current = historyStore.value
-      const step = forward ? historyForward(current) : historyBack(current)
+      const live = new Set((sessionsRef.current || []).map((entry) => entry && entry.id).filter(Boolean))
+      const pruned = pruneHistory(current, (id) => live.has(id))
+      const forgone = pruned.stack.length !== current.stack.length || pruned.at !== current.at
+      if (forgone) rememberHistory(pruned)
+      const step = forward ? historyForward(historyStore.value) : historyBack(historyStore.value)
       event.preventDefault()
-      if (!step) { setNotice(forward ? 'Nothing to go forward to.' : 'Nothing to go back to.'); return }
-      rememberHistory({ stack: current.stack, at: step.at })
+      if (!step) {
+        setNotice(forgone ? 'Skipped a session that no longer exists.' : (forward ? 'Nothing to go forward to.' : 'Nothing to go back to.'))
+        return
+      }
+      rememberHistory({ stack: historyStore.value.stack, at: step.at })
       services.openSession(step.id)
       const named = ((sessionsRef.current || []).filter((entry) => entry && entry.id === step.id)[0] || {}).displayTitle
       setNotice((forward ? 'Forward to ' : 'Back to ') + (named || 'that session') + '.')
