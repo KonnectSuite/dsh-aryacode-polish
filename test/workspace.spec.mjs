@@ -103,6 +103,7 @@ import {
   costLabel, sumCost, folderHasRunning, readHelp, writeHelp, sumCostLabel,
   GLYPHS,
   restoreLabel,
+  moveTarget,
 } from '../client/workspace.js'
 
 const session = (id, title, updatedAt) => ({ id, displayTitle: title, updatedAt })
@@ -665,7 +666,6 @@ describe('per-session cost', () => {
   })
 })
 
-
 it('sumCost adds up what a group of sessions cost', () => {
   const snapshot = {
     projectionsBySession: {
@@ -698,7 +698,6 @@ it('sumCost says nothing when no session is priced', () => {
   assert.equal(sumCostLabel([{ id: 'a' }], undefined), '')
 })
 
-
 describe('a folder knows when something inside is running', () => {
   it('is true when any filed session is running', () => {
     const inside = [
@@ -714,7 +713,6 @@ describe('a folder knows when something inside is running', () => {
     assert.equal(folderHasRunning(undefined), false)
   })
 })
-
 
 describe('the shortcut sheet remembers it was opened', () => {
   it('starts unseen, remembers, and can be forgotten', () => {
@@ -967,14 +965,12 @@ it('the status store decides, not the row', () => {
   assert.equal(folderHasRunning([{ sessions: [{ id: 's9', running: false }] }], (row) => row.id === 's9'), true)
 })
 
-
 it('the bulk restore button says what it will do', () => {
   assert.equal(restoreLabel(1), 'Restore the archived session')
   assert.equal(restoreLabel(0), 'Restore the archived session')
   assert.equal(restoreLabel(4), 'Restore all 4 archived')
   assert.equal(restoreLabel('3'), 'Restore all 3 archived')
 })
-
 
 it('parses the filter operators without swallowing the words', () => {
   assert.deepEqual(parseQuery('! secret'), { text: 'secret', running: true, flagged: false, scope: '', age: '' })
@@ -1011,7 +1007,6 @@ it('a flag operator reads the marks and a scope narrows to a folder', () => {
   assert.deepEqual(rows[0].sessions.map((row) => row.id), ['b'])
 })
 
-
 it('the filter line explains an empty operator result instead of quoting a symbol', () => {
   assert.equal(filterSummary('!', 0), 'No sessions are running.')
   assert.equal(filterSummary('#', 0), 'Nothing is flagged.')
@@ -1021,7 +1016,6 @@ it('the filter line explains an empty operator result instead of quoting a symbo
   assert.equal(filterSummary('!', 1), '1 match')
   assert.equal(filterSummary('!', 3), '3 matches')
 })
-
 
 it('an operator filter does not count the headers it merely kept', () => {
   const source = [
@@ -1035,7 +1029,6 @@ it('an operator filter does not count the headers it merely kept', () => {
   assert.equal(countMatches(filterTree(source, 'alpha', new Set(), options), 'alpha'), 2)
   assert.equal(countMatches([], ''), 0)
 })
-
 
 it('a shift-click selects the span between anchor and target, either direction', () => {
   const ids = ['a', 'b', 'c', 'd']
@@ -1052,7 +1045,6 @@ it('a selection never announces itself when empty', () => {
   assert.equal(selectionLabel(0), '')
   assert.equal(selectionLabel(undefined), '')
 })
-
 
 function fakeStore() {
   const map = new Map()
@@ -1089,7 +1081,6 @@ it('a view summarises the knobs it would change', () => {
   assert.equal(viewSummary({ query: '', sort: 'host', density: 'comfortable' }), 'Host order')
   assert.equal(viewSummary(undefined), '')
 })
-
 
 it('the header totals count work and money without inventing either', () => {
   const snapshot = {
@@ -1244,4 +1235,18 @@ it('sessions can be bucketed by how old they are', () => {
   assert.deepEqual(sections.map((s) => s.title), ['Today', 'Yesterday', 'Older'])
   assert.deepEqual(sections[0].sessions.map((r) => r.id), ['a'])
   assert.deepEqual(DAY_GROUPS, ['today', 'yesterday', 'week', 'older'])
+})
+
+it('the keyboard moves a workspace to its neighbour in the drawn order', () => {
+  const rows = [
+    { workspace: { workspaceId: 'a' }, sessions: [] },
+    { workspace: { workspaceId: 'b' }, sessions: [] },
+    { workspace: { workspaceId: 'c' }, sessions: [] },
+  ]
+  assert.equal(moveTarget(rows, 'b', -1), 'a')
+  assert.equal(moveTarget(rows, 'b', 1), 'c')
+  assert.equal(moveTarget(rows, 'a', -1), undefined, 'nothing above the first')
+  assert.equal(moveTarget(rows, 'c', 1), undefined, 'nothing below the last')
+  assert.equal(moveTarget(rows, 'nope', 1), undefined, 'an unknown id has no neighbour')
+  assert.equal(moveTarget(undefined, 'a', 1), undefined)
 })

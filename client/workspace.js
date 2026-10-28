@@ -705,6 +705,20 @@ export function flattenRows(rows, expanded, query) {
   return flat
 }
 
+/**
+ * The workspace one step away in the order the tree is drawn — the one to trade
+ * places with. The host can only insert a workspace BEFORE another, so moving up
+ * means "me before the neighbour" and moving down means "the neighbour before me";
+ * this helper answers which workspace that is.
+ */
+export function moveTarget(rows, workspaceId, delta) {
+  const ids = (rows || []).map((group) => group && group.workspace ? group.workspace.workspaceId : undefined).filter(Boolean)
+  const at = ids.indexOf(workspaceId)
+  if (at < 0) return undefined
+  const next = ids[at + (delta < 0 ? -1 : 1)]
+  return next
+}
+
 /** The first session the tree shows as busy, so a folded tree cannot hide one. */
 export function firstRunning(rows, isRunning) {
   const busy = typeof isRunning === 'function' ? isRunning : (row) => row && row.running === true
@@ -2370,6 +2384,19 @@ export function BetterWorkspace(props) {
       if (found >= 0) setCursor(found)
       return
     }
+    if (event.ctrlKey && event.altKey && (event.key === 'ArrowDown' || event.key === 'ArrowUp')) {
+      event.preventDefault()
+      const entry = walk[cursor]
+      if (!entry || entry.kind !== 'workspace') { setNotice('Focus a workspace to move it.'); return }
+      const up = event.key === 'ArrowUp'
+      const target = moveTarget(orderedRows, entry.workspaceId, up ? -1 : 1)
+      if (!target) { setNotice(up ? 'That workspace is already first.' : 'That workspace is already last.'); return }
+      const group = orderedRows.find((item) => item.workspace.workspaceId === entry.workspaceId)
+      if (up) reorderWorkspace(entry.workspaceId, target)
+      else reorderWorkspace(target, entry.workspaceId)
+      setNotice('Moved ' + (group ? workspaceLabel(group.workspace) : 'that workspace') + (up ? ' up.' : ' down.'))
+      return
+    }
     if (event.altKey && (event.key === 'ArrowDown' || event.key === 'ArrowUp') && walk.length > 0) {
       event.preventDefault()
       const step = event.key === 'ArrowDown' ? 1 : -1
@@ -3109,6 +3136,7 @@ export function BetterWorkspace(props) {
     ['[ / ]', 'jump to the previous or next workspace'],
     ['/', 'focus the filter; Escape clears it'],
     ['Ctrl+K', 'jump to any session or workspace'],
+    ['Ctrl+Alt+Up / Down', 'move the focused workspace up or down'],
     ['Shift+F10', 'open the row menu'],
     ['Alt+click', 'a folder, to fold every other folder'],
     ['Double-click', 'a workspace or session, to rename it'],

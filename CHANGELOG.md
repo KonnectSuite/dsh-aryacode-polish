@@ -1,3 +1,22 @@
+## [0.63.1]
+
+A down-move actually moves.
+
+### Fixed
+- Ctrl+Alt+Down did nothing: the host can only insert a workspace BEFORE another, so asking it to put
+  the moving workspace before its neighbour was a no-op. A down step now asks the neighbour to go
+  before the moving one, which is the same swap.
+
+## [0.63.0]
+
+A workspace can be moved without a mouse.
+
+### Added
+- **Ctrl+Alt+Up / Ctrl+Alt+Down** moves the focused workspace one place up or down, using the same
+  host reorder a drag uses, and says `Moved Work/Alpha up.` The order it honours is the order you can
+  see — starred first, folders as arranged, then the rest — so the keyboard and the drag agree.
+- The shortcut sheet lists it.
+
 ## [0.62.0]
 
 Empty workspaces stop taking up room.

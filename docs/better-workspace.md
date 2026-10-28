@@ -611,3 +611,14 @@ exactly as it was, and a workspace you start using reappears the moment its firs
 The live verification in this dev tree could only show the negative case (nothing was hidden, because
 every workspace here has sessions); the positive case is covered by the bundle assertion rather than a
 screenshot, because creating an empty workspace needs the native folder picker.
+
+
+## Keyboard reorder
+
+**Ctrl+Alt+Up / Ctrl+Alt+Down** moves the focused workspace one place in the order you can see
+(starred first, folders as arranged, then the rest), then says `Moved Work/Alpha down.`
+
+One host detail shaped the implementation: `reorderWorkspace(moving, before)` can only insert BEFORE
+another workspace, so a naive "put me before my neighbour" is a no-op when moving down. A down step
+therefore asks the neighbour to go before the moving workspace, which is the same swap. Focused
+session rows are refused with "Focus a workspace to move it." rather than moving the wrong thing.

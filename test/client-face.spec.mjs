@@ -580,3 +580,9 @@ test('empty workspaces can be hidden', () => {
     assert.ok(workspaceSource.includes(marker), 'bundle should carry ' + marker)
   }
 })
+
+test('Ctrl+Alt keyboard reorder', () => {
+  for (const marker of ["event.ctrlKey && event.altKey && (event.key === 'ArrowDown'", 'moveTarget(orderedRows', "'Focus a workspace to move it.'"]) {
+    assert.ok(workspaceSource.includes(marker), 'bundle should carry ' + marker)
+  }
+})
