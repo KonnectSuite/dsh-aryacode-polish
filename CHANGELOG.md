@@ -1,3 +1,11 @@
+## [0.38.0] - 2026-10-28
+
+### Added
+
+- Right-click the WORKS PACES header for a menu that names the whole surface: copy the tree, fold or
+  expand everything, pick a density, pick a sort order, reset the view, or open the shortcut sheet —
+  the icons are no longer the only way in.
+
 ## [0.37.0] - 2026-10-28
 
 ### Added

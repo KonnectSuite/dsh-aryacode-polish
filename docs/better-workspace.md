@@ -414,3 +414,12 @@ Ctrl-K started as a jumper: type a title, press Enter, you are there. It carries
 now — `New session in <workspace>` for every workspace — so the same box that finds work can start
 it. The rule is deliberate: jumping hits come first (that is what the muscle memory expects), actions
 follow, and every row says which it is in the hint on the right.
+
+## The header menu
+
+The header carries five small glyphs, and small glyphs are a poor inventory of what a panel can do.
+Right-clicking the header opens the same actions spelled out — copy the tree, fold or expand
+everything, the three densities, the two sort orders, "Reset the tree" (which returns to
+`treeDefaults()`: no filter, nothing folded, comfortable rows, host order) and the shortcut sheet.
+The menu is generated from the same lists the icons use (`DENSITIES`, `SORTS`), so a new density
+appears in both places at once.

@@ -3,6 +3,7 @@ import { describe, it } from 'node:test'
 
 import {
   actionEntries,
+  treeDefaults,
   highlightParts,
   folderLookOf,
   withFolderLook,
@@ -749,4 +750,14 @@ it('the palette offers a new session per workspace', () => {
   assert.deepEqual(entries.map((entry) => entry.title), ['New session in Work/Alpha', 'New session in Beta'])
   assert.ok(entries.every((entry) => entry.kind === 'action' && entry.workspaceId))
   assert.deepEqual(actionEntries(undefined), [])
+})
+
+it('a reset really resets every view knob', () => {
+  const defaults = treeDefaults()
+  assert.deepEqual(Object.keys(defaults).sort(), ['density', 'expanded', 'folders', 'query', 'sort'])
+  assert.equal(defaults.query, '')
+  assert.deepEqual(defaults.expanded, {})
+  assert.deepEqual(defaults.folders, {})
+  assert.equal(defaults.density, 'comfortable')
+  assert.equal(defaults.sort, 'host')
 })

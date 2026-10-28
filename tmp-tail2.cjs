@@ -1,0 +1,7 @@
+﻿const fs = require('node:fs')
+const lines = fs.readFileSync('client/workspace.js', 'utf8').split('\n')
+const idx = lines.map((line, at) => ({ line, at })).filter((item) => /switcherCard, sessionMenu|sessionMenu, paintMenu|children, switcherCard/.test(item.line))
+idx.forEach((item) => console.log((item.at + 1) + ': ' + item.line))
+const tail = lines.findIndex((line) => line.includes("'data-polish-ws': 'tree'"))
+console.log('--- tree return at ' + (tail + 1))
+console.log(lines.slice(tail, tail + 14).map((text, offset) => (tail + 1 + offset) + ': ' + text).join('\n'))

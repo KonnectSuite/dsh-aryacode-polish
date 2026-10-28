@@ -923,6 +923,14 @@ export function writeFolded(state, storage) {
  * The palette is not only a jumper: every workspace contributes a "start a session here" action, so
  * Ctrl-K can create work as well as find it. Kept pure so the entries are testable without React.
  */
+/**
+ * The state a tree starts from. Reset uses it verbatim, and the test asserts it, because a "reset"
+ * that quietly leaves one thing set is worse than no reset at all.
+ */
+export function treeDefaults() {
+  return { query: '', expanded: {}, folders: {}, density: 'comfortable', sort: 'host' }
+}
+
 export function actionEntries(rows) {
   return (rows || []).map((group) => ({
     id: 'new:' + group.workspace.workspaceId,
@@ -2218,6 +2226,82 @@ export function BetterWorkspace(props) {
       'Press ', React.createElement('kbd', null, '?'), ' for the shortcuts.')
     : null
 
+  const treeMenuItems = () => {
+    const items = []
+    items.push(React.createElement('button', {
+      key: 'copy',
+      type: 'button',
+      'data-polish-tree-copy': 'true',
+      style: WS_MENU_ITEM,
+      onClick: () => { setMenu(null); copyTree() },
+    }, 'Copy the tree'))
+    items.push(React.createElement('button', {
+      key: 'fold',
+      type: 'button',
+      'data-polish-tree-fold': 'true',
+      style: WS_MENU_ITEM,
+      onClick: () => { setMenu(null); foldAll() },
+    }, allFolded ? 'Expand everything' : 'Fold everything'))
+    DENSITIES.forEach((each) => {
+      const mark = densityOf(density) === each ? '\u2713 ' : ''
+      items.push(React.createElement('button', {
+        key: 'density:' + each,
+        type: 'button',
+        'data-polish-tree-density': each,
+        style: WS_MENU_ITEM,
+        onClick: () => { setMenu(null); setDensity(each); writeDensity(each) },
+      }, mark + DENSITY_TITLES[each]))
+    })
+    SORTS.forEach((each) => {
+      const mark = sortOf(sort) === each ? '\u2713 ' : ''
+      items.push(React.createElement('button', {
+        key: 'sort:' + each,
+        type: 'button',
+        'data-polish-tree-sort': each,
+        style: WS_MENU_ITEM,
+        onClick: () => { setMenu(null); setSort(each); writeSort(each) },
+      }, mark + (each === 'name' ? 'Sort A to Z' : 'Host order')))
+    })
+    items.push(React.createElement('button', {
+      key: 'reset',
+      type: 'button',
+      'data-polish-tree-reset': 'true',
+      style: WS_MENU_ITEM,
+      onClick: () => {
+        const defaults = treeDefaults()
+        setMenu(null)
+        setQuery(defaults.query)
+        setExpanded(defaults.expanded)
+        setFolders(defaults.folders)
+        setDensity(defaults.density)
+        writeDensity(defaults.density)
+        setSort(defaults.sort)
+        writeSort(defaults.sort)
+        setCursor(-1)
+        setNotice('Reset the tree.')
+      },
+    }, 'Reset the tree'))
+    items.push(React.createElement('button', {
+      key: 'help',
+      type: 'button',
+      'data-polish-tree-help': 'true',
+      style: WS_MENU_ITEM,
+      onClick: () => { setMenu(null); setHelpOpen(true); writeHelp(true); setHelpSeen(true) },
+    }, 'Show the shortcuts'))
+    return items
+  }
+
+  const treeMenu = menu && menu.kind === 'tree'
+    ? ReactDOM.createPortal(
+      React.createElement('div', {
+        'data-polish-ws-menu': 'tree',
+        'data-polish-tree-menu': 'open',
+        style: Object.assign({}, WS_MENU, { position: 'fixed', top: menu.anchor.top, left: menu.anchor.left }),
+      }, treeMenuItems()),
+      document.body,
+    )
+    : null
+
   const switcherCard = switcher
     ? ReactDOM.createPortal(React.createElement('div', {
       'data-polish-switcher': 'open',
@@ -2284,7 +2368,15 @@ export function BetterWorkspace(props) {
 
   const children = []
 
-  children.push(React.createElement('div', { key: 'header', 'data-polish-ws': 'header', style: WS_HEADER },
+  children.push(React.createElement('div', {
+    key: 'header',
+    'data-polish-ws': 'header',
+    style: WS_HEADER,
+    onContextMenu: (event) => {
+      event.preventDefault()
+      setMenu({ kind: 'tree', anchor: { top: event.clientY, left: Math.max(8, event.clientX - 40) } })
+    },
+  },
     React.createElement('span', { style: WS_HEADER_TITLE }, 'Workspaces'),
     React.createElement('button', {
       key: 'fold',
@@ -2947,6 +3039,7 @@ export function BetterWorkspace(props) {
   noteCard,
   archivedMenu,
   paintMenu,
+  treeMenu,
   workspaceMenu)
 }
 

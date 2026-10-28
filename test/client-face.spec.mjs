@@ -20,6 +20,14 @@ const manifest = JSON.parse(read('package.json'))
 const declaration = JSON.parse(read('client/switches.json'))
 const bundle = read('lib/client.js')
 
+test('the header menu names every tree action, and can reset the view', () => {
+  assert.match(workspaceSource, /'data-polish-ws-menu': 'tree'/)
+  assert.match(workspaceSource, /'data-polish-tree-density'/)
+  assert.match(workspaceSource, /'data-polish-tree-sort'/)
+  assert.match(workspaceSource, /'data-polish-tree-reset'/)
+  assert.match(workspaceSource, /treeDefaults\(\)/)
+})
+
 test('the palette can act, not only jump', () => {
   assert.match(workspaceSource, /actionEntries\(/)
   assert.match(workspaceSource, /'data-polish-switcher-action'/)

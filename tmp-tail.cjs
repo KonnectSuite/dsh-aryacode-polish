@@ -1,0 +1,7 @@
+﻿const fs = require('node:fs')
+const lines = fs.readFileSync('client/workspace.js', 'utf8').split('\n')
+const i = lines.findIndex((line) => line.includes("children, switcherCard"))
+console.log(lines.slice(i - 6, i + 4).map((text, offset) => (i - 5 + offset) + ': ' + text).join('\n'))
+const j = lines.findIndex((line) => line.includes('const switcherCard'))
+console.log('--- switcherCard at ' + (j + 1))
+console.log(lines.slice(j - 2, j + 4).map((text, offset) => (j - 1 + offset) + ': ' + text).join('\n'))
