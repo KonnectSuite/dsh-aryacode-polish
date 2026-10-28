@@ -1,3 +1,11 @@
+## [0.96.0]
+
+### Changed
+- Folder colour follows state again: grey when closed, blue when open.
+- The workspace and session you are in are tinted like the shipped list's selection, instead of
+  wearing a blue edge.
+- The Focus menu row is gone.
+
 ## [0.95.2]
 
 - The chip row keeps one line: Running/Flagged read Run/Flag (the full word stays in the tooltip).

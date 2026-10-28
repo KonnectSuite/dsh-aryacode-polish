@@ -3899,29 +3899,6 @@ export function BetterWorkspace(props) {
       onClick: () => { setMenu(null); paintHideEmpty(!hideEmpty); setNotice(hideEmpty ? 'Empty workspaces are listed again.' : 'Empty workspaces are hidden.') },
     }, (hideEmpty ? '\u2713 ' : '') + 'Hide workspaces with no sessions'))
     if (currentWorkspaceId) {
-      const focused = focusReturn !== null
-      const label = (currentGroup && currentGroup.workspace ? (currentGroup.workspace.title || currentGroup.workspace.workspaceId) : 'the current workspace')
-      items.push(React.createElement('button', {
-        key: 'focus',
-        type: 'button',
-        'data-polish-tree-focus': focused ? 'on' : 'off',
-        style: WS_MENU_ITEM,
-        onClick: () => {
-          setMenu(null)
-          if (focused) {
-            setExpanded(focusReturn.expanded)
-            setFolders(focusReturn.folders)
-            setFocusReturn(null)
-            setNotice('Showing everything again.')
-            return
-          }
-          const plan = focusPlan(allRows, currentWorkspaceId)
-          setFocusReturn({ expanded, folders })
-          setExpanded(plan.expanded)
-          setFolders(plan.folders)
-          setNotice('Focused on ' + label + '.')
-        },
-      }, focused ? 'Show everything again' : 'Focus on ' + label))
     }
     items.push(React.createElement('button', {
       key: 'daygroups',
@@ -4468,10 +4445,12 @@ export function BetterWorkspace(props) {
           ? 'var(--dsw-alias-interactive-bg-hover, rgba(0, 0, 0, 0.05))'
           : (picked.indexOf(row.id) >= 0
             ? 'var(--dsw-alias-interactive-bg-selected, rgba(0, 0, 0, 0.09))'
-            : (rowFocused ? 'var(--dsw-alias-interactive-bg-hover, rgba(0, 0, 0, 0.04))' : undefined)),
+            : (rowFocused
+              ? 'var(--dsw-alias-interactive-bg-hover, rgba(0, 0, 0, 0.04))'
+              : (currentSessionId === row.id ? 'var(--dsw-alias-interactive-bg-selected, rgba(0, 0, 0, 0.07))' : undefined))),
         boxShadow: picked.indexOf(row.id) >= 0
           ? 'inset 2px 0 0 var(--dsw-alias-text-accent, #4d6bfe)'
-          : (rowFocused ? 'inset 0 0 0 1px var(--dsw-alias-border-l2, rgba(0, 0, 0, 0.12))' : (currentSessionId === row.id ? 'inset 2px 0 0 var(--dsw-alias-text-accent, #4d6bfe)' : undefined)),
+          : (rowFocused ? 'inset 0 0 0 1px var(--dsw-alias-border-l2, rgba(0, 0, 0, 0.12))' : undefined),
       }),
       onClick: (event) => {
         if (event.ctrlKey || event.metaKey) {
@@ -4757,12 +4736,12 @@ export function BetterWorkspace(props) {
       title: workspace.path || workspaceLabel(workspace),
       style: Object.assign({}, WS_ROW, {
         fontWeight: 500,
+        color: open ? 'var(--dsw-alias-state-business-primary, #2f6fed)' : 'var(--dsw-alias-label-tertiary, #8a8a8a)',
         background: dropHere
           ? 'var(--dsw-alias-interactive-bg-hover, rgba(0, 0, 0, 0.05))'
           : (focused ? 'var(--dsw-alias-interactive-bg-hover, rgba(0, 0, 0, 0.04))' : undefined),
-        boxShadow: isCurrent
-          ? ('inset 2px 0 0 0 var(--dsw-alias-text-accent, #4d6bfe)' + (focused ? ', inset 0 0 0 1px var(--dsw-alias-border-l2, rgba(0, 0, 0, 0.12))' : ''))
-          : (focused ? 'inset 0 0 0 1px var(--dsw-alias-border-l2, rgba(0, 0, 0, 0.12))' : undefined),
+        boxShadow: focused ? 'inset 0 0 0 1px var(--dsw-alias-border-l2, rgba(0, 0, 0, 0.12))' : undefined,
+        backgroundColor: isCurrent ? 'var(--dsw-alias-interactive-bg-hover, rgba(0, 0, 0, 0.05))' : undefined,
       }),
       onClick: () => toggleWorkspace(workspace.workspaceId),
       onContextMenu: (event) => openWorkspaceMenu(event, workspace),
