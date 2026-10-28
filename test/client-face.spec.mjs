@@ -318,3 +318,11 @@ test('a workspace can wear a glyph and carry a note', () => {
   assert.ok(workspaceSource.includes("'data-polish-ws-glyph'"), 'the row renders the chosen glyph')
   assert.ok(workspaceSource.includes('looks.note || undefined'), 'the note rides the row tooltip')
 })
+
+test('a workspace can be dropped on a folder and shows its note on hover', () => {
+  assert.ok(workspaceSource.includes('fileUnder('), 'dropping uses the filing helper')
+  assert.ok(workspaceSource.includes("'folder:' + folder"), 'the folder header is a drop target')
+  assert.ok(workspaceSource.includes("'Filed under '"), 'a drop reports what happened')
+  assert.ok(workspaceSource.includes("'data-polish-note-card'"), 'the note appears in a card')
+  assert.ok(workspaceSource.includes('setCard({ text: note'), 'the card only exists when a note does')
+})

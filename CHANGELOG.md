@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.17.0] - 2026-10-28
+
+### Added
+- **Drop a workspace on a folder header to file it there.** The title is rewritten to
+  Folder/Name (any previous prefix is replaced, not stacked) through the Host rename.
+- **A workspace note shows as a card on hover**, not just as a tooltip title.
+
+
 ## [0.16.0] - 2026-10-28
 
 ### Added

@@ -6,6 +6,7 @@ import {
   flattenRows,
   moveBefore,
   folderKey,
+  fileUnder,
   rankMatches,
   readFolded,
   writeFolded,
@@ -333,5 +334,23 @@ describe('glyph and note', () => {
   it('offers a picker palette', () => {
     assert.ok(Array.isArray(GLYPHS) && GLYPHS.length >= 8)
     for (const glyph of GLYPHS) assert.ok(glyph.length <= 4, glyph + ' is a badge, not a sentence')
+  })
+})
+
+describe('filing a workspace under a folder', () => {
+  it('moves the workspace name behind the folder prefix', () => {
+    assert.equal(fileUnder('Alpha', 'Work'), 'Work/Alpha')
+    assert.equal(fileUnder('Work/Alpha', 'Work'), 'Work/Alpha')
+    assert.equal(fileUnder('Old/Alpha', 'Work'), 'Work/Alpha')
+  })
+
+  it('files a nested workspace under the folder that received it, not under its old parent', () => {
+    assert.equal(fileUnder('A/B/Gamma', 'C'), 'C/Gamma')
+  })
+
+  it('leaves odd input alone instead of inventing a prefix', () => {
+    assert.equal(fileUnder('', 'Work'), '')
+    assert.equal(fileUnder('Alpha', ''), 'Alpha')
+    assert.equal(fileUnder('Work/', 'Team'), 'Team')
   })
 })

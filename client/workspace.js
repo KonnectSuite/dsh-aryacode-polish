@@ -475,6 +475,22 @@ const WS_MENU_HINT = {
   color: 'var(--dsw-alias-label-quaternary, #8a8a8a)',
 }
 
+const WS_NOTE_CARD = {
+  position: 'fixed',
+  zIndex: 1250,
+  maxWidth: '260px',
+  padding: '6px 9px',
+  borderRadius: 'var(--dsw-radius-md, 8px)',
+  border: '0.5px solid var(--dsw-alias-border-l2, rgba(0, 0, 0, 0.12))',
+  background: 'Canvas',
+  color: 'var(--dsw-alias-label-secondary, #61666b)',
+  fontSize: 'calc(var(--dsh-content-font-size-secondary, 13px) - 1px)',
+  lineHeight: 1.35,
+  boxShadow: 'var(--dsw-elevation-prominent, 0 2px 8px rgba(0, 0, 0, 0.08))',
+  pointerEvents: 'none',
+  whiteSpace: 'pre-wrap',
+}
+
 const WS_GLYPH = {
   flex: 'none',
   width: '16px',
@@ -616,6 +632,19 @@ const SWITCHER_HINT = {
  * written to the Host and renaming a workspace is enough to move it between
  * folders — the same idea as the reference plugin, without its "/" toggle.
  */
+/**
+ * The title a workspace needs to sit under `folder`: its own name moved behind the
+ * folder prefix, with any previous prefix replaced rather than stacked.
+ */
+export function fileUnder(label, folder) {
+  const name = String(label || '').trim()
+  const target = String(folder || '').trim()
+  if (!name || !target) return name
+  const cut = name.lastIndexOf('/')
+  const bare = (cut >= 0 ? name.slice(cut + 1) : name).trim()
+  return bare ? target + '/' + bare : target
+}
+
 export function folderKey(workspace) {
   const label = workspaceLabel(workspace)
   const cut = label.lastIndexOf('/')
@@ -833,6 +862,7 @@ export function BetterWorkspace(props) {
   const [dropping, setDropping] = React.useState(null)
   const [look, setLook] = React.useState(() => readAppearance())
   const [noteDraft, setNoteDraft] = React.useState('')
+  const [card, setCard] = React.useState(null)
   const folded = React.useMemo(() => readFolded(), [])
   const [folders, setFolders] = React.useState(folded.folders)
   const [switcher, setSwitcher] = React.useState(null)
@@ -1215,6 +1245,13 @@ export function BetterWorkspace(props) {
       React.createElement('div', { style: WS_MENU_HINT }, 'Enter saves, Escape cancels'))
     : null
 
+  const noteCard = card
+    ? ReactDOM.createPortal(React.createElement('div', {
+      'data-polish-note-card': 'true',
+      style: Object.assign({}, WS_NOTE_CARD, { top: card.top, left: card.left }),
+    }, card.text), document.body)
+    : null
+
   const paintMenu = menu && menu.kind === 'paint'
     ? (() => {
       const workspace = menu.workspace
@@ -1477,8 +1514,31 @@ export function BetterWorkspace(props) {
         role: 'group',
         'aria-label': folder,
         title: folded ? 'Expand ' + folder : 'Collapse ' + folder,
-        style: WS_FOLDER_ROW,
+        style: Object.assign({}, WS_FOLDER_ROW, {
+          background: dropping === 'folder:' + folder
+            ? 'var(--dsw-alias-interactive-bg-hover, rgba(0, 0, 0, 0.05))'
+            : undefined,
+        }),
         onClick: () => setFolders((prev) => Object.assign({}, prev, { [folder]: prev[folder] !== true })),
+        onDragOver: (event) => {
+          if (!drag || drag.kind !== 'workspace') return
+          if (folderOf(rows.find((entry) => entry.workspace.workspaceId === drag.id)?.workspace) === folder) return
+          event.preventDefault()
+          setDropping('folder:' + folder)
+        },
+        onDragLeave: () => setDropping(null),
+        onDrop: (event) => {
+          event.preventDefault()
+          setDropping(null)
+          if (!drag || drag.kind !== 'workspace') return
+          const moving = rows.find((entry) => entry.workspace.workspaceId === drag.id)
+          if (!moving || folderOf(moving.workspace) === folder) return
+          const title = fileUnder(workspaceLabel(moving.workspace), folder)
+          Promise.resolve()
+            .then(() => services.renameWorkspace(moving.workspace.workspaceId, title))
+            .then(() => setNotice('Filed under ' + folder + '.'))
+            .catch(() => setNotice('Could not file that workspace.'))
+        },
       },
       React.createElement('span', { 'aria-hidden': 'true' }, folded ? '›' : '⌄'),
       React.createElement('span', { style: WS_TITLE }, folder),
@@ -1512,8 +1572,14 @@ export function BetterWorkspace(props) {
       onClick: () => toggleWorkspace(workspace.workspaceId),
       onContextMenu: (event) => openWorkspaceMenu(event, workspace),
       title: looks.note || undefined,
-      onMouseEnter: () => setHover('workspace:' + workspace.workspaceId),
-      onMouseLeave: () => setHover(null),
+      onMouseEnter: (event) => {
+        setHover('workspace:' + workspace.workspaceId)
+        const note = appearanceOf(look, workspace.workspaceId).note
+        if (!note) return
+        const box = event.currentTarget.getBoundingClientRect()
+        setCard({ text: note, top: box.bottom + 6, left: Math.max(8, box.left) })
+      },
+      onMouseLeave: () => { setHover(null); setCard(null) },
       onDragStart: () => setDrag({ kind: 'workspace', id: workspace.workspaceId }),
       onDragOver: (event) => {
         if (!drag || drag.kind !== 'workspace' || drag.id === workspace.workspaceId) return
@@ -1609,6 +1675,7 @@ export function BetterWorkspace(props) {
   sessionMenu,
   glyphMenu,
   noteMenu,
+  noteCard,
   archivedMenu,
   paintMenu,
   workspaceMenu)
