@@ -28,6 +28,7 @@ import {
   costDetail,
   ageLabel,
   ageTitle,
+  elapsedLabel,
   sumTokens,
   readSort,
   writeSort,
@@ -788,6 +789,18 @@ it('A workspace with no spend sinks below a priced one, whatever its name', () =
   const totals = { zzz: { usd: 0.01 } }
   const ranked = sortRows(groups, 'cost', (group) => totals[group.workspace.workspaceId])
   assert.deepEqual(ranked.map((group) => group.workspace.workspaceId), ['zzz', 'aaa'])
+})
+
+it('Elapsed time reads as a running clock, never as a date', () => {
+  assert.equal(elapsedLabel(0), '0s')
+  assert.equal(elapsedLabel(900), '0s')
+  assert.equal(elapsedLabel(7_000), '7s')
+  assert.equal(elapsedLabel(59_000), '59s')
+  assert.equal(elapsedLabel(60_000), '1m')
+  assert.equal(elapsedLabel(90 * 60_000), '1h')
+  assert.equal(elapsedLabel(26 * 3_600_000), '1d')
+  assert.equal(elapsedLabel(-5), '')
+  assert.equal(elapsedLabel('nope'), '')
 })
 
 it('Ages read in the shortest honest unit', () => {

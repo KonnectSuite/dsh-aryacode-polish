@@ -28,6 +28,13 @@ test('the header menu names every tree action, and can reset the view', () => {
   assert.match(workspaceSource, /treeDefaults\(\)/)
 })
 
+test('a running session says how long it has been running', () => {
+  assert.match(workspaceSource, /'data-polish-running-for'/)
+  assert.match(workspaceSource, /runningFor\(row\.id\)/)
+  assert.match(workspaceSource, /counted since this window opened/)
+  assert.match(bundle, /data-polish-running-for/)
+})
+
 test('a session says how long ago it was touched', () => {
   assert.match(workspaceSource, /'data-polish-session-age'/)
   assert.match(workspaceSource, /ageLabel\(row\.updatedAt, clock\)/)

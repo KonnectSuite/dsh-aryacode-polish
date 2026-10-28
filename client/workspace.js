@@ -801,6 +801,19 @@ export function ageLabel(stamp, now) {
   return Math.floor(days / 7) + 'w'
 }
 
+/** A elapsed duration, so a running turn can say how long it has been going. */
+export function elapsedLabel(ms) {
+  const span = Number(ms)
+  if (!Number.isFinite(span) || span < 0) return ''
+  const seconds = Math.floor(span / 1000)
+  if (seconds < 1) return '0s'
+  if (seconds < 60) return seconds + 's'
+  const minutes = Math.floor(seconds / 60)
+  if (minutes < 60) return minutes + 'm'
+  const hours = Math.floor(minutes / 60)
+  return hours < 24 ? hours + 'h' : Math.floor(hours / 24) + 'd'
+}
+
 /** The exact moment behind an age label, for the tooltip. */
 export function ageTitle(stamp) {
   const at = Number(stamp)
@@ -1510,11 +1523,7 @@ export function BetterWorkspace(props) {
   const workspaceState = useLive(services.workspacesLive)
   // Ages only need to be roughly right, so one tick every half minute is plenty.
   const [clock, setClock] = React.useState(() => Date.now())
-  React.useEffect(() => {
-    if (typeof setInterval !== 'function') return undefined
-    const timer = setInterval(() => setClock(Date.now()), 30000)
-    return () => clearInterval(timer)
-  }, [])
+  const [runningSince, setRunningSince] = React.useState({})
   const statusesOf = props.useSessionStatus
   const statuses = statusesOf ? statusesOf((state) => state) : undefined
   const runningIds = React.useMemo(() => {
@@ -1524,6 +1533,44 @@ export function BetterWorkspace(props) {
     }
     return ids
   }, [statuses])
+  const runningKey = runningIds.join('|')
+  const anyRunning = runningIds.length > 0
+  const runningFor = (id) => {
+    const since = runningSince[id]
+    if (since === undefined) return ''
+    return elapsedLabel(Math.max(0, clock - since))
+  }
+  // Ages only need to be roughly right; a live run wants a finer tick. Rebuilding the
+  // interval when work starts or stops keeps an idle sidebar from re-rendering needlessly.
+  React.useEffect(() => {
+    if (typeof setInterval !== 'function') return undefined
+    const timer = setInterval(() => setClock(Date.now()), anyRunning ? 5000 : 30000)
+    return () => clearInterval(timer)
+  }, [anyRunning])
+  // The status store publishes no start time, so the honest stamp is the moment this
+  // window first saw the session running; it resets when the window reloads.
+  React.useEffect(() => {
+    const now = Date.now()
+    let started = false
+    setRunningSince((prev) => {
+      const next = {}
+      let changed = false
+      runningIds.forEach((id) => {
+        if (prev[id] !== undefined) {
+          next[id] = prev[id]
+        } else {
+          next[id] = now
+          changed = true
+          started = true
+        }
+      })
+      if (!changed && Object.keys(prev).length === runningIds.length) return prev
+      return next
+    })
+    // Keep the clock level with the freshly stamped start, or the counter would open on a
+    // negative span and print nothing.
+    if (started) setClock(now)
+  }, [runningKey])
   const isRunning = (row) => {
     if (!row) return false
     if (runningIds.indexOf(row.id) >= 0) return true
@@ -2849,6 +2896,13 @@ export function BetterWorkspace(props) {
       onDrop: (event) => { event.preventDefault(); dropOnSession(workspace.workspaceId, row.id) },
     },
     isRunning(row) ? React.createElement('span', { 'data-polish-session-running': row.id, style: WS_DOT, title: 'Running' }) : null,
+    isRunning(row) && runningFor(row.id)
+      ? React.createElement('span', {
+        'data-polish-running-for': row.id,
+        title: 'Running for ' + runningFor(row.id) + ' (counted since this window opened)',
+        style: WS_AGE,
+      }, runningFor(row.id))
+      : null,
     pinned.has(row.id) ? React.createElement('span', { style: WS_PIN, title: 'Pinned' }, '\u2605') : null,
     markOf(marks, row.id).flag
       ? React.createElement('span', { 'data-polish-mark-flag': row.id, style: WS_PIN, title: 'Flagged' }, '⚑')
@@ -3227,6 +3281,13 @@ export function BetterWorkspace(props) {
         },
         React.createElement('span', { style: WS_PIN, 'aria-hidden': 'true' }, '\u2605'),
         isRunning(row) ? React.createElement('span', { 'data-polish-pinned-running': row.id, style: WS_DOT, title: 'Running' }) : null,
+        isRunning(row) && runningFor(row.id)
+          ? React.createElement('span', {
+            'data-polish-pinned-for': row.id,
+            title: 'Running for ' + runningFor(row.id) + ' (counted since this window opened)',
+            style: WS_AGE,
+          }, runningFor(row.id))
+          : null,
         React.createElement('span', { style: WS_TITLE }, row.displayTitle || row.id),
         costLabel(costOf(sessionState, row.id))
           ? React.createElement('span', { 'data-polish-pinned-cost': row.id, style: WS_COST }, costLabel(costOf(sessionState, row.id)))

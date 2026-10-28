@@ -1,3 +1,11 @@
+## [0.46.0] - 2026-10-28
+
+### Added
+
+- A running session shows how long it has been running (`12s`, `3m`), ticking every five seconds while
+  work is in flight and easing back to thirty when nothing is. The status store publishes no start time,
+  so the clock counts from the moment this window saw the run, and the tooltip says exactly that.
+
 ## [0.45.0] - 2026-10-28
 
 ### Added
