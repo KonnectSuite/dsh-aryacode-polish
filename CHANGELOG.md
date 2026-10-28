@@ -1,3 +1,10 @@
+## [0.40.0] - 2026-10-28
+
+- A workspace's cost total is now a door: clicking it opens the breakdown behind the number — cache hit
+  share, uncached, cached and written tokens, output, requests, how many sessions were priced, and the
+  same "your provider's bill is authoritative" line the composer card carries.
+- The card reads the same projection the total was summed from, so the two can never disagree.
+
 ## [0.39.0] - 2026-10-28
 
 - Sort workspaces by what they have spent: "Most spent first" ranks the tree by the cost totals already
