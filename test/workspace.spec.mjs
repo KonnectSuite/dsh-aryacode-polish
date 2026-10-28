@@ -2,6 +2,7 @@ import assert from 'node:assert/strict'
 import { describe, it } from 'node:test'
 
 import {
+  highlightParts,
   folderLookOf,
   withFolderLook,
   FOLDER_LOOK_PREFIX,
@@ -727,4 +728,12 @@ it('type-ahead matches the prefix of a session title', () => {
   const hit = titles.findIndex((title) => title.toLowerCase().startsWith('bu'))
   assert.equal(titles[hit], 'Build the thing')
   assert.equal(titles.findIndex((title) => title.toLowerCase().startsWith('z')), -1)
+})
+
+it('highlights the filtered part of a title, and only the first one', () => {
+  assert.deepEqual(highlightParts('Build the thing', 'the'), { before: 'Build ', hit: 'the', after: ' thing' })
+  assert.deepEqual(highlightParts('Build the thing', 'THE'), { before: 'Build ', hit: 'the', after: ' thing' }, 'the match keeps the text casing, not the query casing')
+  assert.deepEqual(highlightParts('Build', 'zz'), { before: 'Build', hit: '', after: '' })
+  assert.deepEqual(highlightParts('Build', '   '), { before: 'Build', hit: '', after: '' })
+  assert.deepEqual(highlightParts(undefined, 'x'), { before: '', hit: '', after: '' })
 })

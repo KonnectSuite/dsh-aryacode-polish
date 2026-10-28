@@ -20,6 +20,17 @@ const manifest = JSON.parse(read('package.json'))
 const declaration = JSON.parse(read('client/switches.json'))
 const bundle = read('lib/client.js')
 
+test('the filter says how many rows survived it, and marks the part that matched', () => {
+  assert.match(workspaceSource, /'data-polish-ws-matches'/)
+  assert.match(workspaceSource, /'data-polish-hit': 'true'/)
+  assert.match(workspaceSource, /highlightParts\(/)
+  // A session row is focused by its walk index; a workspace row has its own flag. Mixing the two
+  // threw "rowFocused is not defined" inside the seat and blanked the whole tree.
+  assert.match(workspaceSource, /'data-polish-cursor': rowFocused \? 'true' : undefined/)
+  assert.match(workspaceSource, /'data-polish-cursor': focused \? 'true' : undefined/)
+  assert.match(workspaceSource, /event\.key === 'Home' \|\| event\.key === 'End'/)
+})
+
 test('a session can be pinned by dropping it on the Pinned header', () => {
   assert.match(workspaceSource, /dropping === 'pinned'/)
   assert.match(workspaceSource, /kind: 'pinned'/)

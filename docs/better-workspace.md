@@ -399,3 +399,11 @@ it again. Both go through the same Host verbs the menus use, so nothing here can
 
 Typing a printable key while the tree has focus jumps the cursor to the first title with that prefix —
 transient, 700 ms, so "bu" then "i" narrows to "Build the thing" instead of restarting.
+
+## Filtering shows its work
+
+Typing in the filter hides rows, which on its own is ambiguous: a shorter tree can mean "nothing
+else matched" or "the tree is empty now". So the tree says what happened — `n matches`, and the
+matched slice of each title is wrapped in a `mark` — and Escape clears the filter back to
+everything. Home and End jump to the ends of the keyboard walk, because arrowing past thirty
+sessions to reach the last one is not a feature.

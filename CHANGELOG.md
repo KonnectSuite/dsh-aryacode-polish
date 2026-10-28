@@ -1,3 +1,11 @@
+## [0.36.0] - 2026-10-28
+
+### Added
+
+- The filter now says how many rows survived it, and marks the part of the title that matched, so a
+  filtered tree explains itself instead of just getting shorter.
+- Home and End jump to the first and last row of the keyboard walk.
+
 ## [0.35.0] - 2026-10-28
 
 Added: drop a dragged session on the Pinned header to pin it, and drag a pinned row onto a workspace to

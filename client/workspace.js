@@ -1156,12 +1156,34 @@ export const FOLDER_LOOK_PREFIX = 'folder:'
  * A folder is only a title prefix, so its look is stored under a reserved key in the same map the
  * workspace looks use. One storage key means one migration when a folder is renamed.
  */
+/**
+ * Splits a title around the first case-insensitive occurrence of the filter, so a row can show WHY it
+ * survived the filter instead of just being one of the survivors.
+ */
+export function highlightParts(text, query) {
+  const whole = String(text === undefined || text === null ? '' : text)
+  const needle = String(query || '').trim().toLowerCase()
+  if (!needle) return { before: whole, hit: '', after: '' }
+  const at = whole.toLowerCase().indexOf(needle)
+  if (at < 0) return { before: whole, hit: '', after: '' }
+  return {
+    before: whole.slice(0, at),
+    hit: whole.slice(at, at + needle.length),
+    after: whole.slice(at + needle.length),
+  }
+}
+
 export function folderLookOf(map, name) {
   return appearanceOf(map, FOLDER_LOOK_PREFIX + name)
 }
 
 export function withFolderLook(map, name, patch) {
   return withAppearance(map, FOLDER_LOOK_PREFIX + name, patch)
+}
+
+const WS_MARK = {
+  borderRadius: '2px',
+  background: 'var(--dsw-alias-interactive-bg-hover, rgba(0, 0, 0, 0.1))',
 }
 
 const WS_TONE = {
@@ -1345,9 +1367,21 @@ export function BetterWorkspace(props) {
   const walk = flattenRows(visibleRows, expanded, query)
   const runtime = React.useMemo(() => menuRuntime(ctx, slots, standard), [ctx, slots, standard.wide])
   const RowBoundary = React.useMemo(() => rowBoundary(), [])
+  const titleNode = (text) => {
+    const parts = highlightParts(text, query)
+    if (!parts.hit) return parts.before
+    return [
+      parts.before,
+      React.createElement('mark', { key: 'hit', 'data-polish-hit': 'true', style: WS_MARK }, parts.hit),
+      parts.after,
+    ]
+  }
   const entries = React.useMemo(() => rowMenuEntries(slots), [slots, workspaceList.length, sessionList.length])
   const totalCount = allRows.reduce((sum, row) => sum + row.sessions.length, 0)
   const shownCount = rows.reduce((sum, row) => sum + row.sessions.length, 0)
+  const matchCount = query.trim()
+    ? rows.length + rows.reduce((sum, row) => sum + row.sessions.length, 0)
+    : 0
   const folderNames = folderNamesOf(rows, declared)
   // One click should always do the useful thing: if anything is folded, the button
   // expands everything (folders included); only when nothing is folded does it fold.
@@ -1553,6 +1587,11 @@ export function BetterWorkspace(props) {
       event.preventDefault()
       const step = event.key === 'ArrowDown' ? 1 : -1
       setCursor(Math.min(walk.length - 1, Math.max(0, cursor + step)))
+      return
+    }
+    if ((event.key === 'Home' || event.key === 'End') && walk.length > 0) {
+      event.preventDefault()
+      setCursor(event.key === 'Home' ? 0 : walk.length - 1)
       return
     }
     if (event.key === 'Enter') {
@@ -2301,6 +2340,16 @@ export function BetterWorkspace(props) {
     },
   }))
 
+  if (query.trim()) {
+    children.push(React.createElement('div', {
+      key: 'matches',
+      'data-polish-ws-matches': String(matchCount),
+      style: WS_MENU_HINT,
+    }, matchCount === 0
+      ? 'Nothing matches "' + query.trim() + '".'
+      : matchCount + (matchCount === 1 ? ' match' : ' matches')))
+  }
+
   if (helpHint) children.push(helpHint)
 
   if (notice) {
@@ -2371,6 +2420,7 @@ export function BetterWorkspace(props) {
     return React.createElement('div', {
       key: 'session:' + row.id,
       'data-polish-ws-session': row.id,
+      'data-polish-cursor': rowFocused ? 'true' : undefined,
       draggable: true,
       style: Object.assign({}, WS_ROW, {
         paddingLeft: '24px',
@@ -2414,7 +2464,7 @@ export function BetterWorkspace(props) {
       style: Object.assign({}, WS_TITLE, {
         fontStyle: markOf(marks, row.id).note ? 'italic' : undefined,
       }),
-    }, row.displayTitle || row.id),
+    }, titleNode(row.displayTitle || row.id)),
     sessionCost
       ? React.createElement('span', { 'data-polish-ws-cost': row.id, style: WS_COST }, sessionCost)
       : null,
@@ -2565,6 +2615,7 @@ export function BetterWorkspace(props) {
     },
     React.createElement('div', {
       'data-polish-ws-row': workspace.workspaceId,
+      'data-polish-cursor': focused ? 'true' : undefined,
       draggable: true,
       title: workspace.path || workspaceLabel(workspace),
       style: Object.assign({}, WS_ROW, {
@@ -2609,7 +2660,7 @@ export function BetterWorkspace(props) {
       : null,
     React.createElement('span', {
       style: Object.assign({}, WS_TITLE, { fontWeight: looks.strong ? 600 : undefined }),
-    }, workspaceLabel(workspace)),
+    }, titleNode(workspaceLabel(workspace))),
     React.createElement('span', { style: WS_COUNT }, String(sessions.length)),
     rowCost
       ? React.createElement('span', { 'data-polish-ws-cost-total': workspace.workspaceId, style: Object.assign({}, WS_COST, { marginLeft: '6px' }) }, rowCost)
