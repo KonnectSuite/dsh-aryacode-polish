@@ -2384,6 +2384,26 @@ export function BetterWorkspace(props) {
       if (found >= 0) setCursor(found)
       return
     }
+    if (event.key === 'F2') {
+      event.preventDefault()
+      const entry = walk[cursor]
+      if (!entry) { setNotice('Focus a row to rename it.'); return }
+      if (entry.kind === 'workspace') {
+        const group = orderedRows.find((item) => item.workspace.workspaceId === entry.workspaceId)
+        if (!group) return
+        const workspace = group.workspace
+        setNotice('')
+        setRenaming({ workspaceId: workspace.workspaceId, label: workspaceLabel(workspace), value: workspaceLabel(workspace) })
+        return
+      }
+      const group = orderedRows.find((item) => item.workspace.workspaceId === entry.workspaceId) || {}
+      const row = (group.sessions || []).find((item) => item.id === entry.id)
+      if (!row) { setNotice('Focus a row to rename it.'); return }
+      const title = row.displayTitle || row.id
+      setRenaming({ sessionId: row.id, label: title, value: title })
+      return
+    }
+
     if (event.ctrlKey && event.altKey && (event.key === 'ArrowDown' || event.key === 'ArrowUp')) {
       event.preventDefault()
       const entry = walk[cursor]
@@ -2423,6 +2443,26 @@ export function BetterWorkspace(props) {
       setCursor(Math.min(walk.length - 1, Math.max(0, cursor + step)))
       return
     }
+    if (event.shiftKey && (event.key === 'Home' || event.key === 'End')) {
+      event.preventDefault()
+      const ids = []
+      walk.forEach((entry) => { if (entry.kind === 'session') ids.push(entry.id) })
+      if (ids.length === 0) return
+      const focusedEntry = walk[cursor]
+      const seed = picked.length > 0 && anchorId !== undefined
+        ? anchorId
+        : (focusedEntry && focusedEntry.kind === 'session' ? focusedEntry.id : undefined)
+      if (!seed) { setNotice('Focus a session to extend the selection.'); return }
+      if (picked.length === 0) setAnchorId(seed)
+      const edge = event.key === 'Home' ? ids[0] : ids[ids.length - 1]
+      const from = seed
+      const span = rangeWithin(ids, from, edge)
+      const next = span.length > 0 ? span : [edge]
+      setPicked(next)
+      setNotice(selectionLabel(next.length))
+      return
+    }
+
     if ((event.key === 'Home' || event.key === 'End') && walk.length > 0) {
       event.preventDefault()
       setCursor(event.key === 'Home' ? 0 : walk.length - 1)
@@ -3137,6 +3177,7 @@ export function BetterWorkspace(props) {
     ['/', 'focus the filter; Escape clears it'],
     ['Ctrl+K', 'jump to any session or workspace'],
     ['Ctrl+Alt+Up / Down', 'move the focused workspace up or down'],
+    ['F2', 'rename the focused workspace or session'],
     ['Shift+F10', 'open the row menu'],
     ['Alt+click', 'a folder, to fold every other folder'],
     ['Double-click', 'a workspace or session, to rename it'],

@@ -586,3 +586,9 @@ test('Ctrl+Alt keyboard reorder', () => {
     assert.ok(workspaceSource.includes(marker), 'bundle should carry ' + marker)
   }
 })
+
+test('F2 rename and shift-extended selection', () => {
+  for (const marker of ["event.key === 'F2'", "'Focus a row to rename it.'", "event.shiftKey && (event.key === 'Home' || event.key === 'End')"]) {
+    assert.ok(workspaceSource.includes(marker), 'bundle should carry ' + marker)
+  }
+})

@@ -1,3 +1,22 @@
+## [0.64.1]
+
+Shift+Home / Shift+End can start a selection.
+
+### Fixed
+- The keys only extended an existing selection, so a keyboard-only user had no way to begin one.
+  Now the focused session seeds the selection when nothing is picked, and an unfocused tree says
+  "Focus a session to extend the selection."
+
+## [0.64.0]
+
+The keyboard can rename, and the selection reaches the ends.
+
+### Added
+- **F2** renames the focused row: a workspace opens the same inline editor the menu opens, a session
+  the same one a double-click opens. Nothing focused says "Focus a row to rename it."
+- **Shift+Home / Shift+End** extend the current selection from its anchor to the first or last session
+  in the tree, so a bulk action no longer needs a mouse drag or a long shift-click chain.
+
 ## [0.63.1]
 
 A down-move actually moves.

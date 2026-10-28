@@ -622,3 +622,13 @@ One host detail shaped the implementation: `reorderWorkspace(moving, before)` ca
 another workspace, so a naive "put me before my neighbour" is a no-op when moving down. A down step
 therefore asks the neighbour to go before the moving workspace, which is the same swap. Focused
 session rows are refused with "Focus a workspace to move it." rather than moving the wrong thing.
+
+
+## Keyboard rename and range selection
+
+**F2** renames the focused row through the same inline editor the menu and double-click open, and an
+unfocused tree answers "Focus a row to rename it."
+
+**Shift+Home / Shift+End** extend the selection to the first or last session, seeded from the focused
+session when nothing is picked yet — the first version required an existing selection, which left a
+keyboard-only user with no way to begin one.
