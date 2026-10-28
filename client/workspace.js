@@ -1417,8 +1417,23 @@ export function BetterWorkspace(props) {
     const moving = drag
     setDrag(null)
     setDropping(null)
-    if (!moving || moving.kind !== 'workspace') return
-    void reorderWorkspace(moving.id, targetId)
+    if (!moving || moving.kind !== 'workspace' || moving.id === targetId) return
+    const target = rows.find((entry) => entry.workspace.workspaceId === targetId)
+    const source = rows.find((entry) => entry.workspace.workspaceId === moving.id)
+    if (!target || !source) { void reorderWorkspace(moving.id, targetId); return }
+    const into = folderOf(target.workspace)
+    const from = folderOf(source.workspace)
+    void (async () => {
+      try {
+        if (into !== from) {
+          await services.renameWorkspace(moving.id, fileUnder(workspaceLabel(source.workspace), into))
+          setNotice(into ? 'Moved into ' + into + '.' : 'Moved to the top level.')
+        }
+        await reorderWorkspace(moving.id, targetId)
+      } catch (error) {
+        setNotice((error && error.message) || 'Could not move that workspace.')
+      }
+    })()
   }
   const dropOnSession = (workspaceId, targetId) => {
     const moving = drag
@@ -1681,7 +1696,32 @@ export function BetterWorkspace(props) {
             setNotice('Could not restore that session.')
           }
         },
-      }, 'Unarchive session'))
+      }, 'Unarchive session'),
+      React.createElement('button', {
+        type: 'button',
+        'data-polish-archived-open': menu.row.id,
+        style: WS_MENU_ITEM,
+        onClick: () => {
+          const row = menu.row
+          closeMenu()
+          try { services.openSession(row.id) } catch { setNotice('Could not open that session.') }
+        },
+      }, 'Open session'),
+      React.createElement('button', {
+        type: 'button',
+        'data-polish-archived-copy': menu.row.id,
+        style: WS_MENU_ITEM,
+        onClick: async () => {
+          const row = menu.row
+          closeMenu()
+          try {
+            await navigator.clipboard.writeText(row.id)
+            setNotice('Copied the session id.')
+          } catch {
+            setNotice('Could not copy the session id.')
+          }
+        },
+      }, 'Copy session id'))
     : null
 
   const folderMenu = menu && menu.kind === 'folder'

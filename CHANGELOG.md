@@ -1,3 +1,10 @@
+## [0.31.0] - 2026-10-28
+
+Changed: dropping a workspace onto another workspace row now re-files it into that row's folder and
+repositions it in one gesture (rename first, then `insertBefore`), instead of only reordering.
+
+Added: an archived session's menu can open it or copy its id, so an archived row is not a dead end.
+
 ## [0.30.0] - 2026-10-28
 
 Added: a folder header shows a small success dot when any session filed under it is running

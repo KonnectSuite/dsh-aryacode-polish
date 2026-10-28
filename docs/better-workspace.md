@@ -364,3 +364,10 @@ row's own rectangle, so the menu lands where the row is, not at the tree's corne
 Alt+click a folder header to fold (or unfold) every other folder in one gesture — the "show me just
 this folder" move. The same header carries a success dot while any session filed under it is running,
 so a busy folder is visible without expanding it.
+
+## Moving a workspace onto another one
+
+Dropping a workspace onto another workspace row does both halves of the move: it re-files the moving
+workspace into the target's folder (or out to the top level when the target is unfiled) and then
+repositions it immediately before the target. Two Host calls, one gesture — `rename` then
+`insertBefore`. A drop on a folder header still only files.

@@ -425,3 +425,12 @@ test('a folder shows a running dot, and Alt folds the others', () => {
   assert.ok(bundle.includes('folderHasRunning('))
   assert.ok(bundle.includes('event.altKey === true'))
 })
+
+
+test('dropping a workspace on another one refiles it, and an archived row can open or copy', () => {
+  const bundle = read('lib/client.js')
+  assert.ok(bundle.includes("'data-polish-archived-open'"))
+  assert.ok(bundle.includes("'data-polish-archived-copy'"))
+  assert.ok(bundle.includes('Moved into '))
+  assert.ok(bundle.includes('await reorderWorkspace(moving.id, targetId)'))
+})
