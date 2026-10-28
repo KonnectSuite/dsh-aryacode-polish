@@ -231,12 +231,12 @@ const WS_ROW = {
   gap: '6px',
   boxSizing: 'border-box',
   width: '100%',
-  height: 'var(--polish-ws-row, 28px)',
-  padding: '0 6px',
+  height: 'var(--polish-ws-row, 34px)',
+  padding: '0 8px',
   border: 'none',
-  borderRadius: 'var(--dsw-radius-sm, 6px)',
+  borderRadius: 'var(--dsw-radius-md, 8px)',
   background: 'transparent',
-  color: 'var(--dsw-alias-label-secondary, #61666b)',
+  color: 'var(--dsw-alias-label-primary, #1f2328)',
   fontSize: WS_FONT,
   font: 'inherit',
   cursor: 'pointer',
@@ -244,8 +244,10 @@ const WS_ROW = {
   whiteSpace: 'nowrap',
   overflow: 'hidden',
 }
-const WS_TITLE = { flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis' }
-const WS_COUNT = { flex: 'none', color: 'var(--dsw-alias-label-quaternary, #8a8a8a)', fontVariantNumeric: 'tabular-nums' }
+const WS_TEXT_TITLE = { fontSize: '14px', lineHeight: '20px' }
+const WS_TEXT_META = { fontSize: '12px', lineHeight: '17px' }
+const WS_TITLE = Object.assign({ flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis' }, WS_TEXT_TITLE)
+const WS_COUNT = Object.assign({ flex: 'none', color: 'var(--dsw-alias-label-tertiary, #7a7f85)', fontVariantNumeric: 'tabular-nums' }, WS_TEXT_META)
 const WS_MENU = {
   position: 'fixed',
   zIndex: 1200,
@@ -1101,9 +1103,9 @@ export const DENSITIES = ['comfortable', 'compact', 'folders']
 
 /** Row height per density: the tree fits more rows without shrinking the text. */
 export const DENSITY_METRICS = {
-  comfortable: { row: '28px', sessions: true },
-  compact: { row: '22px', sessions: true },
-  folders: { row: '24px', sessions: false },
+  comfortable: { row: '34px', sessions: true },
+  compact: { row: '28px', sessions: true },
+  folders: { row: '30px', sessions: false },
 }
 
 export const DENSITY_TITLES = {
@@ -1594,15 +1596,18 @@ const WS_GLYPH = {
   lineHeight: 1,
 }
 
+const WS_SECTION_TYPE = { fontSize: '12px', lineHeight: '17px', letterSpacing: '0', textTransform: 'none', fontWeight: 500, color: 'var(--dsw-alias-label-secondary, #6b7280)' }
 const WS_SECTION = {
   display: 'flex',
   alignItems: 'center',
   gap: '5px',
-  padding: '8px 6px 2px',
-  textTransform: 'uppercase',
-  letterSpacing: '0.04em',
-  color: 'var(--dsw-alias-label-quaternary, #8a8a8a)',
-  fontSize: 'calc(' + 'var(--dsh-content-font-size-secondary, 13px)' + ' - 3px)',
+  padding: '8px 8px 2px',
+  textTransform: 'none',
+  letterSpacing: '0',
+  fontWeight: 500,
+  color: 'var(--dsw-alias-label-secondary, #6b7280)',
+  fontSize: '12px',
+  lineHeight: '17px',
   cursor: 'pointer',
   userSelect: 'none',
 }
@@ -2160,7 +2165,7 @@ const WS_UNREAD_DOT = {
 }
 const WS_EMPTY_SESSIONS = { padding: '10px 6px', color: 'var(--dsw-alias-label-quaternary, #8a8a8a)', fontSize: 'calc(' + "var(--dsh-content-font-size-secondary, 13px)" + ' - 2px)', lineHeight: '1.5' }
 const WS_CHIPS = { display: 'flex', gap: '4px', padding: '2px 8px 6px', flexWrap: 'wrap' }
-const WS_CHIP = { font: 'inherit', fontSize: 'calc(var(--dsh-content-font-size-secondary, 13px) - 4px)', padding: '2px 8px', borderRadius: '999px', border: '1px solid color-mix(in srgb, CanvasText 16%, transparent)', background: 'transparent', color: 'inherit', opacity: 0.7, cursor: 'pointer' }
+const WS_CHIP = { font: 'inherit', fontSize: '12px', lineHeight: '20px', height: '22px', padding: '0 9px', borderRadius: '999px', border: '1px solid color-mix(in srgb, CanvasText 16%, transparent)', background: 'transparent', color: 'inherit', opacity: 0.7, cursor: 'pointer' }
 const WS_CHIP_ON = { opacity: 1, borderColor: 'color-mix(in srgb, CanvasText 34%, transparent)', background: 'color-mix(in srgb, CanvasText 10%, transparent)', fontWeight: 600 }
 const WS_FILTER = {
   margin: '2px 2px 6px',
@@ -2207,7 +2212,7 @@ const WS_PIN = {
 
 const WS_PIN_COUNT = WS_PIN
 
-const WS_COST = { flex: 'none', marginLeft: '6px', color: 'var(--dsw-alias-label-quaternary, #8a8a8a)', fontVariantNumeric: 'tabular-nums' }
+const WS_COST = Object.assign({ flex: 'none', marginLeft: '6px', color: 'var(--dsw-alias-label-tertiary, #7a7f85)', fontVariantNumeric: 'tabular-nums' }, WS_TEXT_META)
 const WS_AGE = {
   flex: 'none',
   marginLeft: '6px',
@@ -4212,8 +4217,8 @@ export function BetterWorkspace(props) {
 
   const CHIPS = [
     { id: 'all', label: 'All', token: '' },
-    { id: 'running', label: 'Running', token: '!' },
-    { id: 'flagged', label: 'Flagged', token: '#' },
+    { id: 'running', label: 'Run', token: '!' },
+    { id: 'flagged', label: 'Flag', token: '#' },
     { id: 'today', label: 'Today', token: 't:today' },
     { id: 'new', label: 'New', token: 't:new' },
   ]

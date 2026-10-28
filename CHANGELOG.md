@@ -1,3 +1,18 @@
+## [0.95.2]
+
+- The chip row keeps one line: Running/Flagged read Run/Flag (the full word stays in the tooltip).
+
+## [0.95.1]
+
+- Density presets now follow the shipped list: comfortable 34px, compact 28px, folders 30px.
+
+## [0.95.0]
+
+- Fit the tree to the shipped sidebar: workspace rows 34px, session rows 32px, 8px inline padding and the
+  app’s radius, titles at 14/20, counts and money at 12/17 in the tertiary colour, section headings in
+  sentence case and 12px, chips at the app’s 22px pill height. Nothing was removed; it stopped competing
+  with the conversation.
+
 ## [0.94.0]
 
 - Hide subagent sessions using the Host link that actually exists: the session list carries parentSessionId\n  for every child, so POST api/polish.sessions answers the parent links and the tree merges them with
