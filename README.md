@@ -131,8 +131,12 @@ node --import tsx/esm apps/cli/src/bin.ts plugin --profile web add <path-to-tgz>
 
 ## Requirements
 
-- AryaCode `^0.2.1-rc.3` (declared as `dsh.engines.dsh`; the revision both
-  surfaces were verified against).
+- AryaCode `^0.2.1-rc.3`, verified additionally on **0.2.2-alpha.2** (build
+  `0.2.2-alpha.2.AryaCode.0.1.0`, 2026-10-28): installed from npm into a clean
+  packaged profile, loaded live, and drew the workspace tree, the icon filter and
+  the footer line. The declared range (`dsh.engines.dsh`, `^0.2.1-rc.3`) predates
+  the 0.2.2 line, so a 0.2.2 prerelease falls outside it; the next release should
+  widen it to `^0.2.1-rc.3 || ^0.2.2-alpha.2`.
 - AryaCode with the Cordis plugin API (`@deepseek-ai/cordis ~4.0.4`).
 - Node `^22.19.0 || >=24.0.0` to build from source.
 

@@ -7,21 +7,29 @@ and how to release. `README.md` is the user-facing story and lists every switch;
 
 ## State
 
+- Harness: verified on AryaCode **0.2.2-alpha.2** (build
+  `0.2.2-alpha.2.AryaCode.0.1.0`) on 2026-10-28 — installed from npm into a clean
+  packaged profile, activation `live`, no import or duplicate-factory error, and
+  the tree, icon filter and footer all render. `dsh.engines.dsh` still declares
+  `^0.2.1-rc.3`, which excludes a 0.2.2 prerelease; widen it next release.
 - Repo: `C:\Users\KNPhu\.arya\github\KonnectSuite\dsh-aryacode-polish` —
-  **public**, `main`, clean. HEAD `798017b` ("style(workspace): grey closed
-  folders, blue open, tinted current rows; drop the Focus row").
-- Package: `@aryacode/dsh-aryacode-polish`. Current version **0.96.0**.
-- Distribution: npm `latest` = 0.96.0 (published 2026-10-28T19:40:15Z) **and** the
+  **public**, `main`, clean. HEAD `6bc2faf` ("style(footer): one status line,
+  GitHub left and the balance right"), on top of `3160def` (glyph colour, icon
+  filter, row menu that keeps its slot) and `55e5969`.
+- Package: `@aryacode/dsh-aryacode-polish`. Current version **0.97.1**
+  (0.96.0 was the version before the tree/footer work).
+- Distribution: npm `latest` = 0.97.1 (published 2026-10-28T23:38:54Z) **and** the
   Arya Plugin Market (`KonnectSuite/dsh-arya-market`, branch `catalog`, entry
   `arya: true`, tarball on `registry.npmjs.org`). A market install lands as a
   digest-named tarball under `<profile>/.dsh-market/releases/`, adds itself to
   `dsh.profile.bundles`, and its surfaces mount after a restart. The desktop
-  profile on this machine runs 0.96.0 that way.
+  profile on this machine runs 0.96.0 that way; 0.97.1 is what the catalog now
+  offers, so a market update moves it forward.
 - **Not preseeded into the AryaCode installer**, by the user's decision: the
   installer ships the market, the better sidebar and the engineering bundle;
   polish and local-llm are market-only, so users install and update them from the
   market without an app release.
-- Seven shipped features, each its own switch (below). **316 specs**
+- Seven shipped features, each its own switch (below). **319 specs**
   (`node --test`, ~1 s) — the old "66 specs" figure is long gone.
 - Nothing was ever written to the installed AryaCode
   (`%LOCALAPPDATA%\Programs\AryaCode`) or to the installed data home. All
