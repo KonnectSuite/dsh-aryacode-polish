@@ -1,3 +1,14 @@
+## [0.99.0]
+
+### Fixed
+- The right-panel camera no longer looks like a freeze. The capture is drawn from
+  a copy of the panel in a small document of its own, carrying the app's cascade,
+  instead of letting the rasteriser clone the whole shell — on this machine that
+  clone was 3.0 s of a 3.4 s capture, and the drawing itself 16 ms. The button
+  also becomes a spinning ring with *Capturing what the panel shows…* before the
+  rasteriser starts, and the canvas is bounded to the visible box with a 2.4M
+  pixel budget. Anything over a second logs its duration.
+
 ## [0.98.0]
 
 ### Changed

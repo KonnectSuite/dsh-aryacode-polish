@@ -1527,21 +1527,157 @@ function backgroundOf(node) {
 }
 
 /**
+ * Pixel budget for one capture.
+ *
+ * The rasteriser paints the panel synchronously on the main thread, so the cost
+ * is the canvas area, not the file the user ends up with: a tall panel at 2x
+ * was several million pixels and froze the window for seconds. 2.4M keeps a
+ * full-screen panel sharp at 1x and still gives a small panel its device scale.
+ */
+const SHOT_PIXEL_BUDGET = 2_400_000
+
+/**
+ * The scale to rasterise at: the ideal for this screen, shrunk to fit the
+ * budget, never below 1 so CSS-sized text stays legible.
+ * @param width - visible panel width in CSS pixels.
+ * @param height - visible panel height in CSS pixels.
+ * @returns a scale factor.
+ */
+function shotScale(width, height) {
+  const ideal = Math.min(2, Math.max(1.5, window.devicePixelRatio || 1))
+  if (width <= 0 || height <= 0) return ideal
+  return Math.max(1, Math.min(ideal, Math.sqrt(SHOT_PIXEL_BUDGET / (width * height))))
+}
+
+/**
+ * Resolve after the browser has painted, so a state change made just before a
+ * long synchronous job is actually on screen while it runs.
+ * @returns a promise for the second animation frame.
+ */
+function nextPaint() {
+  return new Promise((resolve) => {
+    window.requestAnimationFrame(() => { window.requestAnimationFrame(() => { resolve() }) })
+  })
+}
+
+/**
+ * The app's stylesheet text, serialised once.
+ *
+ * The screenshot library clones the document it is handed before it draws
+ * anything. Handed the app's own document that clone is the whole shell — every
+ * style rule, every panel, every row — and it costs seconds before a single
+ * pixel is drawn. Handed a small document that already carries the same rules,
+ * the clone is quick. So the cascade is copied once and reused.
+ * @returns the concatenated CSS text.
+ */
+let shotCascadeText = null
+function shotCascade() {
+  if (shotCascadeText !== null) return shotCascadeText
+  const parts = []
+  for (const sheet of Array.from(document.styleSheets)) {
+    let rules = null
+    try {
+      rules = Array.from(sheet.cssRules)
+    } catch {
+      rules = null
+    }
+    if (rules === null) {
+      if (typeof sheet.href === 'string' && sheet.href !== '') parts.push('@import url("' + sheet.href + '");')
+      continue
+    }
+    for (const rule of rules) parts.push(rule.cssText)
+  }
+  shotCascadeText = parts.join('\n')
+  return shotCascadeText
+}
+
+/**
+ * Rasterise one element off to the side, in a document of its own.
+ *
+ * The element is cloned into a hidden same-origin frame that carries the app's
+ * cascade, and the screenshot library photographs that copy. The visible box is
+ * what gets drawn, at `shotScale` for the given size.
+ * @param node - element to draw.
+ * @param width - visible width in CSS pixels.
+ * @param height - visible height in CSS pixels.
+ * @returns the canvas.
+ */
+async function captureInFrame(node, width, height) {
+  const rasterise = globalThis.html2canvas
+  const frame = document.createElement('iframe')
+  frame.setAttribute('aria-hidden', 'true')
+  frame.setAttribute('tabindex', '-1')
+  frame.style.cssText = 'position:fixed;left:-' + (width + 200) + 'px;top:0;width:' + width + 'px;height:' + height
+    + 'px;border:0;visibility:hidden;pointer-events:none'
+  frame.srcdoc = '<!doctype html><html><head></head><body style="margin:0"></body></html>'
+  document.body.append(frame)
+  try {
+    await new Promise((resolve) => { frame.addEventListener('load', resolve, { once: true }) })
+    const frameDocument = frame.contentDocument
+    if (frameDocument === null) throw new Error('the capture frame did not open')
+    const style = frameDocument.createElement('style')
+    style.textContent = shotCascade()
+    frameDocument.head.append(style)
+    const rootStyle = document.documentElement.getAttribute('style')
+    if (rootStyle !== null && rootStyle !== '') frameDocument.documentElement.setAttribute('style', rootStyle)
+    frameDocument.body.className = document.body.className
+    frameDocument.body.setAttribute('style', 'margin:0;background:' + backgroundOf(node))
+    const copy = node.cloneNode(true)
+    copy.setAttribute('style', 'width:' + width + 'px;height:' + height + 'px;overflow:hidden;margin:0;'
+      + 'border:0;box-shadow:none;position:static')
+    frameDocument.body.append(copy)
+    await new Promise((resolve) => {
+      frame.contentWindow.requestAnimationFrame(() => {
+        frame.contentWindow.requestAnimationFrame(() => { resolve() })
+      })
+    })
+    if (frameDocument.fonts !== undefined && typeof frameDocument.fonts.ready === 'object') {
+      await Promise.race([frameDocument.fonts.ready, new Promise((resolve) => { setTimeout(resolve, 400) })])
+    }
+    return await rasterise(copy, {
+      backgroundColor: backgroundOf(node),
+      width,
+      height,
+      scale: shotScale(width, height),
+      logging: false,
+      useCORS: true,
+      imageTimeout: 2000,
+    })
+  } finally {
+    frame.remove()
+  }
+}
+
+/**
  * Rasterise one element to a PNG blob.
+ *
+ * Only the visible box is photographed: the panel's own scroll content is not
+ * something a screenshot can honestly flatten anyway, and a clone of the app's
+ * whole document is what made a capture freeze the window. The off-document copy
+ * keeps the drawing to a small document; if that path fails for any reason the
+ * element is drawn in place, which still works, just slowly.
  * @param node - element to draw.
  * @returns the PNG.
  */
 async function capturePanel(node) {
   const rasterise = globalThis.html2canvas
   if (typeof rasterise !== 'function') throw new Error('the screenshot library did not load')
-  const canvas = await rasterise(node, {
-    backgroundColor: backgroundOf(node),
-    // Capped at 2: text stays legible on a HiDPI screen without quadrupling the
-    // file that gets uploaded with the message.
-    scale: Math.min(2, Math.max(1.5, window.devicePixelRatio || 1)),
-    logging: false,
-    useCORS: true,
-  })
+  const width = Math.max(1, Math.round(node.clientWidth))
+  const height = Math.max(1, Math.round(node.clientHeight))
+  let canvas
+  try {
+    canvas = await captureInFrame(node, width, height)
+  } catch {
+    canvas = await rasterise(node, {
+      backgroundColor: backgroundOf(node),
+      width,
+      height,
+      scale: shotScale(width, height),
+      logging: false,
+      useCORS: true,
+      imageTimeout: 2000,
+    })
+  }
   return await new Promise((resolve, reject) => {
     canvas.toBlob((value) => {
       if (value === null) reject(new Error('the panel could not be rasterised'))
@@ -1614,8 +1750,7 @@ function CheckGlyph() {
 }
 
 /** Refusal mark, drawn at the strip's own glyph size. */
-function BangGlyph() {
-  return React.createElement('svg', {
+function BangGlyph() {  return React.createElement('svg', {
     viewBox: '0 0 16 16',
     width: 15,
     height: 15,
@@ -1628,6 +1763,34 @@ function BangGlyph() {
   },
   React.createElement('path', { d: 'M8 3.6v5.2' }),
   React.createElement('path', { d: 'M8 12v.4' }))
+}
+
+/**
+ * Busy mark: a ring that turns while the rasteriser works, so a multi-second
+ * capture reads as "working" instead of "the app froze".
+ * @returns the svg element.
+ */
+function ShotSpinnerGlyph() {
+  return React.createElement('svg', {
+    viewBox: '0 0 16 16',
+    width: 15,
+    height: 15,
+    fill: 'none',
+    stroke: 'currentColor',
+    strokeWidth: 1.6,
+    strokeLinecap: 'round',
+    'aria-hidden': 'true',
+  },
+  React.createElement('circle', { cx: 8, cy: 8, r: 5.4, strokeOpacity: 0.22 }),
+  React.createElement('path', { d: 'M8 2.6a5.4 5.4 0 0 1 5.4 5.4' },
+    React.createElement('animateTransform', {
+      attributeName: 'transform',
+      type: 'rotate',
+      from: '0 8 8',
+      to: '360 8 8',
+      dur: '0.9s',
+      repeatCount: 'indefinite',
+    })))
 }
 
 /**
@@ -1760,7 +1923,12 @@ function PanelShotButton(props) {
     setPhase('busy')
     setNote('')
     try {
+      // Paint the busy button first: the rasteriser below blocks this thread.
+      await nextPaint()
+      const started = Date.now()
       const blob = await capturePanel(node)
+      const elapsed = Date.now() - started
+      if (elapsed >= 1000) console.info('[aryacode-polish] panel screenshot took ' + elapsed + ' ms')
       const copied = await copyImage(blob)
       const conversation = context.conversation()
       if (conversation === undefined) throw new Error('the chat is not available')
@@ -1793,12 +1961,14 @@ function PanelShotButton(props) {
   }
   const tip = note !== ''
     ? note
-    : phase === 'busy' ? 'Capturing the right panel…' : 'Screenshot this panel into the chat (also copies it)'
+    : phase === 'busy' ? 'Capturing what the panel shows…' : 'Screenshot this panel into the chat (also copies it)'
   const glyph = phase === 'done'
     ? React.createElement(CheckGlyph, null)
     : phase === 'failed'
       ? React.createElement(BangGlyph, null)
-      : React.createElement(CameraGlyph, null)
+      : phase === 'busy'
+        ? React.createElement(ShotSpinnerGlyph, null)
+        : React.createElement(CameraGlyph, null)
   const button = React.createElement('button', {
     type: 'button',
     'data-polish-shot': phase,

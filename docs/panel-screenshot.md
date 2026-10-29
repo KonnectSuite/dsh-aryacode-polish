@@ -30,9 +30,35 @@ collapsed panel from producing a sliver.
 ## How the picture is made
 
 `html2canvas` (vendored at `vendor/html2canvas.min.js`, inlined into
-`lib/client.js` by `scripts/build-client.mjs`) rasterises the element in the page
-at `min(2, max(1.5, devicePixelRatio))`. The background is the first opaque
-ancestor colour, so a transparent panel still reads as a surface.
+`lib/client.js` by `scripts/build-client.mjs`) rasterises an element in the page.
+Before it draws anything it clones the document it was handed, and handed this
+app's document that clone is the whole shell: measured here, 3.0 s of a 3.4 s
+capture was the clone of 1 809 elements across 177 stylesheets, and the drawing
+itself was 16 ms. A 120×40 div cost the same 3.0 s, so the cost never was the
+panel.
+
+So the capture never hands over the app document:
+
+- **The panel is copied into a hidden frame** (`captureInFrame`) that carries the
+  serialised cascade (`shotCascade`, copied once and reused, including
+  `@font-face` and `@import` for sheets the page cannot read). Cloning that small
+  document takes tens of milliseconds instead of seconds. If the frame path fails
+  for any reason, the element is drawn in place — still correct, just slow.
+- **Only the visible box is photographed.** The capture is bounded to
+  `clientWidth` / `clientHeight`, so a panel scrolled to the top of a long
+  document no longer flattens its entire scroll height. A screenshot of a panel
+  is what the panel shows; the rest is content you can scroll to.
+- **The canvas has a pixel budget** (`SHOT_PIXEL_BUDGET`, 2.4M). The scale is the
+  device ratio you would expect (1.5–2x), shrunk until the canvas fits the
+  budget, never below 1 so CSS-sized text stays legible.
+- **The busy state is painted first.** The button turns into a spinning ring and
+  the tooltip says *Capturing what the panel shows…* before the rasteriser starts,
+  via a double `requestAnimationFrame`, so the click is acknowledged. Captures
+  over a second log their duration
+  (`[aryacode-polish] panel screenshot took 1234 ms`).
+
+The background is the first opaque ancestor colour, so a transparent panel still
+reads as a surface.
 
 This is the only route a plugin has. The Shell exposes:
 

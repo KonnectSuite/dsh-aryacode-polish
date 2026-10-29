@@ -225,6 +225,41 @@ test('the composer row can photograph the open right panel into the chat', () =>
   assert.ok(bundle.includes("'data-polish-shot': phase"), 'the control reports its own state')
 })
 
+test('a panel capture paints its busy state and photographs a copy, not the app document', () => {
+  assert.ok(
+    bundle.includes('const SHOT_PIXEL_BUDGET = 2_400_000'),
+    'the rasteriser blocks the thread, so the canvas area has a budget instead of a bare device ratio',
+  )
+  assert.ok(
+    bundle.includes('function shotScale(width, height)'),
+    'the scale comes from the box being captured, not from the screen alone',
+  )
+  assert.ok(
+    bundle.includes('function shotCascade()') && bundle.includes('shotCascadeText'),
+    'the app cascade is serialised once, because copying it per capture is the slow part',
+  )
+  assert.ok(
+    bundle.includes('async function captureInFrame(node, width, height)') && bundle.includes('frame.srcdoc'),
+    'the panel is cloned into a small document of its own so the rasteriser clones that, not the whole shell',
+  )
+  assert.ok(
+    bundle.includes('await captureInFrame(node, width, height)') && bundle.includes('} catch {'),
+    'drawing in place stays as the fallback when the frame path cannot run',
+  )
+  assert.ok(
+    bundle.includes('width,') && bundle.includes('height,') && bundle.includes('imageTimeout: 2000'),
+    'the capture is bounded to the visible box so a tall panel cannot rasterise its whole scroll height',
+  )
+  assert.ok(
+    bundle.includes('function nextPaint()') && bundle.includes('await nextPaint()'),
+    'the busy state is painted before the synchronous rasteriser starts, so the click is acknowledged',
+  )
+  assert.ok(
+    bundle.includes('function ShotSpinnerGlyph()') && bundle.includes("phase === 'busy'"),
+    'a turning ring, not a dead camera, is what the button shows while the capture runs',
+  )
+})
+
 test('the Workspaces "+" menu offers both sources and honours the flow contract', () => {
   assert.ok(bundle.includes("'On this PC'"), 'the source menu names the machine')
   assert.ok(bundle.includes("'GitHub repository…'"), 'the source menu names GitHub')
