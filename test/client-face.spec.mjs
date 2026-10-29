@@ -520,6 +520,20 @@ test('a running session is marked the same way in its workspace and when pinned'
   assert.ok(bundle.includes("'data-polish-pinned-running'"))
 })
 
+test('working spins, and green means the turn is done', () => {
+  assert.ok(workspaceSource.includes('function SpinnerMark()'), 'the running mark is a spinner')
+  assert.ok(workspaceSource.includes('animateTransform'), 'the spinner turns itself, with no stylesheet')
+  assert.ok(workspaceSource.includes("'data-polish-session-done'"), 'a finished turn is marked done')
+  assert.ok(workspaceSource.includes('!isRunning(row) && isUnread(row, seen)'), 'done only when the turn is not working')
+  assert.ok(workspaceSource.includes("title: 'Done — ready for review'"), 'done says what it means')
+  // A session that is open is read, even if its turn finishes while you watch it.
+  assert.ok(workspaceSource.includes('const open = allRows.find((candidate) => candidate && candidate.id === currentSessionId)'), 'the open session is marked read')
+  assert.ok(workspaceSource.includes('if (!open || !isUnread(open, seen)) return'), 'only an unread open session is written')
+  // The green dot now belongs to "done", so no running mark may wear WS_DOT.
+  assert.ok(!workspaceSource.includes("'data-polish-session-running': row.id, style: WS_DOT"), 'running is not a green dot')
+  assert.ok(!workspaceSource.includes("'data-polish-pinned-running': row.id, style: WS_DOT"), 'pinned running is not a green dot')
+})
+
 test('a bulk change offers a way back out', () => {
   assert.ok(workspaceSource.includes("'data-polish-undo'"), 'the notice can carry an Undo')
   assert.ok(workspaceSource.includes('offerUndo'), 'the action is offered, not assumed')
@@ -546,8 +560,16 @@ test('a workspace colour is never drawn as a status dot', () => {
   assert.ok(workspaceSource.includes("'data-polish-ws-tone'"), 'the tone is worn by the glyph')
   assert.ok(workspaceSource.includes('WS_TONE_BAR'), 'a folder gets a tag, not a dot')
   assert.ok(!workspaceSource.includes("Object.assign({}, WS_TONE, { background"), 'no detached tone dot')
-  // The only round dots left are status: running, and the folder rollup of it.
-  assert.ok(workspaceSource.includes("'data-polish-session-running'"), 'running keeps its dot')
+  // The only round dots left are status: done, and the folder rollup of "new".
+  assert.ok(workspaceSource.includes("'data-polish-session-done'"), 'a finished turn keeps a dot')
+})
+
+test('the default glyph is the folder emoji, and a colour turns its hue', () => {
+  assert.ok(workspaceSource.includes('export const FOLDER_GLYPH'), 'the default glyph is named once')
+  assert.ok(workspaceSource.includes('looks.glyph || FOLDER_GLYPH'), 'the row falls back to it')
+  assert.ok(workspaceSource.includes('export function folderTint(tone)'), 'an emoji needs its hue turned, not its colour set')
+  assert.ok(workspaceSource.includes('hue-rotate('), 'the tint is a filter')
+  assert.ok(!workspaceSource.includes('function FolderGlyph()'), 'the old outline folder is retired')
 })
 
 test('the row menu keeps its slot so hover cannot move the +', () => {

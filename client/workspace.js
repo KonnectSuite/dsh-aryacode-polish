@@ -295,19 +295,33 @@ function CaretGlyph({ open }) {
   }, React.createElement('path', { d: 'M6 3.5 10.5 8 6 12.5' }))
 }
 
-function FolderGlyph() {
+/**
+ * The tree's running mark: a ring that turns while a turn is working. SMIL
+ * keeps the animation inside the icon, so nothing has to inject a stylesheet
+ * and the client stays free of bundler-injected CSS.
+ */
+function SpinnerMark() {
   return React.createElement('svg', {
     viewBox: '0 0 16 16',
-    width: 14,
-    height: 14,
+    width: 10,
+    height: 10,
     fill: 'none',
     stroke: 'currentColor',
-    strokeWidth: 1.1,
+    strokeWidth: 1.8,
     strokeLinecap: 'round',
-    strokeLinejoin: 'round',
     'aria-hidden': true,
     style: { flex: 'none' },
-  }, React.createElement('path', { d: 'M2 4.5h4l1.2 1.5H14v6.2a1 1 0 0 1-1 1H3a1 1 0 0 1-1-1z' }))
+  },
+  React.createElement('circle', { cx: 8, cy: 8, r: 5.4, strokeOpacity: 0.22 }),
+  React.createElement('path', { d: 'M8 2.6a5.4 5.4 0 0 1 5.4 5.4' },
+  React.createElement('animateTransform', {
+    attributeName: 'transform',
+    type: 'rotate',
+    from: '0 8 8',
+    to: '360 8 8',
+    dur: '0.9s',
+    repeatCount: 'indefinite',
+  })))
 }
 
 function SearchGlyph() {
@@ -1926,6 +1940,31 @@ export const TONE_COLOR = {
   violet: '#7a5cc4',
 }
 
+/**
+ * The default workspace glyph: the folder emoji, at the tree's glyph size.
+ * A colour still has to show on it, and an emoji ignores `color`, so a tone
+ * rotates the emoji's own hue — the folder that ships with the OS stays the
+ * shape you know and takes the colour you picked.
+ */
+export const FOLDER_GLYPH = '\u{1F4C1}'
+
+const FOLDER_HUE = 40
+
+export const TONE_HUE = {
+  slate: 215,
+  blue: 220,
+  green: 145,
+  amber: 40,
+  rose: 345,
+  violet: 275,
+}
+
+/** How far to turn the emoji's own hue to land on a tone. */
+export function folderTint(tone) {
+  if (!tone || !(tone in TONE_HUE)) return undefined
+  return 'hue-rotate(' + (TONE_HUE[tone] - FOLDER_HUE) + 'deg)'
+}
+
 /** Glyphs a workspace can wear instead of the folder icon. */
 export const GLYPHS = ['📁', '🚀', '🧪', '🐍', '⚙️', '📦', '🧭', '✨', '🧠', '🗂️']
 
@@ -2168,7 +2207,6 @@ const WS_PAINT_ROW = {
   padding: '6px 8px',
 }
 
-const WS_UNREAD = { color: 'var(--dsw-alias-text-accent, #4d6bfe)', fontSize: '14px', lineHeight: '1', marginRight: '2px' }
 const WS_DAY_HEAD = { padding: '2px 4px 2px 24px', fontSize: 'calc(var(--dsh-content-font-size-secondary, 13px) - 4px)', letterSpacing: '0.04em', textTransform: 'uppercase', color: 'var(--dsw-alias-label-tertiary, #a0a0a0)' }
 const WS_STAR = { fontSize: '10px', lineHeight: '1', color: 'var(--dsw-alias-text-accent, #4d6bfe)', flexShrink: 0 }
 const WS_UNREAD_DOT = {
@@ -2234,6 +2272,16 @@ const WS_DOT = {
   borderRadius: '50%',
   marginRight: '2px',
   background: 'var(--dsw-alias-label-success, #12b76a)',
+}
+
+// The spinner's wrapper: the icon draws itself, this only places and colours
+// it, so "working" reads blue and never as the green "done" mark.
+const WS_RUN = {
+  flex: 'none',
+  display: 'inline-flex',
+  alignItems: 'center',
+  marginRight: '2px',
+  color: 'var(--dsw-alias-text-accent, #4d6bfe)',
 }
 
 const WS_PIN = {
@@ -2566,6 +2614,16 @@ export function BetterWorkspace(props) {
   }, [marks])
   const historyNow = historyStore.value
   const currentSessionId = historyNow.stack[historyNow.at]
+  // A session on screen is a session you have read. Without this, a turn that
+  // finishes while you are looking at it writes a new updatedAt after the click
+  // that opened it, so the "done, ready for review" dot appeared on the very
+  // conversation being read.
+  React.useEffect(() => {
+    if (!currentSessionId) return
+    const open = allRows.find((candidate) => candidate && candidate.id === currentSessionId)
+    if (!open || !isUnread(open, seen)) return
+    markSeen(open)
+  }, [currentSessionId, allRows, seen, markSeen])
   const currentGroup = workspaceOwning(allRows, currentSessionId)
   const currentWorkspaceId = currentGroup ? currentGroup.workspace.workspaceId : undefined
   const rows = filterTree(sortRows(allRows, sort, (group) => sumCost(group.sessions, sessionState)), query, pinned, { isRunning, flagged: flaggedIds, unread: (row) => isUnread(row, seen) })
@@ -4529,7 +4587,13 @@ export function BetterWorkspace(props) {
       onDragLeave: () => setDropping(null),
       onDrop: (event) => { event.preventDefault(); dropOnSession(workspace.workspaceId, row.id) },
     },
-    isRunning(row) ? React.createElement('span', { 'data-polish-session-running': row.id, style: WS_DOT, title: 'Running' }) : null,
+    isRunning(row)
+      ? React.createElement('span', {
+        'data-polish-session-running': row.id,
+        title: 'Working — the turn has not finished yet',
+        style: WS_RUN,
+      }, React.createElement(SpinnerMark))
+      : null,
     isRunning(row) && runningFor(row.id)
       ? React.createElement('span', {
         'data-polish-running-for': row.id,
@@ -4537,12 +4601,13 @@ export function BetterWorkspace(props) {
         style: WS_AGE,
       }, runningFor(row.id))
       : null,
-    isUnread(row, seen)
+    !isRunning(row) && isUnread(row, seen)
       ? React.createElement('span', {
         'data-polish-unread': row.id,
-        title: 'Changed since you last opened it here',
-        style: WS_UNREAD,
-      }, '\u2022')
+        'data-polish-session-done': row.id,
+        title: 'Done — ready for review',
+        style: WS_DOT,
+      })
       : null,
     pinned.has(row.id) ? React.createElement('span', { style: WS_PIN, title: 'Pinned' }, '\u2605') : null,
     markOf(marks, row.id).flag
@@ -4725,7 +4790,7 @@ export function BetterWorkspace(props) {
         ? React.createElement('span', { 'data-polish-folder-unread': folder, title: 'Something inside is new', style: WS_UNREAD_DOT })
         : null,
       folderHasRunning(inside, isRunning)
-        ? React.createElement('span', { 'data-polish-folder-running': folder, title: 'A session inside is running', style: WS_DOT })
+        ? React.createElement('span', { 'data-polish-folder-running': folder, title: 'A session inside is working', style: WS_RUN }, React.createElement(SpinnerMark))
         : null,
       React.createElement('button', {
         type: 'button',
@@ -4806,15 +4871,14 @@ export function BetterWorkspace(props) {
       onDrop: (event) => { event.preventDefault(); dropOnWorkspace(workspace.workspaceId) },
     },
     React.createElement(CaretGlyph, { open }),
-    looks.glyph
-      ? React.createElement('span', { 'data-polish-ws-glyph': looks.glyph, style: WS_GLYPH }, looks.glyph)
-      : React.createElement('span', {
-        'data-polish-ws-tone': looks.tone || undefined,
-        title: looks.tone ? 'Workspace colour: ' + looks.tone : undefined,
-        style: looks.tone
-          ? { display: 'flex', color: TONE_COLOR[looks.tone] }
-          : { display: 'flex' },
-      }, React.createElement(FolderGlyph)),
+    React.createElement('span', {
+      'data-polish-ws-glyph': looks.glyph || FOLDER_GLYPH,
+      'data-polish-ws-tone': looks.tone || undefined,
+      title: looks.tone ? 'Workspace colour: ' + looks.tone : undefined,
+      style: looks.tone
+        ? Object.assign({}, WS_GLYPH, { filter: folderTint(looks.tone) })
+        : WS_GLYPH,
+    }, looks.glyph || FOLDER_GLYPH),
     starredIds.has(workspace.workspaceId)
       ? React.createElement('span', { 'data-polish-ws-star': workspace.workspaceId, style: WS_STAR }, '\u2605')
       : null,
@@ -5041,7 +5105,7 @@ export function BetterWorkspace(props) {
           },
         },
         React.createElement('span', { style: WS_PIN, 'aria-hidden': 'true' }, '\u2605'),
-        isRunning(row) ? React.createElement('span', { 'data-polish-pinned-running': row.id, style: WS_DOT, title: 'Running' }) : null,
+        isRunning(row) ? React.createElement('span', { 'data-polish-pinned-running': row.id, style: WS_RUN, title: 'Working' }, React.createElement(SpinnerMark)) : null,
         isRunning(row) && runningFor(row.id)
           ? React.createElement('span', {
             'data-polish-pinned-for': row.id,
@@ -5248,8 +5312,10 @@ export function HeroWorkspacePicker(props) {
       },
       React.createElement('span', {
         'data-polish-hero-tone': looks.tone || undefined,
-        style: looks.tone ? { display: 'flex', color: TONE_COLOR[looks.tone] } : { display: 'flex' },
-      }, React.createElement(FolderGlyph)),
+        style: looks.tone
+          ? Object.assign({}, WS_GLYPH, { filter: folderTint(looks.tone) })
+          : WS_GLYPH,
+      }, looks.glyph || FOLDER_GLYPH),
       React.createElement('span', { style: WS_TITLE }, workspaceLabel(workspace)),
       React.createElement('span', { style: WS_COUNT }, String((workspace.sessionIds || []).length)))
     })), document.body)

@@ -1,3 +1,14 @@
+## [0.98.0]
+
+### Changed
+- A running session spins: a small ring at the session, the pinned row and the folder rollup while a
+  turn is working, instead of the green dot that used to mean two things at once.
+- Green now means **done, ready for review** — the dot appears only when a turn has finished and the
+  session has not been opened since, and it goes away when you open the session.
+- The default workspace glyph is the folder emoji (📁) at the tree's glyph size instead of a thin
+  outline, so a workspace that was never customised reads as a folder at a glance. An emoji ignores
+  `color`, so a workspace colour now rotates the emoji's hue (`folderTint`) — same shape, your colour.
+
 ## [0.97.1]
 
 ### Changed

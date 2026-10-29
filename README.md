@@ -73,9 +73,9 @@ all of it switchable by turning the **Better workspace** switch off:
   it or press `/`, then becomes the field. Counts say what they excluded.
 - **Sort.** Host order, A to Z, most spent first, recent first — applied to workspaces and to the
   sessions inside them.
-- **Read state.** A dot on every session that changed since you opened it, the same dot rolled up onto
-  its workspace and folder so a folded row still tells you, `Alt+Up/Down` to jump to the next one,
-  and **Mark everything as read**.
+- **Status.** A session spins while its turn works, then shows a green dot when the turn is done and
+  you have not opened it since — the same dot rolled up onto its workspace and folder so a folded row
+  still tells you, `Alt+Up/Down` to jump to the next one, and **Mark everything as read**.
 - **Money.** A cost per session, a running total per workspace and folder, a header total that opens
   **Spend by workspace**, and a breakdown card behind every one of those numbers.
 - **Bulk.** Pick with `Space`/`Shift`, then pin, flag, mark read, archive or copy the selection, with

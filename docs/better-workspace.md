@@ -56,8 +56,8 @@ are M2/M3; the seat is already the right place for them.
   opened, because a match you cannot see is not a match; the footer reports
   "n of m sessions" whenever the filter hides any. `/` focuses it from anywhere,
   Escape clears it.
-- **Pinned first, running dot** — a pinned session is hoisted to the top of its
-  workspace with a star, and a running session shows a dot, so the row can be read
+- **Pinned first, a spinner while working** — a pinned session is hoisted to the top of its
+  workspace with a star, and a session that is still working spins, so the row can be read
   without clicking it.
 - **Drag and drop** — a workspace dropped on another moves in front of it
   (`workspaces.insertBefore`); a session dropped on a sibling reorders it
@@ -107,11 +107,22 @@ entry from breaking the row if the palette ever changes.
 
 The tone is worn by the thing it describes: a workspace's folder glyph is drawn in that
 colour, so the row reads "green workspace" rather than "green dot". It used to be a 6 px
-dot between the icon and the label — the exact size, place and weight of the running
-dot — which made a coloured workspace look like one that was still working. Folders have
+dot between the icon and the label — the exact size, place and weight of the status mark
+— which made a coloured workspace look like one that was still working. Folders have
 no icon of their own, so their tone is a narrow bar beside the name (`WS_TONE_BAR`).
-Neither can be mistaken for status: status is `●` green for running and a hollow accent
-ring for new, and nothing else in the tree is a dot.
+The default glyph is the folder emoji (`FOLDER_GLYPH`, `\u{1F4C1}`) at the tree's 13 px
+glyph size; a workspace that has never been customised still reads as a folder at a
+glance. An emoji ignores `color`, so a tone rotates the emoji's own hue instead
+(`folderTint`, `TONE_HUE` — the folder ships at about 40°): the shape you know, in the
+colour you picked. A workspace with a chosen glyph wears that glyph instead.
+
+Status is two marks and they never overlap: a session that is still working **spins**
+(`SpinnerMark`, a ring with an `animateTransform` so no stylesheet is injected), and a
+session whose turn finished and has not been opened since shows a **green dot** meaning
+done, ready for review. The dot clears when the session is read — and a session that is on
+screen counts as read, so a turn that finishes while you are watching it never puts a dot
+on the conversation in front of you. Nothing else in the tree is a dot; a folder's hollow
+accent ring still means something inside is new.
 
 ## The Hero picker
 
@@ -389,8 +400,8 @@ refuses to remember only means the hint stays.
 
 ## The pinned section is a surface
 
-A pinned row carries the same information as a session row in its workspace: title, running dot, what
-it has cost, and a hover star that unpins it in place. Its context menu is the shipped session menu,
+A pinned row carries the same information as a session row in its workspace: title, the working
+spinner, what it has cost, and a hover star that unpins it in place. Its context menu is the shipped session menu,
 so Pin/Rename/Fork/Archive/Copy ID/Open workspace folder all work there too — including duplication.
 
 ## A folder has a look too
@@ -443,8 +454,9 @@ The live truth is the slot's `useSessionStatus` store, the same one the shipped 
 (`packages/client/ui-workspace/src/client/tree.ts:401 running: status?.running ?? s.running`). This
 component reads it and falls back to the row flag, so:
 
-- a session's running dot lights while a turn runs,
-- a folder shows a dot when any session inside it is busy,
+- a session spins while a turn runs, and shows the green done dot once the turn has finished and the
+  session has not been opened since,
+- a folder spins when any session inside it is busy,
 - the header shows `● n` only while n sessions are running, and clicking it clears the filter, unfolds
   the folder and expands the workspace holding the first busy session.
 
@@ -559,8 +571,9 @@ A folded workspace used to hide the one thing worth knowing. Now a workspace row
 header carry a hollow accent ring while anything inside is unread (`unreadInside`), so the state
 of a collapsed branch reads from the header alone.
 
-The ring is deliberately not the running dot: running is green and filled, new is hollow and
-accent-coloured, and neither can be mistaken for the other.
+The ring is deliberately not the done dot: done is green and filled, new is hollow and
+accent-coloured, and neither can be mistaken for the other. Both are distinct from the
+spinner, which is the only moving thing in the tree.
 
 `Alt+ArrowDown` / `Alt+ArrowUp` walk to the next or previous new session and wrap once, with
 "No new session that way." when the walk finds nothing — the keyboard equivalent of `t:new`.
