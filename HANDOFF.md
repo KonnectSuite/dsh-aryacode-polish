@@ -13,25 +13,26 @@ and how to release. `README.md` is the user-facing story and lists every switch;
   the tree, icon filter and footer all render. `dsh.engines.dsh` still declares
   `^0.2.1-rc.3`, which excludes a 0.2.2 prerelease; widen it next release.
 - Repo: `C:\Users\KNPhu\.arya\github\KonnectSuite\dsh-aryacode-polish` —
-  **public**, `main`, clean. HEAD `bc71c4a` ("feat(workspace): a spinner while
-  working, a green dot when done, the folder emoji"), on top of `6bc2faf`
-  (footer status line), `3160def` (glyph colour, icon filter, row menu that keeps
-  its slot) and `55e5969`.
-- Package: `@aryacode/dsh-aryacode-polish`. Current version **0.98.0**
-  (0.97.1 was the tree/footer batch; 0.96.0 the one before it).
-- Distribution: npm `latest` = 0.98.0 (published 2026-10-29T02:35Z, tarball
-  sha256 `39c7f9ea0c78b85097f81fb7014ae5cecbc839c1336e5e72870fa73c3a9ee277`) **and** the
+  **public**, `main`, clean. HEAD `ab60f86` (the panel-capture fix), on top of
+  `a889d23` (0.98.0 docs), `bc71c4a` ("feat(workspace): a spinner while working,
+  a green dot when done, the folder emoji"), `6bc2faf` (footer status line),
+  `3160def` (glyph colour, icon filter, row menu that keeps its slot) and
+  `55e5969`.
+- Package: `@aryacode/dsh-aryacode-polish`. Current version **0.99.0**
+  (0.98.0 the tree batch; 0.97.1 the tree/footer batch before it).
+- Distribution: npm `latest` = 0.99.0 (published 2026-10-29T03:0xZ, tarball
+  sha256 `329fb714f34e2565b124b9ea5af95859d85acf5f9e3e69e51a81dd9b55236534`) **and** the
   Arya Plugin Market (`KonnectSuite/dsh-arya-market`, branch `catalog`, entry
   `arya: true`, tarball on `registry.npmjs.org`). A market install lands as a
   digest-named tarball under `<profile>/.dsh-market/releases/`, adds itself to
   `dsh.profile.bundles`, and its surfaces mount after a restart. The published
   `lib/client.js` is byte-identical to the verified repo build
-  (`7f34cec7cc5286d6fcfb2e83bb9ead809d21493d549f0dae3654fdf74d0064c2`).
+  (`fee25c1b8533a443c780cf10b6a474c3c71df0175c926e30deab767d14707eb7`).
 - **Not preseeded into the AryaCode installer**, by the user's decision: the
   installer ships the market, the better sidebar and the engineering bundle;
   polish and local-llm are market-only, so users install and update them from the
   market without an app release.
-- Seven shipped features, each its own switch (below). **321 specs**
+- Seven shipped features, each its own switch (below). **322 specs**
   (`node --test`, ~1 s) — the old "66 specs" figure is long gone.
 - Nothing was ever written to the installed AryaCode
   (`%LOCALAPPDATA%\Programs\AryaCode`) or to the installed data home. All
@@ -149,7 +150,7 @@ that shipped to the UI. Bump versions with `npm pkg set version=…`
 
 ```powershell
 cd C:\Users\KNPhu\.arya\github\KonnectSuite\dsh-aryacode-polish
-pnpm test                 # 321 specs, node --test
+pnpm test                 # 322 specs, node --test
 pnpm pack                 # runs build:client first
 
 # Web profile (fastest for browser checks)
