@@ -1,6 +1,6 @@
 {
   "name": "@aryacode/dsh-aryacode-polish",
-  "version": "0.104.2",
+  "version": "0.105.4",
   "description": "AryaCode Polish: one install for the small things that make AryaCode feel finished. One Plugins row, one switch per quality-of-life feature.",
   "keywords": [
     "dsh",
@@ -34,6 +34,7 @@
     "locale/*.json",
     "docs/**/*",
     "presets/**/*",
+    "mcp/**/*",
     "vendor/**/*",
     "README.md",
     "CHANGELOG.md",
@@ -53,7 +54,7 @@
   "scripts": {
     "build:client": "node scripts/build-client.mjs",
     "prepack": "node scripts/build-client.mjs",
-    "test": "node --test test/patch.spec.mjs test/config.spec.mjs test/registry.spec.mjs test/cost.spec.mjs test/money.spec.mjs test/account.spec.mjs test/github.spec.mjs test/workspace.spec.mjs test/sessions.spec.mjs test/folders.spec.mjs test/docs.spec.mjs test/manifests.spec.mjs test/client-face.spec.mjs test/vendor.spec.mjs test/arya-standard.spec.mjs test/arya-standard-compaction.spec.mjs test/arya-standard-ui.spec.mjs"
+    "test": "node --test test/patch.spec.mjs test/config.spec.mjs test/registry.spec.mjs test/cost.spec.mjs test/money.spec.mjs test/account.spec.mjs test/github.spec.mjs test/workspace.spec.mjs test/sessions.spec.mjs test/folders.spec.mjs test/docs.spec.mjs test/manifests.spec.mjs test/client-face.spec.mjs test/vendor.spec.mjs test/arya-standard.spec.mjs test/arya-standard-compaction.spec.mjs test/arya-standard-ui.spec.mjs test/mcp-store.spec.mjs test/mcp-catalog.spec.mjs test/mcp-host.spec.mjs test/mcp-ui.spec.mjs"
   },
   "dependencies": {
     "zod": "^4.4.3"
@@ -64,7 +65,8 @@
     "@deepseek-ai/dsh-compaction-basic": "^0.2.1-rc.3 || ^0.2.2-alpha.2",
     "@deepseek-ai/dsh-llm": "^0.2.1-rc.3 || ^0.2.2-alpha.2",
     "@deepseek-ai/dsh-session": "^0.2.1-rc.3 || ^0.2.2-alpha.2",
-    "@deepseek-ai/dsh-util-values": "^0.2.1-rc.3 || ^0.2.2-alpha.2"
+    "@deepseek-ai/dsh-util-values": "^0.2.1-rc.3 || ^0.2.2-alpha.2",
+    "@deepseek-ai/dsh-mcp-client": "^0.2.1-rc.3 || ^0.2.2-alpha.2"
   },
   "devDependencies": {
     "@deepseek-ai/schemastery": "^3.18.5",
@@ -79,6 +81,12 @@
     "./package.json": "./package.json",
     "./client": "./lib/client.js",
     "./polish": "./entries/polish.js",
-    "./arya-standard": "./presets/arya-standard/engine.js"
+    "./arya-standard": "./presets/arya-standard/engine.js",
+    "./mcp": "./entries/mcp.js"
+  },
+  "peerDependenciesMeta": {
+    "@deepseek-ai/dsh-mcp-client": {
+      "optional": true
+    }
   }
 }

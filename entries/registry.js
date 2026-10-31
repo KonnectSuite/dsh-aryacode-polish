@@ -23,6 +23,7 @@
  * @module dsh-aryacode-polish-registry
  */
 
+import { mountMcpManager } from './mcp.js'
 import { mountAryaStandard } from '../presets/arya-standard/plugin.js'
 import { readSettings } from '../presets/arya-standard/settings.js'
 import { mountCost } from './cost.js'
@@ -93,6 +94,13 @@ export const features = [
     // The mount needs the policy group beside the switches, not the switches
     // themselves: `readSettings` validates it and fills in every default.
     config: rowConfig => readSettings(rowConfig),
+  },
+  {
+    id: 'mcpManager',
+    label: 'MCP servers',
+    description: 'Add and manage Model Context Protocol servers from Settings → MCP servers.',
+    defaultOn: true,
+    mount: mountMcpManager,
   },
 ]
 

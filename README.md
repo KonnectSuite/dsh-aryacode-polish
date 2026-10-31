@@ -38,6 +38,7 @@ Configure page automatically.
 | **Add a workspace from this PC or GitHub** (`workspaceSources`) | On | The Workspaces **+** button gets a source menu: **On this PC** (the Host's OS chooser, or a folder list when the composition has no native chooser) and **GitHub repository…**. Off, the **+** button goes back to the shipped folder picker. |
 | **Right-panel screenshot** (`panelScreenshot`) | On | A camera button in the right panel's top-right corner photographs the open tab, copies the picture to the clipboard, and attaches it to the message being written. See [Right-panel screenshot](docs/panel-screenshot.md) for what it can and cannot capture. |
 | **Arya Standard preset** (`aryaStandard`) | On | Adds an **Arya Standard** agent preset that compacts the way Codex does, plus a Settings page for its knobs and a **Compaction** tab with the context trajectory, cache-hit strip, checkpoint cards, log and settings. See [Arya Standard](docs/arya-standard.md). |
+| **MCP servers** (`mcpManager`) | On | Adds **Settings → MCP servers**: a live list of Model Context Protocol servers with health, tools, a bundled catalog, GitHub search, a paste importer and a manual form. Servers mount through the harness's own `dsh-mcp-client`, so their tools appear as `mcp__name__tool`. See [MCP servers](docs/mcp-servers.md). |
 
 ### Arya Standard
 

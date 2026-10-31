@@ -48,6 +48,12 @@
       "label": "Arya Standard preset",
       "description": "Add the Arya Standard agent preset, with Codex checkpoint compaction and its own Compaction tab.",
       "defaultOn": true
+    },
+    {
+      "key": "mcpManager",
+      "label": "MCP servers",
+      "description": "Add and manage Model Context Protocol servers from Settings → MCP servers.",
+      "defaultOn": true
     }
   ]
 }

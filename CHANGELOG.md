@@ -1,3 +1,38 @@
+## [0.105.4]
+
+### Changed
+
+- The server drawer's Overview is a real summary: transport, status, tool count, the `mcp__name__` prefix, the entry's source and its timeout, with Restart / Disable / Remove next to it, so the drawer can act as well as read.
+- Catalog cards credit the publisher (`by ...`) and list the variables a server needs on one line.
+## [0.105.3]
+
+### Fixed
+
+- Chips render their label. `McpChip` was called from render bodies with the words as a second argument, so every chip (transport badges, counts) drew as an empty pill; it now takes `(tone, label, title)`.
+- The add sheet's footer belongs to the Manual tab: the catalog, GitHub and paste tabs no longer show a disabled "Add server" above a hint about a command that does not exist yet.
+- Empty-state buttons open the tab they name, and the catalog credits each entry's publisher.
+## [0.105.2]
+
+### Fixed
+
+- The page's copy is plain ASCII again. A patch pass read the fragment with the wrong code page and wrote it back, leaving mojibake and question-mark runs in the visible strings; the mask value the host compares against is now `********` on both sides.
+## [0.105.1]
+
+### Fixed
+
+- The client half no longer touches `React` at module scope. The bundle inlines fragments above the line that declares `React`, so `const mcpEl = React.createElement` threw "Cannot access 'React' before initialization" and the web boot reported the whole plugin as failed. `mcpEl` is a hoisted function now.
+## [0.105.0]
+
+### Added
+
+- **Settings → MCP servers.** A page that lists every Model Context Protocol server in this profile with live health, the tools it contributes and a details drawer; adds servers four ways (bundled catalog, GitHub search, paste a command/URL/JSON, manual form); tests a draft before saving it; and enables, disables, restarts and removes servers without a restart of the app.
+- `mcp/` host modules: validation that mirrors the bridge's own rules, an atomic JSON list with corrupt-file recovery and masked secrets, a curated catalog of 40 servers, a runtime that mounts one `@deepseek-ai/dsh-mcp-client` fiber per enabled server, and one POST route (`api/polish.mcp`) for the page.
+- Servers a plugin mounts by itself (the Windows computer-use server, for example) are listed read-only, so the page never hides a tool namespace the model can see.
+- 30 new specs: validation, store recovery, catalog integrity, the mount/toggle/remove lifecycle, GitHub search degradation and the page's bundle contract.
+
+### Notes
+
+- The list lives at `$DSH_HOME/mcp-servers.json`, not as profile patch rows: `configForms` writes only volatile fields and a plugin cannot create a loader row, so runtime mounting through the shipped bridge is the only seam that makes add/remove take effect immediately. `docs/mcp-servers.md` records the trade-off.
 ## [0.104.2]
 
 ### Fixed

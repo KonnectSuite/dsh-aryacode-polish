@@ -2298,6 +2298,15 @@ return {
       label: () => 'Arya Standard',
       inject: () => ({ configForms }),
     }, AryaStandardSettingsPage))
+    // The MCP page reads and writes through one host route; like the preset page
+    // it stays registered while the switch is off so its own explanation shows.
+    ctx.slots.inject('settings.section', () => ctx.slots.register({
+      name: 'settings.section',
+      id: 'mcp-servers',
+      order: 50,
+      label: () => 'MCP servers',
+      inject: () => ({}),
+    }, McpServersPage))
     ctx.slots.inject('conversation.view', () => ctx.slots.register({
       name: 'conversation.view',
       id: 'arya-standard-compaction',
