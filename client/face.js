@@ -2298,6 +2298,15 @@ return {
       label: () => 'Arya Standard',
       inject: () => ({ configForms }),
     }, AryaStandardSettingsPage))
+    // AryaSearch sits next to the shipped Web search card, because that is where
+    // the harness keeps search-provider configuration.
+    ctx.slots.inject('plugins.item', () => ctx.slots.register({
+      name: 'plugins.item',
+      id: 'arya-search',
+      order: 21,
+      label: () => 'AryaSearch',
+      inject: () => ({}),
+    }, AryaSearchCard))
     // The MCP page reads and writes through one host route; like the preset page
     // it stays registered while the switch is off so its own explanation shows.
     ctx.slots.inject('settings.section', () => ctx.slots.register({

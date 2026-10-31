@@ -54,6 +54,12 @@
       "label": "MCP servers",
       "description": "Add and manage Model Context Protocol servers from Settings → MCP servers.",
       "defaultOn": true
+    },
+    {
+      "key": "aryaSearch",
+      "label": "AryaSearch provider",
+      "description": "Search through your own SearXNG instance, so web_search keeps working without a DeepSeek key.",
+      "defaultOn": true
     }
   ]
 }

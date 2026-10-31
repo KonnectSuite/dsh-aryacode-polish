@@ -39,6 +39,7 @@ Configure page automatically.
 | **Right-panel screenshot** (`panelScreenshot`) | On | A camera button in the right panel's top-right corner photographs the open tab, copies the picture to the clipboard, and attaches it to the message being written. See [Right-panel screenshot](docs/panel-screenshot.md) for what it can and cannot capture. |
 | **Arya Standard preset** (`aryaStandard`) | On | Adds an **Arya Standard** agent preset that compacts the way Codex does, plus a Settings page for its knobs and a **Compaction** tab with the context trajectory, cache-hit strip, checkpoint cards, log and settings. See [Arya Standard](docs/arya-standard.md). |
 | **MCP servers** (`mcpManager`) | On | Adds **Settings → MCP servers**: a live list of Model Context Protocol servers with health, tools, a bundled catalog, GitHub search, a paste importer and a manual form. Servers mount through the harness's own `dsh-mcp-client`, so their tools appear as `mcp__name__tool`. See [MCP servers](docs/mcp-servers.md). |
+| **AryaSearch provider** (`aryaSearch`) | On | Adds **Plugins -> AryaSearch**: registers your own SearXNG instance as a `ctx.web` search provider and, in Automatic mode, pins `web.searchProvider` to it while DeepSeek has no API key - so the built-in `web_search` tool keeps being offered on a local model. See [AryaSearch](docs/aryasearch.md). |
 
 ### MCP servers
 
@@ -86,6 +87,38 @@ would take to move.
 
 [MCP servers: how-tos and reference](docs/mcp-servers.md) covers tokens, remote
 HTTP servers, export/import, failure modes and the file format.
+
+### AryaSearch
+
+The built-in `web_search` tool is not always there: the harness offers it per
+model step only while the **selected search provider** can authenticate, and the
+shipped selection is DeepSeek. Without a `DEEPSEEK_API_KEY` (or a DeepSeek account
+model) the tool is never declared, which is what happens on a local model.
+
+**Plugins -> AryaSearch** registers your own SearXNG instance on the same
+`ctx.web` seam, so it answers for every model route:
+
+| Mode | What it does |
+|---|---|
+| **Automatic** (default) | Pins `web.searchProvider = aryasearch` while DeepSeek has no key, and restores the deployment's provider the moment one appears. |
+| **Always** | Keeps AryaSearch selected even when a DeepSeek key exists. |
+| **Off** | Never touches the selection. |
+
+![The AryaSearch card](docs/arya/aryasearch-card.png)
+
+The card holds the instance URL, authentication (Bearer token or credential
+reference, basic auth, custom headers), language, safe search, categories, time
+range and timeout, with **Test** running a real query and reporting result count,
+latency, the engines that answered and the engines that did not.
+
+Search only: `web_fetch` stays on the anonymous HTTP provider, because SearXNG
+cannot fetch arbitrary pages. Settings live in `$DSH_HOME/web-search.json`
+(Windows: `%LOCALAPPDATA%\AryaCode\home\web-search.json`); the pin itself is the
+`web` row's own `searchProvider`, written through the settings service like the
+shipped Web search card does.
+
+[AryaSearch: setup and troubleshooting](docs/aryasearch.md) covers the JSON-format
+requirement, the bang-redirect behavior and the failure modes.
 
 ### Arya Standard
 
@@ -240,16 +273,19 @@ entries/usage.js     the fold: model-attributed usage out of the session log
 entries/cost.js      the polishCost projection: rates, pricing, host mount
 entries/github.js    the GitHub route: gh token, repository list, clone, workspace
 entries/mcp.js       the MCP feature: server manager, store, one POST route
+entries/web-search.js the AryaSearch provider row: registration, pin policy, one route
 entries/config.js    volatile-reference accessors (resolve/flag/list/text)
 lib/index.js         mount point re-exporting the row
 client/face.js       browser face source: the Configure page and every surface
 client/arya.js       the Arya Standard settings fields and the Compaction tab
 client/mcp.js        the MCP servers page: catalog, GitHub, paste, manual, drawer
+client/aryasearch.js the AryaSearch card in the Plugins page
 client/money.js      which wallet is shown, and how the amount is rendered
 client/account.js    the granted, timeout-bounded balance read
 client/switches.json the browser half of the seam — one entry per switch
 presets/arya-standard/  the preset: definition, prompt adaptation, engine, projection
 mcp/                 MCP validation, store, catalog, manager, route handler
+web/                 AryaSearch provider, its settings file and SearXNG mapping
 scripts/build-client.mjs  wraps client/*.js into lib/client.js
 lib/client.js        generated: the bundle the Shell loads
 locale/              card title and description (en, zh)

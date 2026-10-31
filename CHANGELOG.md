@@ -1,3 +1,32 @@
+## [0.107.3]
+
+### Documentation
+
+- `docs/aryasearch.md` gains the two captures (the configured card and a successful Test) and a verification table: provider registration, a real search, the automatic pin, the negative control that flips `readiness` back to false, and why that number is the tool's own gate.
+- The README's AryaSearch section carries the card image.
+## [0.107.2]
+
+### Added
+
+- The card reports whether `web_search` **is offered right now**, read from `ctx.web.searchReady()`. That is the fact the feature exists to fix, so it is stated rather than inferred: selecting a provider with no credential turns the chip red in the same save.
+## [0.107.1]
+
+### Fixed
+
+- The feature declares `inject: ['web']`. Without it `ctx.web` is not visible on the plugin context, `apply()` threw before registering the provider or its route, and the Plugins card sat on "Loading...".
+- The card renders a failed status read instead of an eternal loading state, and the host logs one line when the provider registers (with the instance URL, or that none is set).
+## [0.107.0]
+
+### Added
+
+- **Plugins -> AryaSearch.** Registers your own SearXNG instance on the harness's `ctx.web` search seam, so the built-in `web_search` tool keeps being offered on a model route with no DeepSeek credential. The card holds the instance URL, authentication (Bearer token or credential reference, basic auth, custom headers), language, safe search, categories, time range and timeout; **Test** runs a real query and reports the result count, latency, the engines that answered and the engines that did not.
+- **Pin policy.** `Automatic` (default) pins `web.searchProvider` to `aryasearch` while DeepSeek has no API key and restores the deployment's provider when one appears; `Always` keeps AryaSearch selected; `Off` never touches the selection. The pin is the `web` row's own volatile field, written through the settings service, so it applies on the next tool step and survives a restart. Turning the feature off resets it.
+- `web/` host modules (provider, settings file) and `client/aryasearch.js` (the Plugins card). 24 new specs cover the mapping, the SearXNG failure modes, the timeout and cancellation paths, the pin-policy decisions and the bundle contract.
+
+### Notes
+
+- Search only. `web_fetch` stays on the anonymous HTTP provider, because SearXNG cannot fetch arbitrary pages.
+- Settings live in `$DSH_HOME/web-search.json`; the selection lives in the settings document, where the shipped Web search card can see it too.
 ## [0.106.2]
 
 ### Documentation

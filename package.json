@@ -1,6 +1,6 @@
 {
   "name": "@aryacode/dsh-aryacode-polish",
-  "version": "0.106.2",
+  "version": "0.107.3",
   "description": "AryaCode Polish: one install for the small things that make AryaCode feel finished. One Plugins row, one switch per quality-of-life feature.",
   "keywords": [
     "dsh",
@@ -35,6 +35,7 @@
     "docs/**/*",
     "presets/**/*",
     "mcp/**/*",
+    "web/**/*",
     "vendor/**/*",
     "README.md",
     "CHANGELOG.md",
@@ -54,7 +55,7 @@
   "scripts": {
     "build:client": "node scripts/build-client.mjs",
     "prepack": "node scripts/build-client.mjs",
-    "test": "node --test test/patch.spec.mjs test/config.spec.mjs test/registry.spec.mjs test/cost.spec.mjs test/money.spec.mjs test/account.spec.mjs test/github.spec.mjs test/workspace.spec.mjs test/sessions.spec.mjs test/folders.spec.mjs test/docs.spec.mjs test/manifests.spec.mjs test/client-face.spec.mjs test/vendor.spec.mjs test/arya-standard.spec.mjs test/arya-standard-compaction.spec.mjs test/arya-standard-ui.spec.mjs test/mcp-store.spec.mjs test/mcp-catalog.spec.mjs test/mcp-host.spec.mjs test/mcp-ui.spec.mjs"
+    "test": "node --test test/patch.spec.mjs test/config.spec.mjs test/registry.spec.mjs test/cost.spec.mjs test/money.spec.mjs test/account.spec.mjs test/github.spec.mjs test/workspace.spec.mjs test/sessions.spec.mjs test/folders.spec.mjs test/docs.spec.mjs test/manifests.spec.mjs test/client-face.spec.mjs test/vendor.spec.mjs test/arya-standard.spec.mjs test/arya-standard-compaction.spec.mjs test/arya-standard-ui.spec.mjs test/mcp-store.spec.mjs test/mcp-catalog.spec.mjs test/mcp-host.spec.mjs test/mcp-ui.spec.mjs test/aryasearch.spec.mjs test/aryasearch-ui.spec.mjs"
   },
   "dependencies": {
     "zod": "^4.4.3"
@@ -66,7 +67,8 @@
     "@deepseek-ai/dsh-llm": "^0.2.1-rc.3 || ^0.2.2-alpha.2",
     "@deepseek-ai/dsh-session": "^0.2.1-rc.3 || ^0.2.2-alpha.2",
     "@deepseek-ai/dsh-util-values": "^0.2.1-rc.3 || ^0.2.2-alpha.2",
-    "@deepseek-ai/dsh-mcp-client": "^0.2.1-rc.3 || ^0.2.2-alpha.2"
+    "@deepseek-ai/dsh-mcp-client": "^0.2.1-rc.3 || ^0.2.2-alpha.2",
+    "@deepseek-ai/dsh-web": "^0.2.1-rc.3 || ^0.2.2-alpha.2"
   },
   "devDependencies": {
     "@deepseek-ai/schemastery": "^3.18.5",
@@ -86,6 +88,9 @@
   },
   "peerDependenciesMeta": {
     "@deepseek-ai/dsh-mcp-client": {
+      "optional": true
+    },
+    "@deepseek-ai/dsh-web": {
       "optional": true
     }
   }

@@ -28,6 +28,7 @@ const workspace = readFileSync(new URL('client/workspace.js', root), 'utf8')
 const { ARYA_STANDARD_FIELDS } = await import(new URL('presets/arya-standard/fields.js', root))
 const arya = readFileSync(new URL('client/arya.js', root), 'utf8')
 const mcp = readFileSync(new URL('client/mcp.js', root), 'utf8')
+const aryasearch = readFileSync(new URL('client/aryasearch.js', root), 'utf8')
 const face = readFileSync(new URL('client/face.js', root), 'utf8')
 /*
  * html2canvas is the one third-party script the face needs: the right panel can
@@ -87,6 +88,8 @@ ${indent(workspace.trimEnd().replace(/^export /gm, ''))}
 ${indent(arya.trimEnd())}
 
 ${indent(mcp.trimEnd())}
+
+${indent(aryasearch.trimEnd())}
 
 ${indent(face.trimEnd())}
   },

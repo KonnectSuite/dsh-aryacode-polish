@@ -24,6 +24,7 @@
  */
 
 import { mountMcpManager } from './mcp.js'
+import { mountAryaSearch } from './web-search.js'
 import { mountAryaStandard } from '../presets/arya-standard/plugin.js'
 import { readSettings } from '../presets/arya-standard/settings.js'
 import { mountCost } from './cost.js'
@@ -101,6 +102,13 @@ export const features = [
     description: 'Add and manage Model Context Protocol servers from Settings → MCP servers.',
     defaultOn: true,
     mount: mountMcpManager,
+  },
+  {
+    id: 'aryaSearch',
+    label: 'AryaSearch provider',
+    description: 'Search through your own SearXNG instance, so web_search keeps working without a DeepSeek key.',
+    defaultOn: true,
+    mount: mountAryaSearch,
   },
 ]
 
