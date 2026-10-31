@@ -166,6 +166,13 @@ function applyAryaStandard(state, event) {
   const data = event?.data
   const at = typeof event?.time === 'number' ? event.time : 0
 
+  if (type === 'request/header' && data !== null && typeof data === 'object') {
+    const config = data.header !== null && typeof data.header === 'object' ? data.header.config : undefined
+    const reserved = Number(config?.maxTokens)
+    if (!Number.isFinite(reserved) || reserved <= 0 || reserved === state.reserved) return state
+    return { ...state, reserved }
+  }
+
   if (type === 'request/context' && data !== null && typeof data === 'object') {
     const contextWindow = Number(data.contextWindow)
     if (!Number.isFinite(contextWindow) || contextWindow <= 0) return state
@@ -267,6 +274,7 @@ export function createAryaStandardProjection(settings) {
       policy,
       failure: null,
       window: null,
+      reserved: 0,
       series: [],
       totals: { requests: 0, input: 0, cached: 0, output: 0 },
     }),
@@ -275,11 +283,14 @@ export function createAryaStandardProjection(settings) {
       viewSchema,
       view: (state) => {
         const contextWindow = state.window === null ? 0 : state.window.contextWindow
+        // The engine's rule (compaction-basic, resolveTarget):
+        //   budget = window - reservedCompletion - headroom, halved by the ratio.
+        // reservedCompletion is the request's own maxTokens; when no header has been
+        // folded yet the headroom-only figure is the best available and the wire
+        // view says so with `thresholdExact: false`.
+        const budget = state.reserved > 0 ? contextWindow - state.reserved - policy.headroomTokens : contextWindow - policy.headroomTokens
         const thresholdTokens = contextWindow > 0
-          ? Math.min(
-            Math.floor(contextWindow * policy.thresholdRatio),
-            Math.max(0, contextWindow - policy.headroomTokens),
-          )
+          ? Math.min(Math.floor(contextWindow * policy.thresholdRatio), Math.max(0, budget))
           : 0
         const savedTokens = state.checkpoints.reduce((sum, checkpoint) => sum + checkpoint.shadowedTokens, 0)
         // `totals.input` already counts cache reads (the point folds them in), so
@@ -301,6 +312,7 @@ export function createAryaStandardProjection(settings) {
           series: sample(state.series),
           totals: state.totals,
           thresholdTokens,
+          thresholdExact: state.reserved > 0,
           savedTokens,
           cacheHitRatio: state.totals.input > 0 ? state.totals.cached / state.totals.input : 0,
         }

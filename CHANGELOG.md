@@ -1,3 +1,26 @@
+## [0.104.1]
+
+### Fixed
+
+- 0.104.0 moved the compaction engine out of its isolated group, and the preset stopped loading (it disappeared from the model picker). Reverted to the shipped shape: the engine, `/compact` and the pruner stay inside the `isolate: { compaction: true, toolResultPruner: true }` group.
+- The engine keeps the `ARYA_STANDARD_DEBUG=1` probes (measured pressure, hook registration, `compactNow`, and the error the pre-step hook swallows), which are what a follow-up needs to tell "the hook never ran" from "the hook ran and declined".
+## [0.104.0]
+
+### Fixed
+
+- **Automatic compaction now reaches our engine.** The engine, the `/compact` command and the tool-result pruner were inside a `cordis:group` with `isolate: { compaction: true, toolResultPruner: true }`. That gives the group its own service realm, while the agent loop — which drives automatic compaction from `agent/pre-step` — sits outside it, so the loop kept the composition's compaction service and only `/compact` reached ours. The three rows are now siblings at the preset level, which is the scope one session mounts.
+- The projection computes the threshold the engine actually uses: `min(floor(window × ratio), window − reservedCompletion − headroom)`, where reserved completion is the request's own `maxTokens`, folded from `request/header`. Before this, the tab advertised a number the engine never used.
+- The wire view reports `thresholdExact`, false until a request header has been folded.
+## [0.103.9]
+
+### Added
+
+- The diagnostic channel also reports the engine module load, the automatic-hook registration and the manual `compactNow` path, so "the hook never fires" and "the hook is not registered here" are distinguishable from one log.
+## [0.103.8]
+
+### Added
+
+- `ARYA_STANDARD_DEBUG=1` makes the engine report each `compactIfNeeded` decision on stderr: the measured pressure and window, whether it compacted, and the error the base engine's pre-step hook would otherwise swallow. The base engine's pre-step hook catches a rejected policy and only warns on the Host logger, which is invisible in the desktop build — this is how a policy that silently disables automatic compaction becomes visible.
 ## [0.103.7]
 
 ### Fixed

@@ -87,6 +87,7 @@ test('the compaction group isolates its services and mounts our engine row', () 
   assert.deepEqual(group.isolate, { compaction: true, toolResultPruner: true })
   assert.deepEqual(group.config.map((row) => row.id), [ARYA_STANDARD_ENGINE_ROW_ID, 'command-compact', 'tool-result-pruner'])
   const engine = group.config[0]
+
   assert.equal(engine.name, ARYA_STANDARD_ENGINE_MODULE)
   assert.equal(engine.name, '@aryacode/dsh-aryacode-polish/arya-standard')
   assert.deepEqual(engine.config, engineConfig(ARYA_STANDARD_DEFAULTS))
