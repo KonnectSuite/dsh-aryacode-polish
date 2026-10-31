@@ -1,3 +1,33 @@
+## [0.105.9]
+
+### Fixed
+
+- The page header stacks: title, description, then the button row. With four buttons on one line the description was squeezed into a column about twenty characters wide.
+## [0.105.8]
+
+### Added
+
+- **Export** copies the whole server list as JSON, and **Import** opens the Paste tab ready for an exported store or any JSON array; the tab saves a list in one step and reports how many servers landed.
+
+### Fixed
+
+- Restores the export/import controls after a source restore dropped them, and keeps the confirmation line in the page flow.
+## [0.105.7]
+
+### Fixed
+
+- The confirmation line is in the page flow instead of `position: fixed`. Inside the settings dialog a fixed element resolves against the dialog's transformed box and was clipped out, so "Copied 1 server(s) as JSON." and every other confirmation never painted.
+## [0.105.6]
+
+### Fixed
+
+- The toast is visible. `position: fixed` inside the settings dialog resolved against the dialog's transformed box, so every confirmation ("Copied 1 server(s)…", "Removed memory.") rendered outside the visible clip; the toast is sticky in the page flow now.
+## [0.105.5]
+
+### Added
+
+- **Export** in the page header copies the whole server list as JSON (secrets included, as the file holds them).
+- The **Paste** tab imports a list: an exported store, or any JSON array of servers, is saved in one step and the result says how many landed and how many failed. A single object or a command line still opens the manual form.
 ## [0.105.4]
 
 ### Changed

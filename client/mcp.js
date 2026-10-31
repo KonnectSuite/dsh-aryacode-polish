@@ -314,6 +314,17 @@ function McpSheet(props) {
   }
 
   const parsePaste = async () => {
+    // An exported list (or any JSON array) is an import, not a draft to edit.
+    const trimmed = pasteText.trim()
+    if (trimmed.startsWith('[') || trimmed.startsWith('{"version"')) {
+      const answer = await mcpPost({ action: 'import', text: trimmed })
+      if (answer.ok === false && Array.isArray(answer.saved) === false) {
+        setError(answer.error ?? 'That list could not be imported.')
+        return
+      }
+      props.onImported(answer)
+      return
+    }
     const answer = await mcpPost({ action: 'parse', text: pasteText })
     if (answer.ok === false || answer.draft === null || answer.draft === undefined) {
       setError(answer.error ?? 'That could not be parsed.')
@@ -777,6 +788,20 @@ function McpServersPage(props) {
     external: servers.filter(server => server.status === 'external').length,
   }
 
+  const exportAll = async () => {
+    const answer = await mcpPost({ action: 'export' })
+    if (answer.ok === false) {
+      notify(String(answer.error ?? 'Nothing to export.'))
+      return
+    }
+    try {
+      await navigator.clipboard.writeText(JSON.stringify(answer.store, null, 2))
+      notify('Copied ' + String((answer.store.servers ?? []).length) + ' server(s) as JSON.')
+    } catch {
+      notify('The clipboard refused the copy.')
+    }
+  }
+
   const toDraft = server => ({
     id: server.builtin === true ? undefined : server.id,
     serverName: server.serverName,
@@ -812,7 +837,7 @@ function McpServersPage(props) {
   })
 
   return mcpEl('div', { style: { padding: '4px 2px 24px', maxWidth: '1080px' } },
-    mcpEl('div', { style: { display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '16px', marginBottom: '4px' } },
+    mcpEl('div', { style: { display: 'flex', flexDirection: 'column', gap: '10px', marginBottom: '4px' } },
       mcpEl('div', { style: { minWidth: 0 } },
         mcpEl('div', { style: MCP_EYEBROW }, 'AryaCode'),
         mcpEl('h2', { style: { margin: 0, fontSize: '22px', fontWeight: 700, letterSpacing: '-0.02em', color: MCP_THEME.text } }, 'MCP servers'),
@@ -820,8 +845,20 @@ function McpServersPage(props) {
           'Tools, resources and prompts from external Model Context Protocol servers, available to every session in this profile. Servers run on this machine; the list lives in ',
           mcpEl('code', { style: { fontFamily: MCP_FONT_MONO, fontSize: '11px' } }, data?.storePath ?? 'mcp-servers.json'),
           '.')),
-      mcpEl('div', { style: { display: 'flex', gap: '8px', flex: '0 0 auto' } },
+      mcpEl('div', { style: { display: 'flex', gap: '8px', flexWrap: 'wrap' } },
         mcpEl('button', { type: 'button', style: MCP_BUTTON, onClick: () => void load() }, 'Refresh'),
+        mcpEl('button', {
+          type: 'button',
+          style: MCP_BUTTON,
+          title: 'Copy the server list as JSON, secrets included',
+          onClick: () => void exportAll(),
+        }, 'Export'),
+        mcpEl('button', {
+          type: 'button',
+          style: MCP_BUTTON,
+          title: 'Open the Paste tab with an exported list',
+          onClick: () => setSheet({ mode: 'add', draft: emptyDraft(), tab: 'paste' }),
+        }, 'Import'),
         mcpEl('button', { type: 'button', style: MCP_BUTTON_PRIMARY, onClick: () => setSheet({ mode: 'add', draft: emptyDraft() }) }, '+ Add server'))),
 
     data?.bridge === false ? mcpEl('div', {
@@ -871,6 +908,13 @@ function McpServersPage(props) {
       mode: sheet.mode,
       draft: sheet.draft,
       onClose: () => setSheet(null),
+      onImported: answer => {
+        setSheet(null)
+        const saved = Array.isArray(answer.saved) ? answer.saved : []
+        const failed = Array.isArray(answer.failed) ? answer.failed : []
+        notify('Imported ' + String(saved.length) + ' server' + (saved.length === 1 ? '' : 's') + (failed.length > 0 ? ', ' + String(failed.length) + ' failed' : '') + '.')
+        void load()
+      },
       onSaved: server => {
         setSheet(null)
         notify((sheet.mode === 'edit' ? 'Updated ' : 'Added ') + (server?.serverName ?? 'server') + '.')
@@ -908,11 +952,7 @@ function McpServersPage(props) {
 
     toast === '' ? null : mcpEl('div', {
       style: {
-        position: 'fixed',
-        bottom: '20px',
-        left: '50%',
-        transform: 'translateX(-50%)',
-        zIndex: 80,
+        marginTop: '10px',
         padding: '9px 14px',
         borderRadius: '999px',
         fontSize: '12.5px',
