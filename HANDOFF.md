@@ -18,16 +18,16 @@ and how to release. `README.md` is the user-facing story and lists every switch;
   a green dot when done, the folder emoji"), `6bc2faf` (footer status line),
   `3160def` (glyph colour, icon filter, row menu that keeps its slot) and
   `55e5969`.
-- Package: `@aryacode/dsh-aryacode-polish`. Current version **0.103.3**
-  (0.103.0 the Compaction dashboard, 0.101.0 the Arya Standard preset).
-- Distribution: npm `latest` = 0.103.3 (published 2026-10-31T09:51Z, tarball
-  sha256 `27df6bd76427f30e42b1bcccd55fea4325a82f33fdc68caada0e5bf640bcb835`) **and** the
+- Package: `@aryacode/dsh-aryacode-polish`. Current version **0.103.7**
+  (0.103.0 the Compaction dashboard, 0.101.0 the Arya Standard preset; 0.103.7 the verified policy panel).
+- Distribution: npm `latest` = 0.103.7 (published 2026-10-31T13:0xZ, tarball
+  sha256 `3a7d4735b603713ffc0120ca20378b3404497e1e84c822e4b3775900e5c643af`) **and** the
   Arya Plugin Market (`KonnectSuite/dsh-arya-market`, branch `catalog`, entry
   `arya: true`, tarball on `registry.npmjs.org`). A market install lands as a
   digest-named tarball under `<profile>/.dsh-market/releases/`, adds itself to
   `dsh.profile.bundles`, and its surfaces mount after a restart. The published
   `lib/client.js` is byte-identical to the verified repo build
-  (`62a2f559c8b33d2fdc8b4e161febaf612440db2305ac04b9f6c631bd1daa3926`).
+  (c38bd43606762113da68256db6840db96479f5af76119ad43df812426d2e1fea).
 - **Not preseeded into the AryaCode installer**, by the user's decision: the
   installer ships the market, the better sidebar and the engineering bundle;
   polish and local-llm are market-only, so users install and update them from the
