@@ -18,21 +18,21 @@ and how to release. `README.md` is the user-facing story and lists every switch;
   a green dot when done, the folder emoji"), `6bc2faf` (footer status line),
   `3160def` (glyph colour, icon filter, row menu that keeps its slot) and
   `55e5969`.
-- Package: `@aryacode/dsh-aryacode-polish`. Current version **0.102.0**
-  (0.100.1 the workspace scroll fix; 0.99.0 before it).
-- Distribution: npm `latest` = 0.99.0 (published 2026-10-29T03:0xZ, tarball
-  sha256 `329fb714f34e2565b124b9ea5af95859d85acf5f9e3e69e51a81dd9b55236534`) **and** the
+- Package: `@aryacode/dsh-aryacode-polish`. Current version **0.103.3**
+  (0.103.0 the Compaction dashboard, 0.101.0 the Arya Standard preset).
+- Distribution: npm `latest` = 0.103.3 (published 2026-10-31T09:51Z, tarball
+  sha256 `27df6bd76427f30e42b1bcccd55fea4325a82f33fdc68caada0e5bf640bcb835`) **and** the
   Arya Plugin Market (`KonnectSuite/dsh-arya-market`, branch `catalog`, entry
   `arya: true`, tarball on `registry.npmjs.org`). A market install lands as a
   digest-named tarball under `<profile>/.dsh-market/releases/`, adds itself to
   `dsh.profile.bundles`, and its surfaces mount after a restart. The published
   `lib/client.js` is byte-identical to the verified repo build
-  (`fee25c1b8533a443c780cf10b6a474c3c71df0175c926e30deab767d14707eb7`).
+  (`62a2f559c8b33d2fdc8b4e161febaf612440db2305ac04b9f6c631bd1daa3926`).
 - **Not preseeded into the AryaCode installer**, by the user's decision: the
   installer ships the market, the better sidebar and the engineering bundle;
   polish and local-llm are market-only, so users install and update them from the
   market without an app release.
-- Eight shipped features, each its own switch (below). **360 specs**
+- Eight shipped features, each its own switch (below). **361 specs**
   (`node --test`, ~1 s) — the old "66 specs" figure is long gone.
 - Nothing was ever written to the installed AryaCode
   (`%LOCALAPPDATA%\Programs\AryaCode`) or to the installed data home. All
@@ -189,7 +189,7 @@ that shipped to the UI. Bump versions with `npm pkg set version=…`
 
 ```powershell
 cd C:\Users\KNPhu\.arya\github\KonnectSuite\dsh-aryacode-polish
-pnpm test                 # 322 specs, node --test
+pnpm test                 # 361 specs, node --test
 pnpm pack                 # runs build:client first
 
 # Web profile (fastest for browser checks)
