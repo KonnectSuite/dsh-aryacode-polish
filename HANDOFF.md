@@ -18,8 +18,9 @@ and how to release. `README.md` is the user-facing story and lists every switch;
   a green dot when done, the folder emoji"), `6bc2faf` (footer status line),
   `3160def` (glyph colour, icon filter, row menu that keeps its slot) and
   `55e5969`.
-- Package: `@aryacode/dsh-aryacode-polish`. Current version **0.103.7**
-  (0.103.0 the Compaction dashboard, 0.101.0 the Arya Standard preset; 0.103.7 the verified policy panel).
+- Package: `@aryacode/dsh-aryacode-polish`. Current version **0.105.4**
+  (0.103.0 the Compaction dashboard, 0.101.0 the Arya Standard preset, 0.104.2 the
+  preset's engine fix, 0.105.x the MCP servers page).
 - Distribution: npm `latest` = 0.103.7 (published 2026-10-31T13:0xZ, tarball
   sha256 `3a7d4735b603713ffc0120ca20378b3404497e1e84c822e4b3775900e5c643af`) **and** the
   Arya Plugin Market (`KonnectSuite/dsh-arya-market`, branch `catalog`, entry
@@ -90,6 +91,38 @@ made it shaped the way it is.
    events in `presets/arya-standard/projection.js` (state version 2). No route, no
    iframe, no polling: if a number is not in the projection, add it there first.
 
+## MCP servers, specifically
+
+`mcpManager` adds **Settings → MCP servers**. One page lists every MCP server in
+the profile with live health and the tools it contributes, adds servers four ways
+(a 40-entry bundled catalog, GitHub search, a paste importer, a manual form),
+tests a draft in a throwaway fiber before saving it, and enables, disables,
+restarts and removes servers without an app restart.
+
+The host half is `mcp/` plus `entries/mcp.js`:
+
+- `mcp/validate.js` mirrors the bridge's own rules (the name pattern, stdio versus
+  `streamable-http`, the exact `Config` shape `bridgeConfig()` hands over).
+- `mcp/store.js` is `$DSH_HOME/mcp-servers.json`: atomic writes, mode 0600, a
+  corrupt file renamed aside, secrets masked as `********` before the browser
+  sees them.
+- `mcp/manager.js` mounts one `@deepseek-ai/dsh-mcp-client` fiber per enabled
+  server with `ctx.plugin`, tracks `ready`/`connecting`/`error`, and reads the
+  live tool names back out of `ctx.tools.definitions()`.
+- `mcp/routes.js` is the single POST route `api/polish.mcp` (`action` + payload).
+
+Why not profile rows: the bridge's `Config` has **no volatile fields**, so
+`configForms` refuses to write a row's config, and a plugin cannot create a loader
+row at all. Runtime mounting is the seam that exists; `docs/mcp-servers.md`
+records the trade-off (these servers do not appear in the Plugins page).
+
+Verified in the development app on 2026-10-31 (0.105.4): a catalog install of
+`@modelcontextprotocol/server-memory` tested at 7.3 s and 9 tools, the card then
+`ready` with the same 9 tools; a full app restart remounted it from the store
+with no page interaction (two child processes before the page was opened);
+Disable dropped the child and persisted `enabled: false`, Enable brought it back;
+GitHub search returned live results (`microsoft/playwright-mcp`, 38,902 stars).
+Screenshots live in `docs/mcp/`.
 ## Shape of the package
 
 ```
