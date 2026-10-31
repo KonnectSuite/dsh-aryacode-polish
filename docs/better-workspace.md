@@ -255,9 +255,22 @@ session that no longer exists is simply never drawn.
 
 ## Copy the tree
 
-The header's `⧉` copies the whole tree as indented text — folders, workspaces, sessions, with
-`⚑` before a flagged session — through `navigator.clipboard.writeText`. It is meant for pasting
-into a prompt or an issue: "here is what I am looking at", without screenshots.
+The tree context menu's **Copy the tree as text** copies the whole tree as indented text — folders,
+workspaces, sessions, with `⚑` before a flagged session — through `navigator.clipboard.writeText`.
+It is meant for pasting into a prompt or an issue: "here is what I am looking at", without
+screenshots. It used to be a header glyph; the header now keeps only the controls that are used
+every session, and the whole inventory lives in the right-click menu.
+
+## When the tree is taller than the panel
+
+Rows keep their height and the tree scrolls. The rows live in their own column
+(`data-polish-ws-rows`), and every row, folder header, section head, notice and filter carries
+`flexShrink: 0`. Without that, a flex column that is also the scroll box compresses each child below
+its line height instead of scrolling — which is exactly what a 45-row Archived block used to do to
+the whole panel: every title half-drawn, each row under the one above it.
+
+An expanded Archived block also lists only `ARCHIVE_PAGE` (8) rows and ends with **Show all N
+archived** / **Show fewer archived**, so opening it is never a wall of italic titles.
 
 ## Folders only
 
@@ -429,7 +442,7 @@ follow, and every row says which it is in the hint on the right.
 
 ## The header menu
 
-The header carries five small glyphs, and small glyphs are a poor inventory of what a panel can do.
+The header carries four small glyphs, and small glyphs are a poor inventory of what a panel can do.
 Right-clicking the header opens the same actions spelled out — copy the tree, fold or expand
 everything, the three densities, the two sort orders, "Reset the tree" (which returns to
 `treeDefaults()`: no filter, nothing folded, comfortable rows, host order) and the shortcut sheet.

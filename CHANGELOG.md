@@ -1,3 +1,24 @@
+## [0.100.1]
+
+### Fixed
+- The workspace tree scrolls again instead of squeezing itself. The tree was a
+  flex column that was also its own scroll box, so once the content was taller
+  than the panel flexbox shrank every row below its line height rather than
+  scrolling: titles were cut in half, each row sat under the one above it, and a
+  45-row Archived block fitted in a 700 px panel by being unreadable. Rows,
+  folder headers, section heads, notices and the filter now refuse to shrink
+  (`flexShrink: 0`) and live in their own column (`data-polish-ws-rows`); the
+  outer element is a plain scroll box.
+
+### Changed
+- An expanded Archived block lists 8 rows and ends with **Show all N archived** /
+  **Show fewer archived**, instead of pouring every archived session into the
+  panel at once.
+- The header keeps only the controls used every session: fold, sort, the running
+  chip and add. The copy (`⧉`) and shortcut (`?`) glyphs are gone — copying the
+  tree and showing the keys are items in the header's right-click menu, next to
+  the rest of the inventory.
+
 ## [0.100.0]
 
 ### Added

@@ -410,6 +410,16 @@ test('the tree offers density modes and an archived section', () => {
   assert.ok(workspaceSource.includes('splitArchived('), 'archived sessions leave their workspace rows')
 })
 
+test('the tree scrolls instead of squeezing its rows', () => {
+  assert.ok(workspaceSource.includes("'data-polish-ws-rows'"), 'the rows live in their own column')
+  assert.ok(workspaceSource.includes('flexShrink: 0'), 'rows refuse to shrink below their height')
+  assert.ok(workspaceSource.includes('ARCHIVE_PAGE'), 'an expanded archive lists a page at a time')
+  assert.ok(workspaceSource.includes("'data-polish-ws-archived-more'"), 'the rest of the archive is one click away')
+  assert.ok(workspaceSource.includes("'data-polish-tree-copy'"), 'copying the tree lives in the tree menu')
+  assert.ok(!workspaceSource.includes("'data-polish-ws-copy'"), 'the header no longer carries a copy button')
+  assert.ok(!workspaceSource.includes("'data-polish-ws-help-open'"), 'the header no longer carries a help button')
+})
+
 test('a workspace can wear a glyph and carry a note', () => {
   assert.ok(workspaceSource.includes("'data-polish-glyph'"), 'the menu can open the glyph picker')
   assert.ok(workspaceSource.includes("'data-polish-glyph-pick'"), 'the picker offers badges')
@@ -451,7 +461,7 @@ test('the tree can flag a session, note it, and copy itself as text', () => {
     'data-polish-session-note',
     'data-polish-mark-input',
     'data-polish-mark-flag',
-    'data-polish-ws-copy',
+    'data-polish-tree-copy',
     'treeText(',
     'navigator.clipboard.writeText',
   ]) {

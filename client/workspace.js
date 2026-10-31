@@ -231,6 +231,7 @@ const WS_ROW = {
   gap: '6px',
   boxSizing: 'border-box',
   width: '100%',
+  flexShrink: 0,
   height: 'var(--polish-ws-row, 34px)',
   padding: '0 8px',
   border: 'none',
@@ -1621,6 +1622,7 @@ const WS_SECTION = {
   display: 'flex',
   alignItems: 'center',
   gap: '5px',
+  flexShrink: 0,
   padding: '8px 8px 2px',
   textTransform: 'none',
   letterSpacing: '0',
@@ -1910,6 +1912,7 @@ const WS_FOLDER_ROW = {
   display: 'flex',
   alignItems: 'center',
   gap: '5px',
+  flexShrink: 0,
   padding: '3px 6px 2px',
   fontSize: 'calc(' + 'var(--dsh-content-font-size-secondary, 13px)' + ' - 2px)',
   letterSpacing: '0.02em',
@@ -2230,6 +2233,7 @@ const WS_SEARCH = {
 }
 const WS_FILTER = {
   margin: '2px 2px 6px',
+  flexShrink: 0,
   padding: '4px 8px',
   border: '0.5px solid var(--dsw-alias-border-l2, rgba(0, 0, 0, 0.12))',
   borderRadius: 'var(--dsw-radius-sm)',
@@ -2293,9 +2297,13 @@ const WS_AGE = {
 }
 const WS_COUNT_NOTE = {
   margin: '2px 4px 0',
+  flexShrink: 0,
   fontSize: 'calc(var(--dsh-content-font-size-secondary, 13px) - 3px)',
   color: 'var(--dsw-alias-label-quaternary, #8a8a8a)',
 }
+
+/** How many archived sessions an expanded Archived block lists before it offers the rest. */
+export const ARCHIVE_PAGE = 8
 
 /** Every keyboard move the tree offers, in the order the sheet shows them. */
 export const HELP_ROWS = [
@@ -2422,6 +2430,7 @@ export function BetterWorkspace(props) {
   const [density, setDensity] = React.useState(() => readDensity())
   const [pinOpen, setPinOpen] = React.useState(() => readFolded().pinned)
   const [archiveOpen, setArchiveOpen] = React.useState(() => readFolded().archived)
+  const [archiveAll, setArchiveAll] = React.useState(false)
   React.useEffect(() => { writeFolded({ workspaces: expanded, folders, pinned: pinOpen, archived: archiveOpen }) }, [expanded, folders, pinOpen, archiveOpen])
   React.useEffect(() => { writeFolders(declared) }, [declared])
   React.useEffect(() => { writeMarks(marks) }, [marks])
@@ -4064,6 +4073,19 @@ export function BetterWorkspace(props) {
       },
     }, 'Show the shortcuts'))
     items.push(React.createElement('button', {
+      key: 'copy-tree',
+      type: 'button',
+      'data-polish-tree-copy': 'true',
+      style: WS_MENU_ITEM,
+      onClick: () => {
+        setMenu(null)
+        const text = treeText(rows, folderNames, (id) => markOf(marks, id))
+        Promise.resolve(navigator.clipboard.writeText(text))
+          .then(() => setNotice('Tree copied.'))
+          .catch(() => setNotice('Could not copy the tree.'))
+      },
+    }, 'Copy the tree as text'))
+    items.push(React.createElement('button', {
       key: 'mark-read',
       type: 'button',
       'data-polish-tree-mark-read': 'true',
@@ -4224,20 +4246,6 @@ export function BetterWorkspace(props) {
       onClick: foldAll,
     }, allFolded ? '⌄' : '⌃'),
     React.createElement('button', {
-      key: 'copy',
-      type: 'button',
-      'data-polish-ws-copy': 'tree',
-      title: 'Copy the tree as text',
-      'aria-label': 'Copy the tree as text',
-      style: WS_ADD,
-      onClick: () => {
-        const text = treeText(rows, folderNames, (id) => markOf(marks, id))
-        Promise.resolve(navigator.clipboard.writeText(text))
-          .then(() => setNotice('Tree copied.'))
-          .catch(() => setNotice('Could not copy the tree.'))
-      },
-    }, '⧉'),
-    React.createElement('button', {
       key: 'sort',
       type: 'button',
       'data-polish-ws-sort': sortOf(sort),
@@ -4249,15 +4257,6 @@ export function BetterWorkspace(props) {
         setSort(next)
       },
     }, sortOf(sort) === 'name' ? 'A→Z' : '↕'),
-    React.createElement('button', {
-      key: 'help',
-      type: 'button',
-      'data-polish-ws-help-open': 'true',
-      title: 'Workspace shortcuts',
-      'aria-label': 'Workspace shortcuts',
-      style: WS_ADD,
-      onClick: () => { writeHelp(true); setHelpSeen(true); setHelpOpen(true) },
-    }, '?'),
     runningTotal > 0
       ? React.createElement('button', {
         key: 'running',
@@ -5109,7 +5108,8 @@ export function BetterWorkspace(props) {
     React.createElement('span', { style: WS_COUNT }, String(archivedSessions.length))))
 
     if (archiveOpen) {
-      for (const row of archivedSessions) {
+      const archiveShown = archiveAll ? archivedSessions : archivedSessions.slice(0, ARCHIVE_PAGE)
+      for (const row of archiveShown) {
         children.push(React.createElement('div', {
           key: 'archived:' + row.id,
           'data-polish-ws-archived-row': row.id,
@@ -5128,6 +5128,15 @@ export function BetterWorkspace(props) {
         ageLabel(row.updatedAt, clock)
           ? React.createElement('span', { 'data-polish-archived-age': row.id, style: WS_AGE, title: ageTitle(row.updatedAt) }, ageLabel(row.updatedAt, clock))
           : null))
+      }
+      if (archivedSessions.length > ARCHIVE_PAGE) {
+        children.push(React.createElement('button', {
+          key: 'archived-more',
+          type: 'button',
+          'data-polish-ws-archived-more': archiveAll ? 'less' : 'more',
+          style: Object.assign({}, WS_ROW, { height: '26px', justifyContent: 'flex-start', color: 'var(--dsw-alias-label-secondary, #6b7280)', fontSize: '12px' }),
+          onClick: () => setArchiveAll((all) => !all),
+        }, archiveAll ? 'Show fewer archived' : 'Show all ' + String(archivedSessions.length) + ' archived'))
       }
     }
   }
@@ -5169,16 +5178,23 @@ export function BetterWorkspace(props) {
     tabIndex: 0,
     onKeyDown: onKeyDown,
     style: {
-      display: 'flex',
-      flexDirection: 'column',
-      gap: '1px',
+      display: 'block',
       minHeight: 0,
       height: '100%',
       overflowY: 'auto',
       overflowX: 'hidden',
-      padding: '2px 6px 12px',
       outline: 'none',
       '--polish-ws-row': metrics.row,
+    },
+  },
+  React.createElement('div', {
+    'data-polish-ws-rows': 'true',
+    style: {
+      display: 'flex',
+      flexDirection: 'column',
+      gap: '1px',
+      flex: '0 0 auto',
+      padding: '2px 6px 12px',
     },
   },
   children,
@@ -5202,7 +5218,7 @@ export function BetterWorkspace(props) {
   archivedMenu,
   paintMenu,
   treeMenu,
-  workspaceMenu)
+  workspaceMenu))
 }
 
 const WS_HERO = {
@@ -5400,7 +5416,7 @@ export function installWorkspaceSeat(ctx, configForms, extras = {}) {
     if (typeof dispose === 'function') dispose()
   }
 }
-const WS_HEADER = { display: 'flex', alignItems: 'center', gap: '6px', padding: '2px 4px 4px' }
+const WS_HEADER = { display: 'flex', alignItems: 'center', gap: '6px', flexShrink: 0, padding: '2px 4px 4px' }
 const WS_HEADER_TITLE = { flex: 1, minWidth: 0, display: 'flex', alignItems: 'center', gap: '6px', whiteSpace: 'nowrap', fontSize: 'calc(' + "var(--dsh-content-font-size-secondary, 13px)" + ' - 2px)', letterSpacing: '0.02em', textTransform: 'uppercase', color: 'var(--dsw-alias-label-quaternary, #8a8a8a)' }
 const WS_ADD = { flex: 'none', width: '20px', height: '20px', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', padding: 0, border: 'none', background: 'transparent', color: 'var(--dsw-alias-label-tertiary)', fontSize: '15px', lineHeight: 1, borderRadius: 'var(--dsw-radius-sm)', cursor: 'pointer' }
-const WS_NOTICE = { margin: '0 4px 6px', fontSize: 'calc(' + "var(--dsh-content-font-size-secondary, 13px)" + ' - 2px)', color: 'var(--dsw-alias-label-secondary)' }
+const WS_NOTICE = { margin: '0 4px 6px', flexShrink: 0, fontSize: 'calc(' + "var(--dsh-content-font-size-secondary, 13px)" + ' - 2px)', color: 'var(--dsw-alias-label-secondary)' }
