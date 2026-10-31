@@ -332,10 +332,7 @@ Archived still wins: an archived session never appears in Pinned.
 
 ## What a session has cost
 
-A session row shows the priced total for that session (`≈$0.00016`) when the cost feature has
-something to show. The number comes from the `polishCost` projection the Host half already writes:
-`costOf(snapshot, sessionId)` reads `snapshot.projectionsBySession[sessionId].values.polishCost`, so
-the tree never prices anything itself and never disagrees with the composer pill.
+Session rows no longer carry a money pill. What a session has cost (`≈$0.00016`) is read from the row's tooltip (`sessionTip`), the workspace hover recap, the header total and the **Spend by workspace** card — never from the row itself. The number comes from the `polishCost` projection the Host half already writes: `costOf(snapshot, sessionId)` reads `snapshot.projectionsBySession[sessionId].values.polishCost`, so the tree never prices anything itself and never disagrees with the composer pill.
 
 Two honest cases are covered by tests rather than by hope:
 
@@ -360,11 +357,7 @@ thing the **Move to top level** menu row does — now reachable without opening 
 
 ## Totals
 
-A session row shows what that session has cost (`costOf`/`costLabel`), a workspace row shows the sum
-of its sessions (`sumCostLabel`), and a folder header shows the sum of everything filed under it
-(`folderCostNode`). All three read the same host-side `polishCost` projection the composer pill uses,
-so no price maths happens twice. A group with nothing priced renders nothing at all — never a
-misleading ≈$0 — and a group priced only in CNY shows ¥.
+Rows carry no money at all: a session's cost lives in its tooltip (`costOf`/`costLabel` inside `sessionTip`), a workspace's running total appears in its hover recap (`sumCostLabel`), and the header total sums everything the tree shows. All of them read the same host-side `polishCost` projection the composer pill uses, so no price maths happens twice. A group with nothing priced renders nothing at all — never a misleading ≈$0 — and a group priced only in CNY shows ¥.
 
 ## Adding into a folder
 
@@ -401,7 +394,7 @@ refuses to remember only means the hint stays.
 ## The pinned section is a surface
 
 A pinned row carries the same information as a session row in its workspace: title, the working
-spinner, what it has cost, and a hover star that unpins it in place. Its context menu is the shipped session menu,
+spinner, and a hover star that unpins it in place. Its context menu is the shipped session menu,
 so Pin/Rename/Fork/Archive/Copy ID/Open workspace folder all work there too — including duplication.
 
 ## A folder has a look too
@@ -685,8 +678,8 @@ answers "Focus a session to pick it." instead of picking something else.
 ## Secondary rows
 
 Pinned and archived rows carry the same facts as live ones: the age (`data-polish-pinned-age`,
-`data-polish-archived-age`, with the absolute time in the tooltip) and the cost when the session has
-one. A pinned row hides its age while the session is running, because the running clock is the more
+`data-polish-archived-age`, with the absolute time in the tooltip). A pinned row hides its age
+while the session is running, because the running clock is the more
 useful number there and showing both reads as a contradiction.
 
 Both sections also render their rows as `treeitem` at level 2, so the announced structure has no
@@ -783,8 +776,8 @@ The tree's sort mode reaches inside each group: **Sort A to Z** orders sessions 
 order leaves them as the Host sent them. `sortSessions(sessions, mode, costOf)` is pure, tolerates a
 missing list, and breaks ties by lowercased name then arrival index, which keeps a rebuild stable.
 
-Verified live: under **Most spent first** one workspace read `ok ≈$0.0030`, `Greeting ≈$0.0016`,
-`Greeting ≈$0.000096`; **Sort A to Z** changed the names; host order restored the original sequence.
+Verified live: under **Most spent first** one workspace ordered `ok` (≈$0.0030), `Greeting`
+(≈$0.0016), `Greeting` (≈$0.000096) — read from the rows' tooltips; **Sort A to Z** changed the names; host order restored the original sequence.
 
 
 ### Reading a truncated row

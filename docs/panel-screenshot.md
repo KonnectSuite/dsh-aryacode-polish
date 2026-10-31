@@ -1,10 +1,13 @@
 # Right-panel screenshot
 
-The right panel grows a camera button in its own top-right corner, beside the
-Shell's split, expand and close controls. One click photographs the right
-panel's **open tab**, puts the picture on the clipboard, and attaches it to the
-message being written — the same place a pasted screenshot lands, so it can be
-sent with the next prompt without touching another tool.
+Every tabbed pane on the right side grows its own camera button in its tab
+strip — a split pane gets a camera per pane, and each photographs **its own
+pane's open tab**. (The top-right pane's strip carries the Shell's split, expand
+and close cluster, so its camera rides inside that cluster, ahead of those
+controls; a plain pane strip carries just the tabs plus the camera.) One click
+puts the picture on the clipboard and attaches it to the message being written —
+the same place a pasted screenshot lands, so it can be sent with the next prompt
+without touching another tool.
 
 This page records how that works, and — more importantly — what it cannot do,
 because the honest limits are the part that decides whether it replaces a snip
@@ -12,18 +15,22 @@ tool for a given job.
 
 ## What it captures
 
-The right panel is ordinary DOM in the same document as the chat, so the target
-is found with an attribute selector rather than a private class name:
+The right panel is ordinary DOM in the same document as the chat, so seats and
+targets are found with attribute selectors rather than private class names:
 
-| target | selector |
+| what | selector |
 |---|---|
-| the open tab's body | `[data-sidebar-right-session][data-sidebar-right-open] [data-dockkit-pane-active]` |
+| a pane's camera seat (its tab strip) | `[data-sidebar-right-session] [data-dockkit-strip]` |
+| the Shell's control cluster (top-right pane's strip) | `[data-dockkit-strip-chrome]` |
+| what a camera photographs (its own pane) | `strip.closest('[data-dockkit-pane]')` |
+| the open tab's body (fallback) | `[data-sidebar-right-session][data-sidebar-right-open] [data-dockkit-pane-active]` |
 | the panel itself (fallback) | `[data-sidebar-right-session][data-sidebar-right-open]` |
-| the bottom panel (fallback) | `[data-dsh-panel][data-dsh-bottom-panel]` |
 
-The first selector is what makes this work for both right sides: the Shell's own
-sidebar and `dsh-better-sidebar` both render their tabs through the same dock
-container, so the *active pane* is the current tab in either one. Targets are
+One camera per tabbed pane: the Shell gives every pane its own `data-dockkit-strip`,
+which is what makes a split pane get its own camera instead of one button that
+photographs whichever pane happens to be active. The camera rides inside the
+Shell's split/expand/close cluster where that strip has one, and at the strip's
+end where it does not. A panel with no tab strip shows no camera. Targets are
 skipped when they are smaller than 48 px in either direction, which keeps a
 collapsed panel from producing a sliver.
 

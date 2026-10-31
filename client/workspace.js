@@ -1530,16 +1530,6 @@ export function sumCostLabel(sessions, snapshot) {
   return total ? costLabel(total) : ''
 }
 
-/** The folder header shows the same total for everything filed under it. */
-export function folderCostNode(inside, snapshot, folder) {
-  const sessions = (inside || []).reduce((all, entry) => all.concat(entry.sessions), [])
-  const label = sumCostLabel(sessions, snapshot)
-  if (!label) return null
-  return React.createElement('span', {
-    'data-polish-ws-folder-cost': folder,
-    style: Object.assign({}, WS_COST, { marginLeft: '6px' }),
-  }, label)
-}
 export function splitPinned(sessions, pinnedIds) {
   const pinned = new Set(pinnedIds || [])
   const pinnedSessions = []
@@ -4626,19 +4616,6 @@ export function BetterWorkspace(props) {
         style: WS_AGE,
       }, ageLabel(row.updatedAt, clock))
       : null,
-    sessionCost
-      ? React.createElement('button', {
-      type: 'button',
-      'data-polish-ws-cost': row.id,
-      'data-polish-session-cost-open': row.id,
-      title: 'Show what this session has cost',
-      style: Object.assign({}, WS_COST, { border: 'none', background: 'transparent', cursor: 'pointer', font: 'inherit', padding: 0 }),
-      onClick: (event) => {
-        event.stopPropagation()
-        setCostPeek({ sessionId: row.id, workspaceId: workspace.workspaceId, label: row.displayTitle || row.id })
-      },
-    }, sessionCost)
-      : null,
     rowHovered || rowFocused
       ? React.createElement('button', {
         type: 'button',
@@ -4785,7 +4762,7 @@ export function BetterWorkspace(props) {
           setMenu({ kind: 'renameFolder', folder, anchor: { top: box.bottom + 4, left: box.left }, members: inside.map((entry) => entry.workspace) })
         },
       }, '✎'),
-      React.createElement('span', { style: WS_COUNT }, [String(inside.reduce((sum, entry) => sum + entry.sessions.length, 0)), folderCostNode(inside, sessionState, folder),
+      React.createElement('span', { style: WS_COUNT }, [String(inside.reduce((sum, entry) => sum + entry.sessions.length, 0)),
       unreadInside(inside, (row) => isUnread(row, seen)) > 0
         ? React.createElement('span', { 'data-polish-folder-unread': folder, title: 'Something inside is new', style: WS_UNREAD_DOT })
         : null,
@@ -4816,7 +4793,6 @@ export function BetterWorkspace(props) {
     const dropHere = dropping === 'workspace:' + workspace.workspaceId
     const looks = appearanceOf(look, workspace.workspaceId)
     const isCurrent = currentWorkspaceId === workspace.workspaceId
-    const rowCost = sumCostLabel(sessions, sessionState)
 
     children.push(React.createElement('div', {
       key: 'workspace:' + workspace.workspaceId,
@@ -4892,19 +4868,6 @@ export function BetterWorkspace(props) {
         title: unreadInside([{ sessions }], (row) => isUnread(row, seen)) + ' new session(s) here',
         style: Object.assign({}, WS_UNREAD_DOT, { marginLeft: '4px' }),
       })
-      : null,
-    rowCost
-      ? React.createElement('button', {
-        type: 'button',
-        'data-polish-ws-cost-total': workspace.workspaceId,
-        'data-polish-ws-cost-open': workspace.workspaceId,
-        title: 'Show what this workspace has cost',
-        style: Object.assign({}, WS_COST, { marginLeft: '6px', border: 'none', background: 'transparent', cursor: 'pointer', font: 'inherit', padding: 0 }),
-        onClick: (event) => {
-          event.stopPropagation()
-          setCostPeek({ workspaceId: workspace.workspaceId, label: workspaceLabel(workspace) })
-        },
-      }, rowCost)
       : null,
     React.createElement('button', {
       type: 'button',
@@ -5115,9 +5078,6 @@ export function BetterWorkspace(props) {
           : null,
         React.createElement('span', { style: WS_TITLE }, row.displayTitle || row.id),
         isRunning(row) ? null : React.createElement('span', { 'data-polish-pinned-age': row.id, style: WS_AGE, title: ageTitle(row.updatedAt) }, ageLabel(row.updatedAt, clock)),
-        costLabel(costOf(sessionState, row.id))
-          ? React.createElement('span', { 'data-polish-pinned-cost': row.id, style: WS_COST }, costLabel(costOf(sessionState, row.id)))
-          : null,
         React.createElement('span', { style: WS_COUNT_NOTE }, group ? workspaceLabel(group) : ''),
         hover === 'pinned:' + row.id
           ? React.createElement('button', {
@@ -5167,9 +5127,6 @@ export function BetterWorkspace(props) {
         React.createElement('span', { style: WS_TITLE }, row.displayTitle || row.id),
         ageLabel(row.updatedAt, clock)
           ? React.createElement('span', { 'data-polish-archived-age': row.id, style: WS_AGE, title: ageTitle(row.updatedAt) }, ageLabel(row.updatedAt, clock))
-          : null,
-        costLabel(costOf(sessionState, row.id))
-          ? React.createElement('span', { 'data-polish-archived-cost': row.id, style: WS_COST }, costLabel(costOf(sessionState, row.id)))
           : null))
       }
     }

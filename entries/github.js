@@ -115,6 +115,24 @@ export async function ghToken(run = runCommand) {
 }
 
 /**
+ * Whether the GitHub CLI is on this machine at all.
+ *
+ * A missing `gh` and a signed-out `gh` look identical through `gh auth token`
+ * (both fail), so the dialog asks for the version instead: presence is the
+ * fact the browser half needs before it offers sign-in.
+ * @param run - command runner, injected by tests.
+ * @returns true when `gh --version` exits 0.
+ */
+export async function ghPresent(run = runCommand) {
+  try {
+    const answer = await run('gh', ['--version'])
+    return answer.code === 0
+  } catch {
+    return false
+  }
+}
+
+/**
  * Pull the one-time code out of what `gh auth login --web` prints.
  *
  * The CLI writes `! One-time code (AE22-76C7) copied to clipboard` to stderr —
@@ -240,6 +258,95 @@ export function cancelLogin() {
   loginSession.state = 'cancelled'
   loginSession.reason = 'sign-in was cancelled'
   return { state: loginSession.state, code: loginSession.code, url: loginSession.url, reason: loginSession.reason }
+}
+
+/** The single install this process is running, if any. */
+let installSession
+
+/** Default ceiling on a winget install: it downloads and runs an installer. */
+export const INSTALL_TIMEOUT_MS = 10 * 60 * 1000
+
+/**
+ * Install the GitHub CLI through the Windows Package Manager.
+ *
+ * A machine without `gh` cannot sign in, and telling the user to open a
+ * terminal is a chore the dialog can do itself: winget ships with Windows 10+,
+ * and `winget install GitHub.cli` needs no elevation for a per-user install
+ * when the source agreements are accepted up front. Same session shape as the
+ * sign-in: kept alive here so the browser can poll, killed on cancel, timeout,
+ * or feature disposal.
+ * @param options - spawn override plus the timeout.
+ * @returns the state to show, or the reason it could not start.
+ */
+export function startInstall(options = {}) {
+  if (installSession !== undefined && installSession.state === 'pending') {
+    return { ok: true, value: { state: 'pending', reason: installSession.reason } }
+  }
+  const spawnImpl = options.spawn ?? spawn
+  const timeoutMs = options.timeoutMs ?? INSTALL_TIMEOUT_MS
+  const session = { state: 'starting', reason: '', child: undefined, timer: undefined }
+  try {
+    const child = spawnImpl('winget', ['install', '--id', 'GitHub.cli', '-e', '--accept-source-agreements', '--accept-package-agreements'], {
+      stdio: ['pipe', 'pipe', 'pipe'],
+      windowsHide: true,
+    })
+    session.child = child
+    child.on?.('error', () => {
+      session.state = 'failed'
+      session.reason = 'Windows Package Manager (winget) is not available on this machine. Install the GitHub CLI from https://cli.github.com'
+    })
+    child.on?.('close', code => {
+      if (session.state === 'cancelled') return
+      if (code === 0) {
+        session.state = 'succeeded'
+        session.reason = 'GitHub CLI installed. Relaunch AryaCode if its session check keeps failing.'
+        return
+      }
+      session.state = 'failed'
+      session.reason = `the GitHub CLI install stopped with code ${String(code)}; open a terminal and run \`winget install GitHub.cli\``
+    })
+    session.timer = setTimeout(() => {
+      if (session.state !== 'pending' && session.state !== 'starting') return
+      session.state = 'failed'
+      session.reason = 'the GitHub CLI install did not finish in time'
+      session.child?.kill?.()
+    }, timeoutMs)
+    session.timer?.unref?.()
+    session.state = 'pending'
+    installSession = session
+    return { ok: true, value: { state: session.state, reason: session.reason } }
+  } catch (error) {
+    session.state = 'failed'
+    session.reason = 'Windows Package Manager (winget) is not available on this machine. Install the GitHub CLI from https://cli.github.com'
+    installSession = session
+    return { ok: false, error: error instanceof Error ? error.message : String(error) }
+  }
+}
+
+/**
+ * Report the install this process is running.
+ * @returns the state plus the reason to show.
+ */
+export function installStatus() {
+  if (installSession === undefined) return { state: 'idle', reason: '' }
+  return { state: installSession.state, reason: installSession.reason }
+}
+
+/**
+ * Stop a pending install and forget it.
+ * @returns the state after cancelling.
+ */
+export function cancelInstall() {
+  if (installSession === undefined) return { state: 'idle', reason: '' }
+  if (installSession.timer !== undefined) clearTimeout(installSession.timer)
+  try {
+    installSession.child?.kill?.()
+  } catch {
+    // A child that already exited is the normal case here.
+  }
+  installSession.state = 'cancelled'
+  installSession.reason = 'install was cancelled'
+  return { state: installSession.state, reason: installSession.reason }
 }
 
 /**
@@ -444,6 +551,10 @@ export async function handleRequest(body, deps = {}) {
   if (action === 'login') return (deps.startLogin ?? startLogin)()
   if (action === 'loginStatus') return { ok: true, value: (deps.loginStatus ?? loginStatus)() }
   if (action === 'loginCancel') return { ok: true, value: (deps.cancelLogin ?? cancelLogin)() }
+  // Installing the CLI is reachable while it is missing: it is how a machine gets there.
+  if (action === 'install') return (deps.startInstall ?? startInstall)()
+  if (action === 'installStatus') return { ok: true, value: (deps.installStatus ?? installStatus)() }
+  if (action === 'installCancel') return { ok: true, value: (deps.cancelInstall ?? cancelInstall)() }
   // Signing everything out is reachable while signed in, so it belongs above the
   // token gate together with the sign-in verbs.
   if (action === 'logoutAll') {
@@ -455,24 +566,28 @@ export async function handleRequest(body, deps = {}) {
   }
   const token = await (deps.token ?? ghToken)()
   if (action === 'status') {
+    const present = await (deps.present ?? ghPresent)()
     const accounts = await (deps.accounts ?? listAccounts)().catch(() => [])
     if (token === undefined) {
       return {
         ok: true,
         value: {
           signedIn: false,
+          installed: present,
           login: '',
           accounts: [],
           root: cloneRoot(deps.home),
-          reason: 'The GitHub CLI is not signed in on this machine. Sign in from this dialog, or run `gh auth login` in a terminal.',
+          reason: present
+            ? 'The GitHub CLI is not signed in on this machine. Sign in from this dialog, or run `gh auth login` in a terminal.'
+            : 'The GitHub CLI is not installed on this machine. Install it from this dialog.',
         },
       }
     }
     const login = await (deps.login ?? fetchLogin)(token)
-    return { ok: true, value: { signedIn: true, login, accounts, root: cloneRoot(deps.home), reason: '' } }
+    return { ok: true, value: { signedIn: true, installed: true, login, accounts, root: cloneRoot(deps.home), reason: '' } }
   }
   if (token === undefined) {
-    return { ok: false, error: 'Sign in to GitHub first: use Sign in here, or run `gh auth login` in a terminal.' }
+    return { ok: false, error: 'Sign in to GitHub first: use Sign in here, run `gh auth login` in a terminal, or install the GitHub CLI from this dialog.' }
   }
   if (action === 'logout') {
     const login = await (deps.login ?? fetchLogin)(token)
@@ -521,7 +636,11 @@ export const githubFeature = {
   inject: ['connection'],
   apply(ctx, config = {}) {
     // A pending device flow holds a child process: it must die with the feature.
-    ctx.effect(() => () => { cancelLogin() })
+    // The same goes for a pending winget install.
+    ctx.effect(() => () => {
+      cancelLogin()
+      cancelInstall()
+    })
     ctx.effect(() => ctx.connection.fetch.register({
       path: GITHUB_ROUTE,
       // Without a method list the platform would only route GET, which is why the

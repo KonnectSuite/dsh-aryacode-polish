@@ -1,3 +1,23 @@
+## [0.100.0]
+
+### Added
+- Every tabbed pane on the right side carries its own camera, including split
+  panes — the camera was anchored to the top-right pane's control cluster, so the
+  other panes never had one. Each camera photographs its own pane's open tab; the
+  top-right camera rides inside the Shell's split/expand/close cluster ahead of
+  those controls.
+- The GitHub dialog tells a missing GitHub CLI apart from a signed-out one, and
+  offers **Install the GitHub CLI** on the machine: the Host runs
+  `winget install --id GitHub.cli` with the agreement flags pre-accepted, the
+  dialog polls it every two seconds like the sign-in flow, the install can be
+  cancelled, and a dead or timed-out install names what to do next. The sidebar
+  foot reads `GitHub · no CLI` in that state.
+
+### Changed
+- No row in the Better workspace wears a cost pill. A session's cost lives in its
+  tooltip, a workspace's running total in its hover recap, and the header total
+  opens Spend by workspace — the pills repeated facts the row already carries.
+
 ## [0.99.0]
 
 ### Fixed

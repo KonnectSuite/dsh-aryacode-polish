@@ -8,8 +8,17 @@ token.
 
 1. **Reads the CLI session.** The host half runs `gh auth token`. That is the
    whole authentication story: no OAuth app, no device code, no token in a
-   settings file, no token in the browser. When `gh` is missing or signed out,
-   the dialog says so and names the command that fixes it (`gh auth login`).
+   settings file, no token in the browser. A missing `gh` and a signed-out `gh`
+   look the same through `gh auth token` (both fail), so the dialog also asks
+   `gh --version` and separates them: a signed-out machine is offered sign-in, a
+   machine without the CLI is offered **Install** — `winget install --id
+   GitHub.cli` run on the Host with the agreement flags pre-accepted, polled
+   every two seconds like the sign-in, cancellable, with a ten-minute ceiling.
+   Where winget is unavailable the failure names the download page; where the
+   install dies the failure names the code and the terminal command to repeat it
+   (`winget install GitHub.cli`). After a success, sign in as usual — and
+   relaunch AryaCode if its session check keeps failing (winget installs land in
+   a new PATH).
 2. **Lists what that session can clone.** `GET /user/repos` with
    `affiliation=owner,collaborator,organization_member`, paged through the
    `link` header, most recently updated first.
@@ -47,9 +56,10 @@ The session belongs to the GitHub CLI, and both directions stay inside the app:
 - **Sign out** runs `gh auth logout --hostname github.com --user <login>` after a
   second confirming click, then re-reads the session. "not logged in" counts as
   success, because that is the state the click asked for.
-- **Where you see it** is the sidebar foot: `GitHub · <login>` or
-  `GitHub · signed out` holds the left edge of the status line, and the balance
-  (`$4.08 left`) takes the right one, so the foot reads as one row instead of two
+- **Where you see it** is the sidebar foot: `GitHub · <login>`,
+  `GitHub · signed out`, or `GitHub · no CLI` (the CLI is not installed at all)
+  holds the left edge of the status line, and the balance (`$4.08 left`) takes
+  the right one, so the foot reads as one row instead of two
   fragments. The dialog repeats it, and the footer row re-reads on window focus so
   a `gh auth login` run in a terminal shows up without a restart.
 
@@ -84,9 +94,10 @@ a dialog that never appears — an earlier build of this flow did exactly that a
 the row spun forever. The preload bridge is the reliable door in the app; the
 listing is what a browser gets instead of a spinner.
 
-The tray of the foot keeps the sign-in state (`GitHub · <login>`, or
-`GitHub · signed out`) next to the balance, so the account is visible without
-opening a dialog; clicking it opens the repository dialog directly.
+The tray of the foot keeps the sign-in state (`GitHub · <login>`,
+`GitHub · signed out`, or `GitHub · no CLI`) next to the balance, so the account
+is visible without opening a dialog; clicking it opens the repository dialog
+directly.
 
 ## Not used from the AryaAI-era plugin
 
@@ -103,7 +114,11 @@ cloned.
 `test/github.spec.mjs` covers the path rules (`.`, `..`, separators, empty),
 the destination layout, origin comparison across https/ssh forms, token
 scrubbing, the CLI token's three failure modes, signed-out and signed-in status,
-the `cloned` marker against a real temporary tree, the spawn shape of a clone
-(command, `--`, URL, destination, and the header in the environment rather than
-in the arguments), the reuse path, the refusal to overwrite another repository,
-and a failing clone whose message is scrubbed.
+the missing-CLI answer (`gh --version` present/absent, and `installed: false`
+with the install reason), the spawn shape of an install (winget, the CLI id,
+agreement flags, the success/code/timeout outcomes, and a machine without
+winget), the sign-in-shaped install polling, the `cloned` marker against a real
+temporary tree, the spawn shape of a clone (command, `--`, URL, destination, and
+the header in the environment rather than in the arguments), the reuse path, the
+refusal to overwrite another repository, and a failing clone whose message is
+scrubbed.

@@ -834,6 +834,7 @@ function GitHubPanel(props) {
   const [error, setError] = React.useState('')
   const [busy, setBusy] = React.useState('')
   const [signIn, setSignIn] = React.useState({ state: 'idle', code: '', url: '', reason: '' })
+  const [install, setInstall] = React.useState({ state: 'idle', reason: '' })
   const [confirmOut, setConfirmOut] = React.useState(false)
   const [confirmAll, setConfirmAll] = React.useState(false)
   const [notice, setNotice] = React.useState('')
@@ -870,6 +871,7 @@ function GitHubPanel(props) {
     setQuery('')
     setConfirmOut(false)
     setSignIn({ state: 'idle', code: '', url: '', reason: '' })
+    setInstall({ state: 'idle', reason: '' })
     refresh()
       .then(() => { if (live) setPhase('ready') })
       .catch(reason => {
@@ -903,6 +905,26 @@ function GitHubPanel(props) {
     return () => clearInterval(timer)
   }, [open, signIn.state])
 
+  // The winget install is the same long poll: ask the Host what the child reports.
+  React.useEffect(() => {
+    if (!open || (install.state !== 'pending' && install.state !== 'starting')) return undefined
+    const timer = setInterval(() => {
+      Promise.resolve()
+        .then(() => githubCall('installStatus'))
+        .then(answer => {
+          setInstall({ state: answer.state ?? 'idle', reason: answer.reason ?? '' })
+          if (answer.state === 'succeeded') {
+            setPhase('loading')
+            return refresh().then(() => setPhase('ready'))
+          }
+          if (answer.state === 'failed' || answer.state === 'cancelled') setError(answer.reason ?? 'Install did not finish.')
+          return undefined
+        })
+        .catch(reason => setError(reason instanceof Error ? reason.message : String(reason)))
+    }, 2000)
+    return () => clearInterval(timer)
+  }, [open, install.state])
+
   React.useEffect(() => {
     if (!open) return undefined
     const onKey = event => { if (event.key === 'Escape') githubStore.set(false) }
@@ -913,6 +935,8 @@ function GitHubPanel(props) {
   if (!open || !enabled) return null
 
   const signedIn = account !== undefined && account.signedIn === true
+  // A missing CLI is its own state: the dialog offers Install instead of Sign in.
+  const installed = account === undefined || account.installed !== false
   const needle = query.trim().toLowerCase()
   const visible = needle === ''
     ? repos
@@ -973,6 +997,29 @@ function GitHubPanel(props) {
       .then(() => githubCall('loginCancel'))
       .then(() => setSignIn({ state: 'idle', code: '', url: '', reason: '' }))
       .catch(() => setSignIn({ state: 'idle', code: '', url: '', reason: '' }))
+  }
+
+  /**
+   * Ask the Host to install the GitHub CLI through winget. The child belongs to
+   * the Host; this dialog only renders its state, exactly like the device flow.
+   */
+  const beginInstall = () => {
+    setError('')
+    setInstall({ state: 'starting', reason: '' })
+    Promise.resolve()
+      .then(() => githubCall('install'))
+      .then(answer => setInstall({ state: answer.state ?? 'failed', reason: answer.reason ?? '' }))
+      .catch(reason => {
+        setInstall({ state: 'failed', reason: '' })
+        setError(reason instanceof Error ? reason.message : String(reason))
+      })
+  }
+
+  const cancelInstallRun = () => {
+    Promise.resolve()
+      .then(() => githubCall('installCancel'))
+      .then(() => setInstall({ state: 'idle', reason: '' }))
+      .catch(() => setInstall({ state: 'idle', reason: '' }))
   }
 
   /** Sign the CLI out, which is what every read in this feature depends on. */
@@ -1077,7 +1124,9 @@ function GitHubPanel(props) {
         phase === 'loading' && !signedIn ? 'Checking the GitHub CLI session…' : null,
         signedIn ? `Signed in as ${String(account.login)} · cloning into ${root}` : null,
         !signedIn && phase !== 'loading'
-          ? 'GitHub is not signed in on this machine. The sign-in below is the GitHub CLI device flow, so no token is ever typed here or stored by this plugin.'
+          ? installed === false
+            ? 'The GitHub CLI is not installed on this machine. Install it below, sign in, then clone from here. No token is ever typed here or stored by this plugin.'
+            : 'GitHub is not signed in on this machine. The sign-in below is the GitHub CLI device flow, so no token is ever typed here or stored by this plugin.'
           : null),
       notice === ''
         ? null
@@ -1127,7 +1176,24 @@ function GitHubPanel(props) {
                   style: { ...GITHUB_BUTTON_STYLE, textDecoration: 'none', display: 'inline-flex', alignItems: 'center' },
                 }, 'Open the device page'),
                 React.createElement('button', { type: 'button', onClick: cancelSignIn, style: GITHUB_BUTTON_STYLE, 'data-polish-github': 'cancel' }, 'Cancel')))
-            : React.createElement('div', null,
+            : installed === false
+              ? React.createElement('div', null,
+                install.state === 'pending' || install.state === 'starting'
+                  ? React.createElement('div', null,
+                    React.createElement('div', { style: { marginBottom: '8px' } }, 'Installing the GitHub CLI with the Windows Package Manager…'),
+                    React.createElement('div', { style: { display: 'flex', gap: '8px', marginTop: '2px' } },
+                      React.createElement('button', { type: 'button', onClick: cancelInstallRun, style: GITHUB_BUTTON_STYLE, 'data-polish-github': 'installcancel' }, 'Cancel')))
+                  : React.createElement('div', null,
+                    React.createElement('button', {
+                      type: 'button',
+                      onClick: beginInstall,
+                      'data-polish-github': 'install',
+                      style: GITHUB_BUTTON_STYLE,
+                    }, 'Install the GitHub CLI'),
+                    install.state === 'failed' && install.reason !== ''
+                      ? React.createElement('div', { style: { marginTop: '8px', color: 'var(--dsw-alias-label-error, #b42318)' } }, install.reason)
+                      : null))
+              : React.createElement('div', null,
               React.createElement('button', {
                 type: 'button',
                 onClick: beginSignIn,
@@ -1212,17 +1278,20 @@ function GithubStatus(props) {
   if (!enabled) return null
   const current = shared === undefined ? status : shared
   const signedIn = current !== undefined && current.signedIn === true
+  const cliMissing = current !== undefined && current.installed === false
   const label = current === undefined
     ? 'GitHub · checking…'
-    : signedIn ? `GitHub · ${String(current.login)}` : 'GitHub · signed out'
+    : signedIn ? `GitHub · ${String(current.login)}` : cliMissing ? 'GitHub · no CLI' : 'GitHub · signed out'
   return React.createElement('div', { style: { minWidth: 0 } },
     React.createElement('button', {
       type: 'button',
       'data-polish-github': 'status',
-      'data-polish-github-state': signedIn ? 'in' : current === undefined ? 'checking' : 'out',
+      'data-polish-github-state': signedIn ? 'in' : current === undefined ? 'checking' : cliMissing ? 'missing' : 'out',
       title: signedIn
         ? 'Add a workspace from GitHub'
-        : 'Sign in with the GitHub CLI (gh auth login), then add a repository as a workspace',
+        : cliMissing
+          ? 'Install the GitHub CLI (winget install GitHub.cli), sign in, then add a repository as a workspace'
+          : 'Sign in with the GitHub CLI (gh auth login), then add a repository as a workspace',
       'aria-label': label,
       onClick: () => githubStore.open(),
       style: FOOT_ROW_STYLE,
@@ -1804,6 +1873,48 @@ function ShotSpinnerGlyph() {
 const SHOT_CHROME_SELECTOR = '[data-dockkit-strip-chrome]'
 
 /**
+ * Every tabbed pane on the right: the docking kit draws one strip per pane,
+ * and only the top-right pane carries the chrome seat. A pane split off from
+ * it has no chrome, so its camera rides the strip's own end — every pane on
+ * the right gets its own camera, and each photographs its own tabs.
+ */
+const SHOT_STRIP_SELECTOR = '[data-sidebar-right-session] [data-dockkit-strip]'
+
+/**
+ * The camera seats visible right now: the chrome cluster where a pane has
+ * one, else the strip itself. Keys keep React stable across strip rebuilds.
+ * @returns one entry per seat.
+ */
+function shotHosts() {
+  const seats = []
+  const seen = new Set()
+  for (const strip of Array.from(document.querySelectorAll(SHOT_STRIP_SELECTOR))) {
+    const chrome = strip.querySelector(SHOT_CHROME_SELECTOR)
+    const host = chrome ?? strip
+    if (seen.has(host)) continue
+    seen.add(host)
+    const paneId = strip.getAttribute('data-dockkit-strip') ?? 'pane-' + String(seats.length)
+    seats.push({ host, key: paneId + (chrome === null ? '' : '-chrome'), first: chrome !== null })
+  }
+  return seats
+}
+
+/**
+ * The element a camera on this seat photographs: its own pane, so a camera
+ * on a split pane captures that pane instead of the first one on the page.
+ * @param host - the seat the button was portalld into.
+ * @returns the element, falling back to the global panel target.
+ */
+function shotTargetFor(host) {
+  const pane = host.closest('[data-dockkit-pane]')
+  if (pane !== null && pane !== undefined) {
+    const rect = pane.getBoundingClientRect()
+    if (rect.width >= 48 && rect.height >= 48) return pane
+  }
+  return panelTarget()
+}
+
+/**
  * Mirrors the Shell's own strip control: a 28px box with 6px padding around a
  * 15px glyph, secondary label colour, transparent until hovered.
  */
@@ -1872,37 +1983,18 @@ function PanelShotContext(props) {
 }
 
 /**
- * Camera button in the right panel's tab strip: photographs the open tab, copies
- * it, and attaches it to the message being written.
- * @param props - overlay slot props plus the late `conversation` lookup.
- * @returns the portalled button, or null while there is no panel or no Session.
+ * One camera, portalled into one seat: photographs that seat's own pane,
+ * copies it, and attaches it to the message being written.
+ * @param props - `host` the seat to portal into, `first` when the seat is the
+ * chrome cluster (order the button before the Shell's own controls), and the
+ * composer `context` the picture lands in.
+ * @returns the portalled button.
  */
-function PanelShotButton(props) {
-  const on = useSwitch(props.configForms, 'panelScreenshot', true)
-  const context = React.useSyncExternalStore(shotStore.subscribe, shotStore.get)
-  const [host, setHost] = React.useState(undefined)
+function PanelShotCamera(props) {
+  const host = props.host
+  const context = props.context
   const [phase, setPhase] = React.useState('idle')
   const [note, setNote] = React.useState('')
-  React.useEffect(() => {
-    // The strip is created, destroyed and re-created as panes open, split and
-    // close, so follow the document rather than measuring it once. Frames are
-    // coalesced because React commits fire many mutations in a row.
-    let frame = 0
-    const find = () => {
-      frame = 0
-      setHost(document.querySelector(SHOT_CHROME_SELECTOR) ?? undefined)
-    }
-    const schedule = () => {
-      if (frame === 0) frame = window.requestAnimationFrame(find)
-    }
-    find()
-    const observer = new MutationObserver(schedule)
-    observer.observe(document.body, { childList: true, subtree: true })
-    return () => {
-      if (frame !== 0) window.cancelAnimationFrame(frame)
-      observer.disconnect()
-    }
-  }, [])
   React.useEffect(() => {
     if (note === '') return undefined
     const timer = setTimeout(() => {
@@ -1911,10 +2003,9 @@ function PanelShotButton(props) {
     }, 4000)
     return () => clearTimeout(timer)
   }, [note])
-  if (!on || context === undefined || host === undefined) return null
   const take = async () => {
     if (phase === 'busy') return
-    const node = panelTarget()
+    const node = shotTargetFor(host)
     if (node === undefined) {
       setPhase('failed')
       setNote('open a panel on the right first')
@@ -1979,6 +2070,9 @@ function PanelShotButton(props) {
     onMouseLeave: (event) => { event.currentTarget.style.background = 'transparent' },
     style: {
       ...SHOT_BUTTON_STYLE,
+      // The chrome seat wants the camera ahead of the Shell's own controls;
+      // on a bare strip the button simply rides the strip's end.
+      order: props.first === true ? -1 : 0,
       color: phase === 'failed'
         ? 'var(--dsw-alias-label-error, #b42318)'
         : phase === 'done'
@@ -1994,6 +2088,55 @@ function PanelShotButton(props) {
       : React.createElement(Tooltip, { label: tip, side: 'bottom', delayMs: 500 }, button),
     host,
   )
+}
+
+/**
+ * Cameras for the right side: one per tabbed pane, so a split pane keeps its
+ * own camera and each photographs its own tabs.
+ * @param props - overlay slot props (`configForms`).
+ * @returns the portalled cameras, or null while the switch is off or no
+ * Session is composing a message.
+ */
+function PanelShotButton(props) {
+  const on = useSwitch(props.configForms, 'panelScreenshot', true)
+  const context = React.useSyncExternalStore(shotStore.subscribe, shotStore.get)
+  const [seats, setSeats] = React.useState([])
+  React.useEffect(() => {
+    // Strips are created, destroyed and re-created as panes open, split and
+    // close, so follow the document rather than measuring it once. Frames are
+    // coalesced because React commits fire many mutations in a row, and the
+    // state only moves when the seat set actually changed — our own portals
+    // mutate the document too, and re-finding them must not re-render.
+    let frame = 0
+    let signature = ''
+    const find = () => {
+      frame = 0
+      const next = shotHosts()
+      const keys = next.map((seat) => seat.key).join('\u0000')
+      if (keys !== signature) {
+        signature = keys
+        setSeats(next)
+      }
+    }
+    const schedule = () => {
+      if (frame === 0) frame = window.requestAnimationFrame(find)
+    }
+    find()
+    const observer = new MutationObserver(schedule)
+    observer.observe(document.body, { childList: true, subtree: true })
+    return () => {
+      if (frame !== 0) window.cancelAnimationFrame(frame)
+      observer.disconnect()
+    }
+  }, [])
+  if (!on || context === undefined) return null
+  return React.createElement(React.Fragment, null,
+    ...seats.map((seat) => React.createElement(PanelShotCamera, {
+      key: seat.key,
+      host: seat.host,
+      first: seat.first,
+      context,
+    })))
 }
 
 /**

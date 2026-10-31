@@ -7,11 +7,14 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import {
   assertSegment,
+  cancelInstall,
   cancelLogin,
   cloneDestination,
   cloneRepo,
+  ghPresent,
   ghToken,
   handleRequest,
+  installStatus,
   json,
   loginStatus,
   listAccounts,
@@ -21,6 +24,7 @@ import {
   signOut,
   signOutAll,
   sameOrigin,
+  startInstall,
   startLogin,
 } from '../entries/github.js'
 
@@ -72,18 +76,28 @@ test('the GitHub CLI supplies the token, and its absence is not an error', async
 })
 
 test('status reports the CLI session without one, and the login with one', async () => {
-  const signedOut = await handleRequest({ action: 'status' }, { token: async () => undefined })
+  const signedOut = await handleRequest({ action: 'status' }, { token: async () => undefined, present: async () => true })
   assert.equal(signedOut.ok, true)
   assert.equal(signedOut.value.signedIn, false)
+  assert.equal(signedOut.value.installed, true)
   assert.match(signedOut.value.reason, /gh auth login/)
 
   const signedIn = await handleRequest({ action: 'status' }, {
     token: async () => 'gho_token',
+    present: async () => true,
     login: async token => { assert.equal(token, 'gho_token'); return 'acme' },
   })
   assert.equal(signedIn.value.signedIn, true)
+  assert.equal(signedIn.value.installed, true)
   assert.equal(signedIn.value.login, 'acme')
   assert.match(signedIn.value.root, /AryaCode$/)
+})
+
+test('status tells a missing CLI apart from a signed-out one', async () => {
+  const missing = await handleRequest({ action: 'status' }, { token: async () => undefined, present: async () => false })
+  assert.equal(missing.ok, true)
+  assert.equal(missing.value.installed, false)
+  assert.match(missing.value.reason, /not installed/)
 })
 
 test('repos are marked when their clone already exists under the root', async () => {
@@ -371,4 +385,88 @@ test('the route answers JSON with no-store, so a stale repository list cannot be
   assert.equal(response.headers.get('cache-control'), 'no-store')
   assert.match(response.headers.get('content-type'), /application\/json/)
   assert.deepEqual(await response.json(), { ok: true, value: 1 })
+})
+
+test('the CLI is present when `gh --version` answers and missing when it cannot run', async () => {
+  assert.equal(await ghPresent(async () => ({ code: 0, stdout: 'gh version 2.63.0', stderr: '' })), true)
+  assert.equal(await ghPresent(async () => ({ code: 1, stdout: '', stderr: 'not found' })), false)
+  assert.equal(await ghPresent(async () => { throw new Error('spawn gh ENOENT') }), false)
+})
+
+test('an install spawns winget for the GitHub CLI and reports its outcome', () => {
+  const listeners = {}
+  const child = {
+    on(event, handler) { listeners[event] = handler },
+    kill() {},
+  }
+  const spawned = []
+  const started = startInstall({
+    spawn: (command, args) => { spawned.push({ command, args }); return child },
+    timeoutMs: 60_000,
+  })
+  assert.equal(started.ok, true)
+  assert.equal(started.value.state, 'pending')
+  assert.equal(spawned[0].command, 'winget')
+  assert.deepEqual(spawned[0].args, [
+    'install', '--id', 'GitHub.cli', '-e',
+    '--accept-source-agreements', '--accept-package-agreements',
+  ])
+  assert.equal(installStatus().state, 'pending')
+  listeners.close(0)
+  assert.equal(installStatus().state, 'succeeded')
+  assert.match(installStatus().reason, /Relaunch AryaCode/)
+  cancelInstall()
+})
+
+test('a winget install that dies names the code, and a machine without winget names the fix', () => {
+  const listeners = {}
+  const child = {
+    on(event, handler) { listeners[event] = handler },
+    kill() {},
+  }
+  startInstall({ spawn: () => child, timeoutMs: 60_000 })
+  listeners.close(3)
+  assert.equal(installStatus().state, 'failed')
+  assert.match(installStatus().reason, /stopped with code 3/)
+  assert.match(installStatus().reason, /winget install GitHub\.cli/)
+  cancelInstall()
+
+  const threw = startInstall({
+    spawn: () => { throw new Error('spawn winget ENOENT') },
+    timeoutMs: 60_000,
+  })
+  assert.equal(threw.ok, false)
+  assert.equal(installStatus().state, 'failed')
+  assert.match(installStatus().reason, /winget/)
+  cancelInstall()
+})
+
+test('an install that never finishes fails on its own timer instead of hanging', async () => {
+  const child = { on() {}, kill() {} }
+  startInstall({ spawn: () => child, timeoutMs: 10 })
+  assert.equal(installStatus().state, 'pending')
+  await new Promise(resolve => { setTimeout(resolve, 60) })
+  assert.equal(installStatus().state, 'failed')
+  assert.match(installStatus().reason, /did not finish in time/)
+  cancelInstall()
+})
+
+test('install actions are reachable without a sign-in, and routed by the Host', async () => {
+  const signedOut = { token: async () => undefined }
+  const install = await handleRequest({ action: 'install' }, {
+    ...signedOut,
+    startInstall: () => ({ ok: true, value: { state: 'pending', reason: '' } }),
+  })
+  assert.equal(install.ok, true)
+  assert.equal(install.value.state, 'pending')
+  const poll = await handleRequest({ action: 'installStatus' }, {
+    ...signedOut,
+    installStatus: () => ({ state: 'pending', reason: '' }),
+  })
+  assert.equal(poll.value.state, 'pending')
+  const cancelled = await handleRequest({ action: 'installCancel' }, {
+    ...signedOut,
+    cancelInstall: () => ({ state: 'cancelled', reason: 'install was cancelled' }),
+  })
+  assert.equal(cancelled.value.state, 'cancelled')
 })

@@ -263,6 +263,11 @@ test('a panel capture paints its busy state and photographs a copy, not the app 
 test('the Workspaces "+" menu offers both sources and honours the flow contract', () => {
   assert.ok(bundle.includes("'On this PC'"), 'the source menu names the machine')
   assert.ok(bundle.includes("'GitHub repository…'"), 'the source menu names GitHub')
+  assert.ok(bundle.includes("'Install the GitHub CLI'"), 'a machine without the CLI is offered the install')
+  assert.ok(bundle.includes("githubCall('install')"), 'install runs through the Host, not the browser')
+  assert.ok(bundle.includes("githubCall('installStatus')"), 'the install is polled like the sign-in')
+  assert.ok(bundle.includes("'data-polish-github': 'install'"), 'the install button is addressable')
+  assert.ok(bundle.includes("'GitHub · no CLI'"), 'the footer says the CLI is missing, not signed out')
   assert.ok(
     bundle.includes('__DSH_DIRECTORY_PICKER__'),
     'in the desktop app the machine source must open the real OS chooser through the preload bridge',
@@ -484,9 +489,12 @@ test('a pinned session is lifted into its own section', () => {
   }
 })
 
-test('a session row can show what it has cost', () => {
-  for (const marker of ['data-polish-ws-cost', 'costLabel(costOf(sessionState', 'projectionsBySession']) {
+test('a session row carries its cost in the tooltip, not a pill', () => {
+  for (const marker of ['costLabel(costOf(sessionState', 'projectionsBySession', 'sessionTip(row, { note: markOf(marks, row.id).note, cost: sessionCost, age: ageTitle(row.updatedAt) })']) {
     assert.ok(bundle.includes(marker), 'bundle is missing ' + marker)
+  }
+  for (const gone of ["'data-polish-ws-cost'", "'data-polish-session-cost-open'"]) {
+    assert.ok(!bundle.includes(gone), 'the session row cost pill is gone: ' + gone)
   }
 })
 
@@ -497,11 +505,12 @@ test('a session can be renamed in place, and a filed workspace dragged back out'
 })
 
 
-test('a workspace and a folder show the same running total as their sessions', () => {
+test('workspace and folder rows no longer carry running-total pills', () => {
   const bundle = read('lib/client.js')
-  assert.ok(bundle.includes("'data-polish-ws-cost-total'"))
-  assert.ok(bundle.includes("'data-polish-ws-folder-cost'"))
-  assert.ok(bundle.includes('sumCostLabel('))
+  assert.ok(!bundle.includes("'data-polish-ws-cost-total'"))
+  assert.ok(!bundle.includes("'data-polish-ws-cost-open'"))
+  assert.ok(!bundle.includes("'data-polish-ws-folder-cost'"))
+  assert.ok(bundle.includes('sumCostLabel('), 'the running total is still computed for the hover recap')
 })
 
 
@@ -541,9 +550,9 @@ test('the tree can explain itself, and stops hinting once it has', () => {
 })
 
 
-test('a pinned row shows its cost and can be unpinned in place', () => {
+test('a pinned row can be unpinned in place, and carries no cost pill', () => {
   const bundle = read('lib/client.js')
-  assert.ok(bundle.includes("'data-polish-pinned-cost'"))
+  assert.ok(!bundle.includes("'data-polish-pinned-cost'"))
   assert.ok(bundle.includes("'data-polish-pinned-unpin'"))
   assert.ok(bundle.includes("hover === 'pinned:' + row.id"))
 })
@@ -686,7 +695,10 @@ test('Space picks the focused session', () => {
 })
 
 test('secondary rows carry the same facts', () => {
-  for (const marker of ["'data-polish-archived-age'", "'data-polish-archived-cost'", "'data-polish-pinned-age'", "isRunning(row) ? null : React.createElement('span', { 'data-polish-pinned-age'"]) {
+  for (const marker of ["'data-polish-archived-age'", "'data-polish-pinned-age'", "isRunning(row) ? null : React.createElement('span', { 'data-polish-pinned-age'"]) {
     assert.ok(workspaceSource.includes(marker), 'bundle should carry ' + marker)
+  }
+  for (const gone of ["'data-polish-archived-cost'", "'data-polish-pinned-cost'"]) {
+    assert.ok(!workspaceSource.includes(gone), 'the secondary-row cost pills are gone: ' + gone)
   }
 })
