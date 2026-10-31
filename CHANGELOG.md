@@ -1,3 +1,8 @@
+## [0.103.7]
+
+### Fixed
+
+- The policy panel no longer reads as if its numbers were the live policy. The row-config snapshot does not carry the profile patch layer, so the panel now labels the values as declared defaults and points at the session's Compaction tab, which shows what the preset actually mounted with.
 ## [0.103.6]
 
 ### Changed

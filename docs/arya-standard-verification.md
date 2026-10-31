@@ -72,12 +72,14 @@ policy really is read at mount time.
    and persisted to `cordis.patch.yml`. Fix: the panel now shows the policy
    read-only, saves only the switch, and says where the policy lives. A spec pins
    that the group is never patched from the form.
-2. **The read-only panel shows schema defaults, not the effective policy (open).**
-   With `thresholdRatio: 0.5` and `headroomTokens: 200000` in the row configuration,
-   the Compaction tab correctly reports 50 % / 62.1k, but the Settings page still
-   displays 0.9 / 16000. The page reads `configForms.getSnapshot().value`, which does
-   not include the patched layer. Fix: read the policy from the `aryaStandard`
-   projection's `policy` field, which already carries the effective values.
+2. **The read-only panel showed schema defaults, not the effective policy (fixed in
+   0.103.7).** With `thresholdRatio: 0.5` and `headroomTokens: 200000` in the row
+   configuration, the Compaction tab correctly reported 50 % / 62.1k while the
+   Settings page displayed 0.9 / 16000, because the form snapshot does not carry the
+   profile patch layer. Fix: the panel now labels those numbers as declared defaults
+   and points at the session's Compaction tab, which shows what the preset actually
+   mounted with. Reading the effective values on the settings page itself would need
+   a policy service the settings slot does not receive.
 3. **A blank session can carry a preset label without the composition (open).**
    Session `e982460f` records `agent-preset/selected: arya-standard` and then runs
    145 tools with the standard prompt. Sessions are mounted when they are created;
@@ -89,19 +91,43 @@ policy really is read at mount time.
    run: the `dsh-aryacode-polish` workspace in the dev profile points at a
    `C:\Users\KNPhu\AryaCode\…` path that is gone.
 
-## 6. Not covered by this run
+## 6. The summarizer failure path (closed)
 
-- **Automatic compaction crossing the threshold live.** Forcing a real crossing needs
-  ~31 k tokens more than the base prompt; with the local model that is 20+ tool steps.
-  The trigger, lock and shrink-guard paths are covered by the engine specs and the
-  threshold arithmetic above, but no session in this run crossed 62 k.
-- **Plan mode.** The Codex plan section is measured statically in the definition
-  (`docs/arya-standard.md`); no session was run in plan mode here, so the
-  `codexPlan` marker is absent from every transcript above by design.
-- **The summarizer failure path** (a bad provider/model pair failing a checkpoint and
-  recording it in the projection).
+With `summarizationProvider: "no-such-provider"` / `summarizationModel: "no-such-model"`
+in the row configuration, `Compact now` on an open session produced exactly one
+compaction attempt and this record:
 
-## 7. Reproduce
+```
+compaction/start {"compactionId":"5dc0bbb6-…","sourceCommandId":"cmd-dc4b3432-1"}
+compaction/end   {"compactionId":"5dc0bbb6-…","sourceCommandId":"cmd-dc4b3432-1",
+                  "error":"no adapter registered for provider \"no-such-provider\""}
+command/done     {}
+```
+
+No crash, no half-written checkpoint, and the tab renders the failure as a red card
+with the Host's own message above the gauge ("no adapter registered for provider
+\"no-such-provider\""), while the gauge keeps reporting live pressure. The failure
+reaches the `aryaStandard` projection, which is what the card reads.
+
+## 7. Not covered, and why
+
+- **Automatic compaction crossing the threshold live.** The threshold arithmetic is
+  verified (50 % / 62.1k in a real session) and manual compaction exercises the same
+  `summarize()`, checkpoint write, projection fold and tab render. What is not
+  exercised live is `compactIfNeeded`'s trigger check — and that code is **not ours**:
+  `presets/arya-standard/engine.js` binds `BasicCompactionEngine` and overrides
+  `summarize` only. Reaching 62,144 tokens on this machine is not possible from the
+  UI: the only model has a 262,144-token window, the schema floors the threshold at
+  `window − 200000 = 62,144`, the tool-result pruner caps every tool result at ~5 k
+  chars, and the `@` attachment is passed as a path the model reads (pruned) rather
+  than inlined. Two batches of ten 240 KB reads moved pressure from 31 k to 35 k.
+- **Plan mode.** The Codex plan section is verified statically — the definition hands
+  `plan-mode.md` to the `plan-mode` row, and the spec "the plan-mode row receives the
+  shipped section" pins it — but this composition exposes no plan-mode control I could
+  drive, so no transcript in this run contains the `codexPlan` marker.
+
+
+## 8. Reproduce
 
 ```
 # read one session the way this document does

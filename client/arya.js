@@ -405,8 +405,10 @@ function AryaSettingsEditor(props) {
 
     React.createElement(AryaSettingsFields, { options, enabled, disabled: true, onChange: update }),
 
+    React.createElement('p', { style: { ...ARYA_MUTED, fontSize: '11.5px', margin: '0 0 4px' } },
+      'Declared defaults, not the effective policy: the Host writes only volatile fields from this form, and this row config snapshot does not carry the profile patch layer. A session’s Compaction tab shows the values it actually mounted with.'),
     React.createElement('p', { style: { ...ARYA_MUTED, fontSize: '11.5px', margin: '0 0 12px' } },
-      'The Host writes only volatile fields from this form, so the policy itself is read from the row configuration. Edit the polish row (Open configuration file above) and restart; the preset definition, its engine row and this tab rebuild from the new values.'),
+      'To change the policy, edit the polish row (Open configuration file above) and restart; the preset definition, its engine row and this tab rebuild from the new values.'),
 
     React.createElement('div', { style: { ...ARYA_ROW, justifyContent: 'flex-start', gap: '12px' } },
       React.createElement('button', {
