@@ -1,3 +1,18 @@
+## [0.106.1]
+
+### Changed
+
+- Export shows the list in the page as a selectable JSON panel instead of writing the clipboard. The clipboard API is not reliable from the settings window, and a visible panel is verifiable: focus selects the text, Hide closes it, and the footer names the file.
+## [0.106.0]
+
+### Added
+
+- **Export / Import.** Export copies the entire server list as JSON; Import opens the Paste tab, which now saves an exported store or any JSON array in one step and reports how many servers landed.
+
+### Fixed
+
+- The page header stacks its title above the button row, so the description keeps a readable measure.
+- The confirmation line renders in the page flow; a fixed overlay is clipped by the settings dialog.
 ## [0.105.9]
 
 ### Fixed

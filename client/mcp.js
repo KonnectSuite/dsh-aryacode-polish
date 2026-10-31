@@ -725,6 +725,7 @@ function McpServersPage(props) {
   const [drawer, setDrawer] = React.useState(null)
   const [toast, setToast] = React.useState('')
   const [confirming, setConfirming] = React.useState(null)
+  const [exported, setExported] = React.useState('')
 
   const notify = message => {
     setToast(message)
@@ -789,17 +790,18 @@ function McpServersPage(props) {
   }
 
   const exportAll = async () => {
+    // A panel, not the clipboard: the page cannot rely on clipboard permission,
+    // and the JSON should be visible before it is copied anywhere.
+    if (exported !== '') {
+      setExported('')
+      return
+    }
     const answer = await mcpPost({ action: 'export' })
     if (answer.ok === false) {
       notify(String(answer.error ?? 'Nothing to export.'))
       return
     }
-    try {
-      await navigator.clipboard.writeText(JSON.stringify(answer.store, null, 2))
-      notify('Copied ' + String((answer.store.servers ?? []).length) + ' server(s) as JSON.')
-    } catch {
-      notify('The clipboard refused the copy.')
-    }
+    setExported(JSON.stringify(answer.store, null, 2))
   }
 
   const toDraft = server => ({
@@ -864,6 +866,20 @@ function McpServersPage(props) {
     data?.bridge === false ? mcpEl('div', {
       style: { ...MCP_CARD, marginTop: '12px', borderColor: mcpTint(MCP_THEME.warn, 40) },
     }, mcpEl('div', { style: MCP_EYEBROW }, 'Bridge unavailable'), mcpEl('p', { style: MCP_MUTED }, data.bridgeError)) : null,
+
+    exported === '' ? null : mcpEl('div', { style: { ...MCP_CARD, margin: '2px 0 12px' } },
+      mcpEl('div', { style: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px', marginBottom: '8px' } },
+        mcpEl('div', { style: { ...MCP_EYEBROW, margin: 0 } }, 'Server list (JSON)'),
+        mcpEl('button', { type: 'button', style: MCP_BUTTON, onClick: () => setExported('') }, 'Hide')),
+      mcpEl('textarea', {
+        readOnly: true,
+        value: exported,
+        rows: 10,
+        onFocus: event => event.target.select(),
+        style: { ...MCP_INPUT, fontFamily: MCP_FONT_MONO, fontSize: '11px', resize: 'vertical' },
+      }),
+      mcpEl('p', { style: { ...MCP_MUTED, fontSize: '11px', marginTop: '6px' } },
+        'Focus selects everything; the file itself is ' + String(data?.storePath ?? 'mcp-servers.json') + '.')),
 
     mcpEl('div', { style: { display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap', margin: '14px 0 12px' } },
       mcpEl('input', {

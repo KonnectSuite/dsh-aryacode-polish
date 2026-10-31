@@ -25,6 +25,10 @@ The tools the model actually sees, read from the live registry:
 
 ![The tools tab](mcp/mcp-05-tools.png)
 
+Export renders the whole list in the page, ready to select or copy:
+
+![The export panel](mcp/mcp-06-export.png)
+
 These captures come from the development app on 2026-10-31, version 0.105.4,
 with `@modelcontextprotocol/server-memory` installed through the catalog.
 ## What the page does
