@@ -27,8 +27,6 @@ import { createAryaStandardCompaction } from './compaction.js'
 
 export { createAryaStandardCompaction }
 
-report('engine module loaded')
-
 /** Whether the diagnostic channel is on. */
 const DEBUG = typeof process === 'object' && process !== null
   && process.env !== undefined && process.env.ARYA_STANDARD_DEBUG === '1'

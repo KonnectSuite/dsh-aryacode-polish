@@ -1,3 +1,9 @@
+## [0.104.2]
+
+### Fixed
+
+- **The engine row failed to import whenever it was loaded.** The diagnostic build called `report()` at module scope, above the `const DEBUG` it reads, so the import threw `ReferenceError: Cannot access 'DEBUG' before initialization` and the row never mounted: inside the group the preset registered without an engine (no automatic compaction, and no manual one either), and as a sibling the failure took the whole preset out of the picker. The probe is gone; registration and the per-call lines remain.
+- Found by running the headless profile, where a failed row prints its import error on stderr. The desktop app swallows it.
 ## [0.104.1]
 
 ### Fixed

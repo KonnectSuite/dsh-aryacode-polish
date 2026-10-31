@@ -109,7 +109,32 @@ with the Host's own message above the gauge ("no adapter registered for provider
 \"no-such-provider\""), while the gauge keeps reporting live pressure. The failure
 reaches the `aryaStandard` projection, which is what the card reads.
 
-## 7. Not covered, and why
+## 7. What the headless run found (and fixed)
+
+Running the same rows through `dsh --profile headless --patch <overlay>` put the
+engine's import errors on stderr, where the desktop build hides them. Two findings:
+
+1. **The engine row never mounted from 0.103.8 on.** The diagnostic build called a
+   `report()` helper at module scope, above the `const DEBUG` it reads, so the import
+   threw `ReferenceError: Cannot access 'DEBUG' before initialization`. Inside the
+   isolated group that left the preset registered *without* an engine — no automatic
+   compaction and no `/compact` either — and as a sibling row the same failure removed
+   the preset from the picker. Fixed in 0.104.2; the per-call probes remain.
+2. **The isolate is required, not incidental.** Without it the engine row fails with
+   `service "compaction" has been registered at <BasicCompactionEngine>`: the harness
+   composition already provides compaction, and a preset engine replaces it only
+   inside a scoped realm. 0.104.0's "siblings" experiment was reverted for this
+   reason as much as for the import error.
+
+With the engine loading again, a session carrying 134k tokens of pasted text shows a
+`compaction/prune` event at the pre-step — the model-free pass that runs *after*
+pressure qualifies — but no `compaction/start`, so the engine's automatic gate
+qualifies and then declines to commit a checkpoint in that state. Manual `Compact now`
+on the same build does write a Codex-framed checkpoint. The next probe is the engine's
+own success line (`compaction (…): shadowed … surface nodes`) plus the tab's `used`
+against its threshold, in a session whose spans end on a completed turn boundary.
+
+## 8. Not covered, and why
 
 - **Automatic compaction crossing the threshold live.** The threshold arithmetic is
   verified (50 % / 62.1k in a real session) and manual compaction exercises the same
@@ -127,7 +152,7 @@ reaches the `aryaStandard` projection, which is what the card reads.
   drive, so no transcript in this run contains the `codexPlan` marker.
 
 
-## 8. Reproduce
+## 9. Reproduce
 
 ```
 # read one session the way this document does
