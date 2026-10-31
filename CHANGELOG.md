@@ -1,3 +1,10 @@
+## [0.106.2]
+
+### Documentation
+
+- `docs/mcp-servers.md` is a how-to now: quick start, and one section per task - install from the catalog, find a server on GitHub, paste a command or URL, add one by hand, add a token or header, edit, disable/enable/restart, remove, export and import, test without saving, use the tools in a chat, find the list file - plus a field reference, the catalog categories, a code map, the security note and the failure-mode table. Six screenshots from the running 0.106.1 build sit beside the steps they describe.
+- The README gains an **MCP servers** section with a one-paragraph quick start and two screenshots, and its layout table lists `entries/mcp.js`, `mcp/` and `client/mcp.js`.
+- `HANDOFF.md` names 0.106.1 as the verified build and points at the how-tos.
 ## [0.106.1]
 
 ### Changed

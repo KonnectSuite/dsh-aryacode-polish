@@ -18,7 +18,7 @@ and how to release. `README.md` is the user-facing story and lists every switch;
   a green dot when done, the folder emoji"), `6bc2faf` (footer status line),
   `3160def` (glyph colour, icon filter, row menu that keeps its slot) and
   `55e5969`.
-- Package: `@aryacode/dsh-aryacode-polish`. Current version **0.105.4**
+- Package: `@aryacode/dsh-aryacode-polish`. Current version **0.106.1**
   (0.103.0 the Compaction dashboard, 0.101.0 the Arya Standard preset, 0.104.2 the
   preset's engine fix, 0.105.x the MCP servers page).
 - Distribution: npm `latest` = 0.103.7 (published 2026-10-31T13:0xZ, tarball
@@ -116,13 +116,13 @@ Why not profile rows: the bridge's `Config` has **no volatile fields**, so
 row at all. Runtime mounting is the seam that exists; `docs/mcp-servers.md`
 records the trade-off (these servers do not appear in the Plugins page).
 
-Verified in the development app on 2026-10-31 (0.105.4): a catalog install of
+Verified in the development app on 2026-10-31 (0.106.1): a catalog install of
 `@modelcontextprotocol/server-memory` tested at 7.3 s and 9 tools, the card then
 `ready` with the same 9 tools; a full app restart remounted it from the store
 with no page interaction (two child processes before the page was opened);
 Disable dropped the child and persisted `enabled: false`, Enable brought it back;
 GitHub search returned live results (`microsoft/playwright-mcp`, 38,902 stars).
-Screenshots live in `docs/mcp/`.
+Screenshots live in `docs/mcp/`; the how-tos (catalog, GitHub, paste, tokens, remote HTTP, export/import, failure modes) are `docs/mcp-servers.md`.
 ## Shape of the package
 
 ```

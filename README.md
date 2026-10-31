@@ -40,6 +40,53 @@ Configure page automatically.
 | **Arya Standard preset** (`aryaStandard`) | On | Adds an **Arya Standard** agent preset that compacts the way Codex does, plus a Settings page for its knobs and a **Compaction** tab with the context trajectory, cache-hit strip, checkpoint cards, log and settings. See [Arya Standard](docs/arya-standard.md). |
 | **MCP servers** (`mcpManager`) | On | Adds **Settings → MCP servers**: a live list of Model Context Protocol servers with health, tools, a bundled catalog, GitHub search, a paste importer and a manual form. Servers mount through the harness's own `dsh-mcp-client`, so their tools appear as `mcp__name__tool`. See [MCP servers](docs/mcp-servers.md). |
 
+### MCP servers
+
+**Settings → MCP servers** is a working manager, not a read-only list: it adds,
+tests, edits, disables and removes Model Context Protocol servers without a
+restart, and shows the state of each one plus the tools it contributes.
+
+![The MCP servers page](docs/mcp/mcp-01-overview.png)
+
+**Quick start.** Settings (the account row in the sidebar foot) → **MCP servers**
+→ **+ Add server** → pick the catalog entry named *Memory* → tick the box that
+lets the command run → **Test** (it reports `Connected in 7.3s - 9 tools
+discovered.`) → **Add server**. The next chat turn can call
+`mcp__memory__create_entities`.
+
+![The catalog tab](docs/mcp/mcp-02-catalog.png)
+
+Four ways in:
+
+- **Catalog** - 40 curated servers with commands, transports and required
+  variables already filled in (filesystem, git, GitHub, Playwright, Postgres,
+  Notion, Sentry, Cloudflare, Stripe, ...).
+- **GitHub** - a star-sorted repository search; *Use this repo* prefills a draft.
+  Uses `GITHUB_TOKEN` or the `gh` CLI session when present, and says so when
+  unauthenticated searches are rate limited.
+- **Paste** - a command line (`npx -y ...`, `uvx ...`), a URL, one server object,
+  or a whole exported list.
+- **Manual** - both transports with env, headers, working directory, timeout,
+  reconnect and a trust confirmation before a stdio command can be saved.
+
+Each server mounts the harness's own `@deepseek-ai/dsh-mcp-client`, so its tools
+are named `mcp__<serverName>__<tool>` and its resources land on the shared
+`mcpResources` service - the page and the model read the same registry, which is
+why the tool counts on screen are the truth. **Disable** disposes the fiber (the
+child process exits); **Enable** mounts it again. Servers another plugin mounted
+(the Windows computer-use server, for example) are listed read-only.
+
+The list is `$DSH_HOME/mcp-servers.json` (Windows:
+`%LOCALAPPDATA%\AryaCode\home\mcp-servers.json`), written atomically, read at
+startup, secrets masked as `********` in the browser and stored in plain text on
+disk with mode `0600`. It is not a profile row on purpose: the bridge's config
+has no volatile fields, so `configForms` cannot write one and a plugin cannot
+create a loader row - `docs/mcp-servers.md` records the trade-off and what it
+would take to move.
+
+[MCP servers: how-tos and reference](docs/mcp-servers.md) covers tokens, remote
+HTTP servers, export/import, failure modes and the file format.
+
 ### Arya Standard
 
 The preset is declared as data (`presets/arya-standard/definition.js`) and
@@ -192,14 +239,17 @@ entries/registry.js  the feature list — the one place a feature is declared
 entries/usage.js     the fold: model-attributed usage out of the session log
 entries/cost.js      the polishCost projection: rates, pricing, host mount
 entries/github.js    the GitHub route: gh token, repository list, clone, workspace
+entries/mcp.js       the MCP feature: server manager, store, one POST route
 entries/config.js    volatile-reference accessors (resolve/flag/list/text)
 lib/index.js         mount point re-exporting the row
 client/face.js       browser face source: the Configure page and every surface
 client/arya.js       the Arya Standard settings fields and the Compaction tab
+client/mcp.js        the MCP servers page: catalog, GitHub, paste, manual, drawer
 client/money.js      which wallet is shown, and how the amount is rendered
 client/account.js    the granted, timeout-bounded balance read
 client/switches.json the browser half of the seam — one entry per switch
 presets/arya-standard/  the preset: definition, prompt adaptation, engine, projection
+mcp/                 MCP validation, store, catalog, manager, route handler
 scripts/build-client.mjs  wraps client/*.js into lib/client.js
 lib/client.js        generated: the bundle the Shell loads
 locale/              card title and description (en, zh)
