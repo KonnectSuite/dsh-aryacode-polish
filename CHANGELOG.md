@@ -1,3 +1,12 @@
+## [0.107.4]
+
+### Fixed
+
+- The boot-time pin reconcile waits for the settings service (`ctx.inject(['settings'])`). The row mounts before that service exists, so the first reconcile after a restart reported "the settings service is not available" and a stale pin stayed stale until the card was saved.
+
+### Notes
+
+- AryaSearch remains a switch on this row and a card in the bundled settings section. An experiment that split it into its own `@aryacode/dsh-aryasearch` bundle (so it would appear under Installed plugins) was reverted before release: one package is simpler, and the card is where it was.
 ## [0.107.3]
 
 ### Documentation

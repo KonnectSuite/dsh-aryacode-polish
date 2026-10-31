@@ -284,7 +284,11 @@ export const aryaSearchFeature = {
       void settingsService.update(WEB_ENTRY_ID, { searchProvider: current.base ?? 'deepseek-official' }).catch(() => {})
     })
 
-    void reconcile()
+    // Reconcile once the settings service exists: the row mounts before it, and an
+    // early call would find no service to write the pin through.
+    ctx.inject(['settings'], () => {
+      void reconcile()
+    })
   },
 }
 
