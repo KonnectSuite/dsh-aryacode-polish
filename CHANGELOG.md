@@ -1,3 +1,88 @@
+## [0.103.3]
+
+### Fixed
+
+- A session with one billed request no longer draws a triangle across the whole chart: the single point sits in the middle, the area and fold guides wait for a second point, and the time axis says "billed at" once instead of printing the same time twice.
+- The checkpoints tile says how many were manual and how many automatic.
+## [0.103.2]
+
+### Fixed
+
+- The trajectory SVG had no children: the grid, the window and threshold lines, the area, the line and the fold marks were being rendered as siblings of an empty `<svg>`, so the chart looked blank. They are children of the SVG again, and the plot is 170 px tall.
+- The fold count is plain bold text instead of a chip that collapsed to a red line.
+- Cache reuse says "no cached reads recorded yet" when the provider reports none, instead of drawing an empty strip.
+## [0.103.1]
+
+### Fixed
+
+- The pressure meter no longer paints itself with the brand token, which is a near-black button colour: the fill is a data-blue gradient, the track is a tint, and the threshold mark carries its own percentage flag.
+- The trajectory line, its gradient area and the legend chip now use the same data colour, so the series stays visible on both themes; points get their own dots and a `latest` chip.
+- Chip text and the session request count were too faint; both now use a solid weight and a stronger tint.
+## [0.103.0]
+
+### Changed
+
+- The Compaction tab is a real dashboard: theme-token surfaces, a pressure meter with the threshold mark, four session tiles, a gradient trajectory with grid and fold markers, a cache-reuse strip, checkpoint cards with metrics, a proper log, and an inline policy editor.
+- Empty states explain what will appear and offer the two actions (Compact now, Open policy).
+- Save changes is the primary action; unsaved and saved states read inline.
+
+## [0.102.0]
+
+### Changed
+- The **Compaction** tab is now a dashboard rather than one gauge and a list: five
+  tabs (Overview, Trajectory, Checkpoints, Logs, Settings), a token trajectory
+  drawn from the provider's own per-request usage against the window and threshold
+  lines with a mark at every fold, a per-request cache-hit strip, stat tiles for
+  checkpoints and tokens freed, checkpoint cards with their sequence range, a log
+  that keeps failed attempts, and the same policy form as the Settings page.
+- `presets/arya-standard/projection.js` is state version 2: it folds the last
+  `request/context` route and one point per `assistant/message` usage record on top
+  of the checkpoints, so the tab shows billed numbers and the tab's threshold line
+  is derived from the real window. The wire view downsamples the series and trims
+  summary previews before they reach the browser.
+- The verbatim tail knob is a fraction again (`retainRatio`, default 0.16, range
+  0.05ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Å“0.5) instead of an absolute `retainTokens`. Codex keeps no tail, but DSH's
+  loop resumes on the surface: compacting away the newest step made the model lose
+  the thread and stop mid-task, so the tail stays and the Codex behaviour sits on
+  top of it.
+- The user-quote section inside a checkpoint may take half of the replaced span
+  instead of a tenth (`RETAINED_SHARE` 0.1 ÃƒÂ¢Ã¢â‚¬Â Ã¢â‚¬â„¢ 0.5), so user messages of ordinary
+  size still survive; it is still dropped when adding it would trip the shrink
+  guard.
+- The cache-hit ratio is cached reads over the whole billed prompt (`inputTokens`
+  already folds cache reads in), not over prompt plus cache.
+
+## [0.101.0]
+
+### Added
+- **Arya Standard**, an agent preset that compacts the way Codex does. The
+  definition is data (`presets/arya-standard/definition.js`) registered through
+  the Host's preset registry, so it appears in the session picker next to the
+  shipped presets. Its system prompt is Codex's own instructions, adapted once at
+  registration to this harness's tool names; the substitution table is pinned by
+  a test, and a forbidden Codex-only token fails the build.
+- Codex checkpoint compaction inside that preset: `compaction-basic` keeps owning
+  the trigger, the durable lock, the event transaction and the shrink guard, and
+  our subclass replaces only the `summarize()` step ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â it asks for Codex's
+  checkpoint text, prefixes the result with Codex's handoff framing, and keeps up
+  to 20k tokens of the user's own messages verbatim inside the checkpoint.
+- A Settings page and a **Compaction** conversation tab. The tab shows the live
+  context gauge against the compaction threshold, one card per checkpoint with
+  the tokens it freed and the summary it wrote, and a **Compact now** button that
+  runs `/compact` through the session's own command surface.
+- One non-volatile policy group on the `polish` row (`aryaStandardOptions`) so
+  the knobs are editable from this row's Configure page as well as the new page.
+  A knob edit re-runs `apply()` and rebuilds the definition: sessions created
+  afterwards mount the new numbers, running sessions keep theirs.
+- No subagents and no scheduled jobs in the preset: `delegation`,
+  `tool-schedule`, `tool-plugin-manager` and `tool-plugin-market` are dropped on
+  purpose.
+
+### Changed
+- `scripts/build-client.mjs` inlines `client/arya.js` ahead of `client/face.js`
+  and carries the preset's field descriptors as `ARYA_FIELDS`, so the browser form
+  cannot drift from the host's labels, bounds and defaults.
+
 ## [0.100.1]
 
 ### Fixed
@@ -15,7 +100,7 @@
   **Show fewer archived**, instead of pouring every archived session into the
   panel at once.
 - The header keeps only the controls used every session: fold, sort, the running
-  chip and add. The copy (`⧉`) and shortcut (`?`) glyphs are gone — copying the
+  chip and add. The copy (`ÃƒÂ¢Ã‚Â§Ã¢â‚¬Â°`) and shortcut (`?`) glyphs are gone ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â copying the
   tree and showing the keys are items in the header's right-click menu, next to
   the rest of the inventory.
 
@@ -23,7 +108,7 @@
 
 ### Added
 - Every tabbed pane on the right side carries its own camera, including split
-  panes — the camera was anchored to the top-right pane's control cluster, so the
+  panes ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â the camera was anchored to the top-right pane's control cluster, so the
   other panes never had one. Each camera photographs its own pane's open tab; the
   top-right camera rides inside the Shell's split/expand/close cluster ahead of
   those controls.
@@ -32,21 +117,21 @@
   `winget install --id GitHub.cli` with the agreement flags pre-accepted, the
   dialog polls it every two seconds like the sign-in flow, the install can be
   cancelled, and a dead or timed-out install names what to do next. The sidebar
-  foot reads `GitHub · no CLI` in that state.
+  foot reads `GitHub Ãƒâ€šÃ‚Â· no CLI` in that state.
 
 ### Changed
 - No row in the Better workspace wears a cost pill. A session's cost lives in its
   tooltip, a workspace's running total in its hover recap, and the header total
-  opens Spend by workspace — the pills repeated facts the row already carries.
+  opens Spend by workspace ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â the pills repeated facts the row already carries.
 
 ## [0.99.0]
 
 ### Fixed
 - The right-panel camera no longer looks like a freeze. The capture is drawn from
   a copy of the panel in a small document of its own, carrying the app's cascade,
-  instead of letting the rasteriser clone the whole shell — on this machine that
+  instead of letting the rasteriser clone the whole shell ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â on this machine that
   clone was 3.0 s of a 3.4 s capture, and the drawing itself 16 ms. The button
-  also becomes a spinning ring with *Capturing what the panel shows…* before the
+  also becomes a spinning ring with *Capturing what the panel showsÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¦* before the
   rasteriser starts, and the canvas is bounded to the visible box with a 2.4M
   pixel budget. Anything over a second logs its duration.
 
@@ -55,21 +140,21 @@
 ### Changed
 - A running session spins: a small ring at the session, the pinned row and the folder rollup while a
   turn is working, instead of the green dot that used to mean two things at once.
-- Green now means **done, ready for review** — the dot appears only when a turn has finished and the
+- Green now means **done, ready for review** ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â the dot appears only when a turn has finished and the
   session has not been opened since, and it goes away when you open the session.
-- The default workspace glyph is the folder emoji (📁) at the tree's glyph size instead of a thin
+- The default workspace glyph is the folder emoji (ÃƒÂ°Ã…Â¸Ã¢â‚¬Å“Ã‚Â) at the tree's glyph size instead of a thin
   outline, so a workspace that was never customised reads as a folder at a glance. An emoji ignores
-  `color`, so a workspace colour now rotates the emoji's hue (`folderTint`) — same shape, your colour.
+  `color`, so a workspace colour now rotates the emoji's hue (`folderTint`) ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â same shape, your colour.
 
 ## [0.97.1]
 
 ### Changed
-- The sidebar foot is one status line: `GitHub · <login>` on the left edge, the remaining balance
+- The sidebar foot is one status line: `GitHub Ãƒâ€šÃ‚Â· <login>` on the left edge, the remaining balance
   (`$4.08 left`) on the right, both in the same 12px tertiary grey. The amount used to sit first in
   near-black at 75% opacity, so it floated out of the row it belongs to.
 
 ### Fixed
-- The amount says what it is — `left` — instead of a bare number that only the tooltip explained.
+- The amount says what it is ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â `left` ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â instead of a bare number that only the tooltip explained.
 
 ## [0.97.0]
 
@@ -79,7 +164,7 @@
 - A workspace's colour now tints its folder glyph instead of drawing a dot between the glyph and the
   name. The dot was the same size, colour and place as the running dot, so a coloured workspace read
   as one that was still working. Folder colours are a narrow bar beside the name.
-- The workspace `…` menu keeps its slot while hidden, so hovering no longer pushes `+` out from under
+- The workspace `ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¦` menu keeps its slot while hidden, so hovering no longer pushes `+` out from under
   the pointer (a click aimed at `+` used to land on the menu).
 
 ### Fixed
@@ -104,8 +189,8 @@
 ## [0.95.0]
 
 - Fit the tree to the shipped sidebar: workspace rows 34px, session rows 32px, 8px inline padding and the
-  app’s radius, titles at 14/20, counts and money at 12/17 in the tertiary colour, section headings in
-  sentence case and 12px, chips at the app’s 22px pill height. Nothing was removed; it stopped competing
+  appÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢s radius, titles at 14/20, counts and money at 12/17 in the tertiary colour, section headings in
+  sentence case and 12px, chips at the appÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢s 22px pill height. Nothing was removed; it stopped competing
   with the conversation.
 
 ## [0.94.0]
@@ -116,7 +201,7 @@
 
 ## [0.93.4]
 
-- Hide subagent sessions from the tree, with a menu row to list them again. Derived from each session row’s own summary projections (subagent, subagentCatalog) — no host route, so nothing to go wrong between the two halves.
+- Hide subagent sessions from the tree, with a menu row to list them again. Derived from each session rowÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢s own summary projections (subagent, subagentCatalog) ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â no host route, so nothing to go wrong between the two halves.
 
 ## [0.93.3]
 
@@ -148,8 +233,8 @@
 ## [0.91.0]
 
 ### Added
-- **Open this session’s folder** in a session’s menu, for the sessions that started somewhere other
-  than their workspace’s folder.
+- **Open this sessionÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢s folder** in a sessionÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢s menu, for the sessions that started somewhere other
+  than their workspaceÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢s folder.
 - A **+** on an empty folder row, so a declared folder can be filled without re-opening its menu.
 
 ## [0.90.2]
@@ -215,7 +300,7 @@
 
 ### Added
 - A **Read** action in the bulk bar: mark every picked session as read in one step, so a
-  selection can be cleared from the day’s work without opening each row.
+  selection can be cleared from the dayÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢s work without opening each row.
 
 ## [0.82.1]
 
@@ -276,7 +361,7 @@
 
 ### Added
 - **Alt+Left / Alt+Right** walk back and forward through the sessions you opened from the tree, naming
-  each stop ("Back to Documents.", "Forward to …"), and say "Nothing to go back to." at the ends. They
+  each stop ("Back to Documents.", "Forward to ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¦"), and say "Nothing to go back to." at the ends. They
   stand aside while a text field has focus so Alt+Arrow keeps moving the caret.
 
 ### Fixed
@@ -295,8 +380,8 @@
 ## [0.72.0]
 
 ### Added
-- **Alt+Left / Alt+Right** walk the sessions you opened from the tree, with a "Back to …" /
-  "Forward to …" notice. The stack lives outside component state because the sidebar remounts on
+- **Alt+Left / Alt+Right** walk the sessions you opened from the tree, with a "Back to ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¦" /
+  "Forward to ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¦" notice. The stack lives outside component state because the sidebar remounts on
   every session switch.
 
 ## [0.71.0]
@@ -314,7 +399,7 @@
 ## [0.68.1]
 
 ### Fixed
-- A fuzzy query keeps its spaces out of the match, so `wk alp` finds **Work/Alpha** — the first
+- A fuzzy query keeps its spaces out of the match, so `wk alp` finds **Work/Alpha** ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â the first
   version compared the words including their space and matched nothing (`dsh are` now works,
   `dshare` was the only thing that did).
 
@@ -326,7 +411,7 @@ The filter reaches a row by its initials.
 - Typing `dcp` finds **dsh-aryacode-polish** and `dsh are` finds it too: a plain substring still
   wins, and when there is none the query is matched as a subsequence with its spaces ignored, so
   the letters you remember are enough.
-- The highlight follows the same rule — a contiguous run is marked as one `mark`, a fuzzy match
+- The highlight follows the same rule ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â a contiguous run is marked as one `mark`, a fuzzy match
   marks the characters it actually matched instead of inventing a range.
 
 ## [0.67.0]
@@ -335,7 +420,7 @@ Every row tells you the same things.
 
 ### Added
 - **Archived** rows now show when the session was last touched and what it cost, like a live row does.
-- **Pinned** rows show that age too — except while a session is running, where the running clock is the
+- **Pinned** rows show that age too ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â except while a session is running, where the running clock is the
   more useful number and showing both would read as a contradiction.
 - Pinned and archived rows are `treeitem` at level 2 like every other session row, so the
   announced structure has no holes in the secondary sections.
@@ -346,7 +431,7 @@ Space picks, like every file list you have ever used.
 
 ### Added
 - **Space** picks or unpicks the focused session and says how many are picked, so a bulk action no
-  longer needs a modifier key. Typing a space in the filter still types a space — the handler stands
+  longer needs a modifier key. Typing a space in the filter still types a space ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â the handler stands
   aside whenever the event comes from an input, a textarea or a contenteditable.
 
 ## [0.65.0]
@@ -356,7 +441,7 @@ The tree says what it is to a screen reader.
 ### Added
 - Real tree semantics: the section is a multiselectable `tree`; folders and workspaces are
   `treeitem` at level 1 with `aria-expanded` and `aria-selected`; sessions are `treeitem` at level 2
-  and report selection while picked or focused. Nothing about the drawing changed — only what an
+  and report selection while picked or focused. Nothing about the drawing changed ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â only what an
   assistive technology is told about it.
 
 ## [0.64.1]
@@ -394,7 +479,7 @@ A workspace can be moved without a mouse.
 ### Added
 - **Ctrl+Alt+Up / Ctrl+Alt+Down** moves the focused workspace one place up or down, using the same
   host reorder a drag uses, and says `Moved Work/Alpha up.` The order it honours is the order you can
-  see — starred first, folders as arranged, then the rest — so the keyboard and the drag agree.
+  see ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â starred first, folders as arranged, then the rest ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â so the keyboard and the drag agree.
 - The shortcut sheet lists it.
 
 ## [0.62.0]
@@ -404,7 +489,7 @@ Empty workspaces stop taking up room.
 ### Added
 - **Hide workspaces with no sessions** in the header menu (remembered in
   `aryacode-polish:hideempty.v1`). A workspace you just created and have not used yet reappears the
-  moment it has a session — nothing is deleted, only not drawn.
+  moment it has a session ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â nothing is deleted, only not drawn.
 
 ## [0.61.0]
 
@@ -439,8 +524,8 @@ Star the workspaces you live in; they rise above the folders.
 Hovering a workspace now explains it.
 
 ### Added
-- `workspaceRecap(group, snapshot, opts)` renders two lines — how many sessions and how many are
-  new, then what it has cost and how long ago it was last touched — shown in the existing hover
+- `workspaceRecap(group, snapshot, opts)` renders two lines ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â how many sessions and how many are
+  new, then what it has cost and how long ago it was last touched ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â shown in the existing hover
   card (a hand-written note still takes precedence).
 
 ## [0.57.0]
@@ -460,8 +545,8 @@ The unread dots got a filter of their own.
 ### Added
 - A **New** chip and a `t:new` token that keep only sessions you have not opened here since they
   changed, wired through a new `unread` option on `filterTree`.
-- The header tooltip now reports how many sessions are new (`6 sessions in 2 workspaces · 4 priced
-  · 2 new`).
+- The header tooltip now reports how many sessions are new (`6 sessions in 2 workspaces Ãƒâ€šÃ‚Â· 4 priced
+  Ãƒâ€šÃ‚Â· 2 new`).
 
 ## [0.55.0]
 
@@ -469,7 +554,7 @@ Sessions you have not looked at since they changed say so.
 
 ### Added
 - An unread dot on any session whose `updatedAt` is newer than the last time you opened it here
-  (`isUnread`, `readSeen`, `writeSeen`, `SEEN_KEY` — `aryacode-polish:seen.v1`), cleared when you
+  (`isUnread`, `readSeen`, `writeSeen`, `SEEN_KEY` ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â `aryacode-polish:seen.v1`), cleared when you
   open it from the tree and by **Mark everything as read** in the header menu.
 - `unreadIds` for anything that wants to count them.
 
@@ -478,7 +563,7 @@ Sessions you have not looked at since they changed say so.
 One-click filters, and a date you can filter by.
 
 ### Added
-- Chips under the filter — **All**, **Running**, **Flagged**, **Today** — that add or remove the
+- Chips under the filter ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â **All**, **Running**, **Flagged**, **Today** ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â that add or remove the
   matching operator token, so the query and the chips can never disagree.
 - `t:today` and `t:week` filter tokens, honoured by `filterTree` against each session's
   `updatedAt` (local midnight for "today").
@@ -514,9 +599,9 @@ Named views, then the tree learned to report itself: the header now says how man
 sessions it holds and what they have cost in total.
 
 ### Added
-- `treeTotals(rows, snapshot)` — sessions, workspaces, priced sessions, and the summed
+- `treeTotals(rows, snapshot)` ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â sessions, workspaces, priced sessions, and the summed
   cost per currency, taken from the same projection the rows read.
-- The header line `<n> · ≈$<total>`, with a tooltip naming how many priced sessions
+- The header line `<n> Ãƒâ€šÃ‚Â· ÃƒÂ¢Ã¢â‚¬Â°Ã‹â€ $<total>`, with a tooltip naming how many priced sessions
   are behind the number.
 
 ## [0.50.0] - 2026-10-28
@@ -561,15 +646,15 @@ sessions it holds and what they have cost in total.
 ## [0.43.0] - 2026-10-28
 
 - The running dot reads the slot's live status store (`useSessionStatus`) instead of the session
-  summaries, whose `running` flag stays false even while the Shell shows Stop — the 0.30 folder dot had
+  summaries, whose `running` flag stays false even while the Shell shows Stop ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â the 0.30 folder dot had
   never lit.
 - A session's own cost opens the same breakdown card as the workspace total.
-- The header carries `● n` while n sessions run, including one the tree has not listed yet; clicking it
+- The header carries `ÃƒÂ¢Ã¢â‚¬â€Ã‚Â n` while n sessions run, including one the tree has not listed yet; clicking it
   unfolds to the session or opens it.
 
 ## [0.40.0] - 2026-10-28
 
-- A workspace's cost total is now a door: clicking it opens the breakdown behind the number — cache hit
+- A workspace's cost total is now a door: clicking it opens the breakdown behind the number ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â cache hit
   share, uncached, cached and written tokens, output, requests, how many sessions were priced, and the
   same "your provider's bill is authoritative" line the composer card carries.
 - The card reads the same projection the total was summed from, so the two can never disagree.
@@ -587,7 +672,7 @@ sessions it holds and what they have cost in total.
 ### Added
 
 - Right-click the WORKS PACES header for a menu that names the whole surface: copy the tree, fold or
-  expand everything, pick a density, pick a sort order, reset the view, or open the shortcut sheet —
+  expand everything, pick a density, pick a sort order, reset the view, or open the shortcut sheet ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â
   the icons are no longer the only way in.
 
 ## [0.37.0] - 2026-10-28
@@ -609,7 +694,7 @@ sessions it holds and what they have cost in total.
 ## [0.35.0] - 2026-10-28
 
 Added: drop a dragged session on the Pinned header to pin it, and drag a pinned row onto a workspace to
-release it — the pinned section now takes sessions in and gives them back without a menu.
+release it ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â the pinned section now takes sessions in and gives them back without a menu.
 
 Added: type-ahead. Typing a letter in the tree jumps the keyboard cursor to the first workspace or
 session whose title starts with what you typed, with a 700 ms window so a word refines the match.
@@ -618,7 +703,7 @@ session whose title starts with what you typed, with a 700 ms window so a word r
 
 Added: a folder carries its own colour, glyph and weight, set from its own menu (right-click a folder
 header). A folder is only a title prefix, so its look lives under a reserved `folder:` key in the same
-store the workspace looks use — which also means a renamed folder keeps its look instead of losing it.
+store the workspace looks use ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â which also means a renamed folder keeps its look instead of losing it.
 
 Added: that menu also renames the folder and removes a declared empty one, so every folder action now
 hangs off the folder rather than a pencil button.
@@ -662,10 +747,10 @@ opens, for workspaces and sessions alike.
 
 Added: a workspace row and a folder header now show the running total their sessions have cost, from
 the same `polishCost` projection the composer pill uses (`sumCost`, `sumCostLabel`,
-`folderCostNode`). Nothing priced renders nothing, and a group priced only in CNY shows ¥.
+`folderCostNode`). Nothing priced renders nothing, and a group priced only in CNY shows Ãƒâ€šÃ‚Â¥.
 
-Fixed: the folder rename glyph had been mojibaked (`âœŽ`) by an earlier PowerShell patch; it is
-✎ again.
+Fixed: the folder rename glyph had been mojibaked (`ÃƒÆ’Ã‚Â¢Ãƒâ€¦Ã¢â‚¬Å“Ãƒâ€¦Ã‚Â½`) by an earlier PowerShell patch; it is
+ÃƒÂ¢Ã…â€œÃ…Â½ again.
 
 ## [0.27.1] - 2026-10-28
 
@@ -674,7 +759,7 @@ Fixed: 0.27.0 double-clicked straight into a rename with the unchanged title. It
 ## [0.27.0] - 2026-10-28
 
 Added: double-clicking a session in the tree raises the Host's own rename dialog, and dragging a filed
-workspace onto the top-level drop zone lifts it out of its folder — the gesture had a menu entry but no
+workspace onto the top-level drop zone lifts it out of its folder ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â the gesture had a menu entry but no
 drag equivalent.
 
 ## [0.26.0] - 2026-10-28
@@ -689,7 +774,7 @@ patch and never rendered as a flag.
 ## [0.25.0] - 2026-10-28
 
 Added: pinned sessions are lifted into a Pinned section at the top of the tree, with their workspace
-name beside them and the usual session menu on right-click — a pin used to be a star on a row you had
+name beside them and the usual session menu on right-click ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â a pin used to be a star on a row you had
 to find. Unpinning puts the session back where it belongs.
 
 ## [0.24.0] - 2026-10-28
@@ -773,7 +858,7 @@ Added: session flags and notes, shown on the row and on hover; the whole tree ca
 ### Added
 - **Density modes.** A control in the tree header switches between comfortable and
   compact rows, and the choice is remembered (`aryacode-polish:density.v1`). Density
-  changes row height only — the text size stays readable.
+  changes row height only ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â the text size stays readable.
 
 ### Fixed
 - **Expand all now expands folders too.** The header button only flipped workspace rows, so a
@@ -786,7 +871,7 @@ Added: session flags and notes, shown on the row and on hover; the whole tree ca
 
 ### Added
 
-- **Quick switcher.** Ctrl/⌘-K (or Cmd-K) opens a palette over everything: every session
+- **Quick switcher.** Ctrl/ÃƒÂ¢Ã…â€™Ã‹Å“-K (or Cmd-K) opens a palette over everything: every session
   in every workspace, ranked so a prefix beats a mention, arrows to walk, Enter to open,
   Escape to dismiss. Rows show the session title and the workspace it lives in.
 - **Folded state persists.** Which workspaces and which folders are collapsed is kept
@@ -814,7 +899,7 @@ Added: session flags and notes, shown on the row and on hover; the whole tree ca
   collapsible `Work` row, with the folder's session count on the right. The grouping is
   derived from the label and written nowhere, so renaming the workspace moves it.
 - **Order presets.** The workspace menu can "Remember this order" and later "Restore
-  saved order", which replays the Host's only reorder verb — `insertBefore` — through a
+  saved order", which replays the Host's only reorder verb ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â `insertBefore` ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â through a
   pure `planReorder(current, wanted)` plan, stored under
   `aryacode-polish:workspace-order.v1`.
 
@@ -829,15 +914,15 @@ Added: session flags and notes, shown on the row and on hover; the whole tree ca
 
 ### Added
 
-- **Colour and weight per workspace.** Right-click a workspace → "Colour and
-  weight…" paints it one of six tones (slate, blue, green, amber, rose, violet) or
+- **Colour and weight per workspace.** Right-click a workspace ÃƒÂ¢Ã¢â‚¬Â Ã¢â‚¬â„¢ "Colour and
+  weightÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¦" paints it one of six tones (slate, blue, green, amber, rose, violet) or
   none, and can make its label bold. The choice is stored under
   `aryacode-polish:workspace-appearance` in the app's own storage, so it survives a
   restart, and a broken or missing store degrades to the plain tree instead of
   throwing.
 - **The same workspaces in the Hero picker.** The blank-session Hero now offers this
   bundle's workspace list (tone dots, bold labels, session counts) instead of the
-  stock picker, through `conversation.hero.workspace` at priority -1 — same data,
+  stock picker, through `conversation.hero.workspace` at priority -1 ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â same data,
   same colours, one switch.
 
 ## [0.11.2] - 2026-10-28
@@ -853,7 +938,7 @@ Added: session flags and notes, shown on the row and on hover; the whole tree ca
 - A session is never promised a move the Host cannot make. The remote workspace
   namespace exposes `create`, `rename`, `delete`, `insertBefore`,
   `insertSessionBefore`, `archiveSession`, `unarchiveSession`, `pinSession` and
-  `unpinSession` — and no `attachSession` or `detachSession` — while a workspace's own
+  `unpinSession` ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â and no `attachSession` or `detachSession` ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â while a workspace's own
   `insertSessionBefore` only reorders the sessions already inside it (it rejects a
   session it does not hold). So dropping a session on another workspace is refused
   with a plain explanation instead of firing a call that fails, and the session menu
@@ -963,7 +1048,7 @@ Added: session flags and notes, shown on the row and on hover; the whole tree ca
 
 - **Right-panel screenshot.** A camera button in the composer row photographs the
   right panel's open tab, copies the PNG to the clipboard, and attaches it to the
-  message being written — one click in place of a snip tool, for the panel rather
+  message being written ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â one click in place of a snip tool, for the panel rather
   than the whole screen. The capture is a DOM rasterisation inside the page,
   because the Shell exposes no capture bridge and no display-media source; the
   browser tab and the HTML preview live in iframes and are the two surfaces it
@@ -992,7 +1077,7 @@ Added: session flags and notes, shown on the row and on hover; the whole tree ca
 ### Added
 
 - **Sign in and sign out of GitHub from the dialog.** Sign-in is still the GitHub
-  CLI's own session — this bundle stores no token — but it no longer sends the
+  CLI's own session ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â this bundle stores no token ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â but it no longer sends the
   owner to a terminal: the dialog runs `gh auth login --web`, shows the one-time
   code it prints with a copy button and the device page, and refreshes the
   repository list as soon as the CLI reports success. A signed-in machine gets a
@@ -1019,7 +1104,7 @@ Added: session flags and notes, shown on the row and on hover; the whole tree ca
 
 - **"On this PC" opens the real Windows folder dialog in the desktop app again.**
   The desktop preload exposes the OS chooser as `__DSH_DIRECTORY_PICKER__.pick()`
-  — the same bridge the shipped native picker uses — and the flow now calls it
+  ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â the same bridge the shipped native picker uses ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â and the flow now calls it
   directly, so picking a folder behaves exactly like the picker it stands in for.
   The in-app folder list is now only the browser fallback, where no such bridge
   exists and the composed picker's `pick` would wait on a dialog that cannot open.
@@ -1030,17 +1115,17 @@ Added: session flags and notes, shown on the row and on hover; the whole tree ca
 
 - **Adding a workspace moved into the Workspaces "+" menu.** A new switch
   (`workspaceSources`) occupies `sidebar.workspaces.directoryFlow`, which is what
-  makes the Shell's **Add workspace…** row appear at all, and stands in for the
+  makes the Shell's **Add workspaceÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¦** row appear at all, and stands in for the
   folder picker with the source menu the owner asked for: **On this PC** (a folder
   browser driven by this bundle's own `api/polish.folders` route) and **GitHub
-  repository…** (the existing dialog). A finished clone hands its path to the
+  repositoryÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¦** (the existing dialog). A finished clone hands its path to the
   flow's `onPicked`, so the Shell creates the workspace exactly as it does for a
   picked folder.
 
 ### Added
 
 - The sidebar foot now carries the GitHub sign-in state next to the balance
-  (`GitHub · <login>` / `GitHub · signed out`); clicking it opens the repository
+  (`GitHub Ãƒâ€šÃ‚Â· <login>` / `GitHub Ãƒâ€šÃ‚Â· signed out`); clicking it opens the repository
   dialog. It replaced the foot's add-workspace row, which the "+" menu supersedes.
 
 ### Fixed
@@ -1085,7 +1170,7 @@ Added: session flags and notes, shown on the row and on hover; the whole tree ca
 ### Fixed
 
 - **The row reported "this Host cannot open a folder" on a Host that can.** A Remote
-  method answers an envelope — `{ ok, value }` — not the bare return value, so
+  method answers an envelope ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â `{ ok, value }` ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â not the bare return value, so
   `canOpenWorkspacePath()` never looked like `true`. The row now reads
   `ok === true && value === true`, tolerates a plain boolean, and checks the
   `ok` flag of the open call itself instead of trusting that no throw means opened.
@@ -1104,9 +1189,9 @@ Added: session flags and notes, shown on the row and on hover; the whole tree ca
 ### Fixed
 
 - **The row did nothing when clicked.** The Shell refuses `ctx.get('remote.session')`
-  — a Remote namespace may only be read through a declared injection — so the open
+  ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â a Remote namespace may only be read through a declared injection ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â so the open
   call failed before it reached the Host. The registration now declares
-  `ctx.inject(['workspaces', 'remote.session'], …)` and calls the namespace the
+  `ctx.inject(['workspaces', 'remote.session'], ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¦)` and calls the namespace the
   injected context hands it. Found by the row reporting its own failure (0.4.1).
 
 ## [0.4.1] - 2026-10-27
@@ -1122,14 +1207,14 @@ Added: session flags and notes, shown on the row and on hover; the whole tree ca
 
 ### Added
 
-- **Open workspace folder.** A Session's "…" menu gains an **Open workspace folder**
+- **Open workspace folder.** A Session's "ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¦" menu gains an **Open workspace folder**
   row that opens the Session's workspace directory in Explorer/Finder through the
   Session Remote (`openWorkspacePath`), gated by `canOpenWorkspacePath` and resolved
   from the Workspace snapshot. New switch `openWorkspaceFolder`, on by default, and
   the row hides itself when the Session has no workspace or the Host cannot open a
   path.
-- `docs/workspace-folder.md` records why the requested surface — right-clicking the
-  workspace row itself — is not reachable from a plugin: that row has no context
+- `docs/workspace-folder.md` records why the requested surface ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â right-clicking the
+  workspace row itself ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â is not reachable from a plugin: that row has no context
   menu, the workspace-scoped menu list slot does not exist, and native menus and
   desktop IPC are closed to plugins. The bundle ships on the documented Session-row
   slot rather than hijacking private markup, and the note says where the feature
@@ -1140,9 +1225,9 @@ Added: session flags and notes, shown on the row and on hover; the whole tree ca
 ### Changed
 
 - **The cost pill now looks like it belongs in the composer.** It was a foreign
-  widget next to the harness pills: two lines of text ("≈$0.538 partially
+  widget next to the harness pills: two lines of text ("ÃƒÂ¢Ã¢â‚¬Â°Ã‹â€ $0.538 partially
   priced") in the row's flow. It now wears the same skin as the statistics pills
-  — the same 13 px-minus-one scale, 20 px line height, `1px 8px` padding, tertiary
+  ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â the same 13 px-minus-one scale, 20 px line height, `1px 8px` padding, tertiary
   label colour, tabular digits, a 14 px glyph, and `white-space: nowrap`, so it
   reads as one line at the same size as its neighbours.
 - The "partially priced" caveat moved out of the pill and into the card, where it
@@ -1160,10 +1245,10 @@ Added: session flags and notes, shown on the row and on hover; the whole tree ca
 - **The balance line never showed a number.** It waited for the host account
   bundle's own access grant before reading, on the theory that the grant proves
   the call is allowed. That grant belongs to the bundle that owns the account
-  stream, so for a plugin it can simply never arrive — the read hit its timeout,
+  stream, so for a plugin it can simply never arrive ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â the read hit its timeout,
   resolved to nothing, and the sidebar looked empty with no error anywhere. The
   line now reads the account Remote directly inside
-  `ctx.inject(['remote', 'remote.account'], …)`, and the Host still decides: an
+  `ctx.inject(['remote', 'remote.account'], ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¦)`, and the Host still decides: an
   unauthorised call comes back refused and the line stays hidden.
 - The read retries on its own (1.5 s, 5 s, 15 s, 30 s, and again whenever the
   window regains focus), so a Shell that is still signing in at first paint no
@@ -1174,9 +1259,9 @@ Added: session flags and notes, shown on the row and on hover; the whole tree ca
 ### Fixed
 
 - **A weekday holiday was priced at peak.** DeepSeek's rule is "Beijing time,
-  Monday to Friday **excluding Chinese statutory public holidays**, 09:00–12:00
-  and 14:00–18:00", and the fold only knew about weekdays: every weekday inside
-  those windows was billed at 2×, so a public holiday overstated the estimate by
+  Monday to Friday **excluding Chinese statutory public holidays**, 09:00ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Å“12:00
+  and 14:00ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Å“18:00", and the fold only knew about weekdays: every weekday inside
+  those windows was billed at 2ÃƒÆ’Ã¢â‚¬â€, so a public holiday overstated the estimate by
   double. `entries/usage.js` now carries the 2026 holiday dates as dated data,
   sourced from the State Council notice (Guo Ban Fa Ming Dian [2025] No. 7), and
   `test/cost.spec.mjs` proves a holiday Thursday is off-peak while an ordinary one
@@ -1196,7 +1281,7 @@ Added: session flags and notes, shown on the row and on hover; the whole tree ca
 
 - **The README's status line no longer carries a version.** The packaged README is
   the card's page body, so any version written into its prose is stale as soon as
-  the next release ships — 0.3.5 was published with a page still describing
+  the next release ships ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â 0.3.5 was published with a page still describing
   "0.3.4". The status now says what shipped; the version comes from the manifest
   and the page header. `test/docs.spec.mjs` fails if a version returns.
 
@@ -1271,10 +1356,10 @@ Added: session flags and notes, shown on the row and on hover; the whole tree ca
 
 - **Remaining account balance in the sidebar foot.** A line above the account row
   shows the account's own wallet (`$17.33`), read once through a
-  `remoteAccess.whenAccess('account/watch', …)` grant so the call is allowed and
+  `remoteAccess.whenAccess('account/watch', ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¦)` grant so the call is allowed and
   the grant is released as soon as the read settles. It renders nothing at all
   when the switch is off, when the Host exposes no wallet, or when the read is
-  refused — an empty line beats a number the Host did not give us.
+  refused ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â an empty line beats a number the Host did not give us.
 - **A second switch, `accountBalance`.** It is declared once in
   `entries/registry.js` and once in `client/switches.json`, exactly like the cost
   switch, so the Configure page grows it automatically.
@@ -1292,7 +1377,7 @@ Added: session flags and notes, shown on the row and on hover; the whole tree ca
 ### Changed
 
 - **The card leads with the number it is about.** It now opens with the
-  "Estimated session cost" heading and the live `≈$…` amount, then a stacked bar
+  "Estimated session cost" heading and the live `ÃƒÂ¢Ã¢â‚¬Â°Ã‹â€ $ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¦` amount, then a stacked bar
   showing how the session's tokens split between cached input, uncached input,
   cache writes and output, then the rows: cache hit, tokens, model, provider,
   requests, and the estimate again above the footnote. Model and provider are
@@ -1303,18 +1388,18 @@ Added: session flags and notes, shown on the row and on hover; the whole tree ca
 
 ### Fixed
 
-- **A sub-cent turn no longer reads `≈$0`.** `formatMoney` rounded to three
+- **A sub-cent turn no longer reads `ÃƒÂ¢Ã¢â‚¬Â°Ã‹â€ $0`.** `formatMoney` rounded to three
   decimals, so a real 22.1K-token turn whose actual cost was about $0.000095
   showed as zero. Amounts under a cent now keep two significant digits
-  (`≈$0.000095`), cents keep three decimals, and dollars keep two.
+  (`ÃƒÂ¢Ã¢â‚¬Â°Ã‹â€ $0.000095`), cents keep three decimals, and dollars keep two.
 
 ## [0.2.2] - 2026-10-27
 
 ### Fixed
 
-- The pill's `≈` was stored as cp1252 mojibake (`≈`), so a real turn rendered
-  `≈$0.003` instead of `≈$0.003`. Same cause as the two strings repaired in
-  0.2.1 — a PowerShell round-trip over the face source — and the last of that
+- The pill's `ÃƒÂ¢Ã¢â‚¬Â°Ã‹â€ ` was stored as cp1252 mojibake (`ÃƒÂ¢Ã¢â‚¬Â°Ã‹â€ `), so a real turn rendered
+  `ÃƒÂ¢Ã¢â‚¬Â°Ã‹â€ $0.003` instead of `ÃƒÂ¢Ã¢â‚¬Â°Ã‹â€ $0.003`. Same cause as the two strings repaired in
+  0.2.1 ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â a PowerShell round-trip over the face source ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â and the last of that
   damage. Verified against a real turn in Dev AryaCode.
 
 ## [0.2.1] - 2026-10-27
@@ -1329,19 +1414,19 @@ Added: session flags and notes, shown on the row and on hover; the whole tree ca
   saying the row has no configuration to change. The `plugins.row.config`
   registration key is unchanged: that one is still `<package>#<row>`.
 - Two strings that a PowerShell round-trip had written as cp1252 mojibake
-  (`Loading configuration…`, `Saving…`, and an em dash) are back to UTF-8.
+  (`Loading configurationÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¦`, `SavingÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¦`, and an em dash) are back to UTF-8.
 
 ## [0.2.0] - 2026-10-27
 
 ### Added
 
-- **Estimated session cost.** A composer-dock pill (`≈$0.39`) that opens a
+- **Estimated session cost.** A composer-dock pill (`ÃƒÂ¢Ã¢â‚¬Â°Ã‹â€ $0.39`) that opens a
   breakdown card: cache hit, uncached input, cached input, output, requests, and
   the estimate itself, with the same "your provider's bill is authoritative"
   footnote. The money is computed **host-side**: `entries/usage.js` folds
   model-attributed usage out of the durable session log, and `entries/cost.js`
   registers a `polishCost` projection whose wire view is already priced at the
-  published DeepSeek rates (off-peak table, peak at 2×, cache writes billed as
+  published DeepSeek rates (off-peak table, peak at 2ÃƒÆ’Ã¢â‚¬â€, cache writes billed as
   misses). The browser half only formats numbers, so no rate table ships to the
   client and an unknown model or provider leaves the estimate marked incomplete
   instead of quietly reporting a wrong number.

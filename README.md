@@ -37,6 +37,37 @@ Configure page automatically.
 | **Add a workspace from GitHub** (`githubWorkspace`) | On | Adds the GitHub half of the workspace sources: the dialog lists the repositories your GitHub CLI session can clone, and cloning one creates the workspace. The token never enters the browser — it is read on the Host, used only as git's http auth header, and never stored. The sidebar foot carries the sign-in state (`GitHub · <login>`). See [GitHub workspaces](docs/github-workspaces.md). |
 | **Add a workspace from this PC or GitHub** (`workspaceSources`) | On | The Workspaces **+** button gets a source menu: **On this PC** (the Host's OS chooser, or a folder list when the composition has no native chooser) and **GitHub repository…**. Off, the **+** button goes back to the shipped folder picker. |
 | **Right-panel screenshot** (`panelScreenshot`) | On | A camera button in the right panel's top-right corner photographs the open tab, copies the picture to the clipboard, and attaches it to the message being written. See [Right-panel screenshot](docs/panel-screenshot.md) for what it can and cannot capture. |
+| **Arya Standard preset** (`aryaStandard`) | On | Adds an **Arya Standard** agent preset that compacts the way Codex does, plus a Settings page for its knobs and a **Compaction** tab with the context trajectory, cache-hit strip, checkpoint cards, log and settings. See [Arya Standard](docs/arya-standard.md). |
+
+### Arya Standard
+
+The preset is declared as data (`presets/arya-standard/definition.js`) and
+registered through the Host's preset registry, so it appears in the session
+picker next to the shipped presets. It differs from `standard` in four ways:
+
+- the system prompt is Codex's own instructions, adapted once at registration to
+  this harness's tool names (`adapt.js` pins every substitution, and a test
+  fails if a Codex-only token survives);
+- the compaction engine is replaced by a subclass whose `summarize()` hook asks
+  for Codex's checkpoint text, prefixes it with Codex's handoff framing, and
+  keeps up to 20k tokens of the user's own messages verbatim inside the
+  checkpoint — `compaction-basic` still owns the trigger, lock, transaction and
+  shrink guard, so nothing about durability is re-implemented. A verbatim tail
+  (`retainRatio`, default 0.16) survives on purpose: the loop resumes on the
+  surface, so replacing the newest step too makes the model lose the thread;
+- the **Compaction** tab is a dashboard, not one gauge: the billed trajectory with
+  the window, the threshold and a mark per fold; a per-request cache-hit strip;
+  stat tiles from the provider's own usage; checkpoint cards and a log including
+  failed attempts, all read from the `aryaStandard` session projection;
+- subagents and scheduled jobs are not part of it. `delegation`,
+  `tool-schedule`, `tool-plugin-manager` and `tool-plugin-market` are dropped on
+  purpose: this preset is one agent doing one conversation.
+
+The knobs are one non-volatile group (`aryaStandardOptions`) on this row, so
+editing one re-runs `apply()` and rebuilds the definition — a session created
+afterwards mounts the new numbers, while a running session keeps the ones it
+started with.
+
 
 ### How the cost is computed
 
@@ -163,10 +194,12 @@ entries/github.js    the GitHub route: gh token, repository list, clone, workspa
 entries/config.js    volatile-reference accessors (resolve/flag/list/text)
 lib/index.js         mount point re-exporting the row
 client/face.js       browser face source: the Configure page and every surface
+client/arya.js       the Arya Standard settings fields and the Compaction tab
 client/money.js      which wallet is shown, and how the amount is rendered
 client/account.js    the granted, timeout-bounded balance read
 client/switches.json the browser half of the seam — one entry per switch
-scripts/build-client.mjs  wraps client/face.js into lib/client.js
+presets/arya-standard/  the preset: definition, prompt adaptation, engine, projection
+scripts/build-client.mjs  wraps client/*.js into lib/client.js
 lib/client.js        generated: the bundle the Shell loads
 locale/              card title and description (en, zh)
 docs/                feature notes and parked investigations

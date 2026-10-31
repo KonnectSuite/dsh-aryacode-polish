@@ -23,6 +23,8 @@
  * @module dsh-aryacode-polish-registry
  */
 
+import { mountAryaStandard } from '../presets/arya-standard/plugin.js'
+import { readSettings } from '../presets/arya-standard/settings.js'
 import { mountCost } from './cost.js'
 import { mountFolders } from './folders.js'
 import { mountGithub } from './github.js'
@@ -81,6 +83,16 @@ export const features = [
     label: 'Right-panel screenshot',
     description: 'Copy the open right panel into the chat as an image, and onto the clipboard.',
     defaultOn: true,
+  },
+  {
+    id: 'aryaStandard',
+    label: 'Arya Standard preset',
+    description: 'Add the Arya Standard agent preset, with Codex checkpoint compaction and its own Compaction tab.',
+    defaultOn: true,
+    mount: mountAryaStandard,
+    // The mount needs the policy group beside the switches, not the switches
+    // themselves: `readSettings` validates it and fills in every default.
+    config: rowConfig => readSettings(rowConfig),
   },
 ]
 

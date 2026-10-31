@@ -42,6 +42,12 @@
       "label": "Better workspace",
       "description": "Replace the sidebar workspace list with our own tree: workspaces with their sessions, a right-click menu on a workspace (open, copy path, remove), and the shipped session menu inside it.",
       "defaultOn": true
+    },
+    {
+      "key": "aryaStandard",
+      "label": "Arya Standard preset",
+      "description": "Add the Arya Standard agent preset, with Codex checkpoint compaction and its own Compaction tab.",
+      "defaultOn": true
     }
   ]
 }

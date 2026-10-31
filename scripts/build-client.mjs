@@ -1,12 +1,14 @@
 /**
- * Emit `lib/client.js` from `client/face.js` and `client/switches.json`.
+ * Emit `lib/client.js` from `client/*.js` and `client/switches.json`.
  *
  * The Shell loads a browser face through `window.__ModuleLoader__.load({ id,
  * factory })`, where `id` must equal the package name and `factory` receives the
  * Shell's frozen module table as `require`. There is no bundler here: the face
  * only names modules the Shell already answers (`react`), so wrapping the source
  * is enough, and keeping it a wrapper means the emitted bundle stays readable
- * when someone has to debug it inside a running app.
+ * when someone has to debug it inside a running app. The fragments are inlined in
+ * dependency order: money, account and workspace first, then the Arya Standard
+ * settings and tab, then `face.js`, which registers every slot.
  */
 
 import { readFileSync, writeFileSync } from 'node:fs'
@@ -17,6 +19,14 @@ const declaration = JSON.parse(readFileSync(new URL('client/switches.json', root
 const money = readFileSync(new URL('client/money.js', root), 'utf8')
 const account = readFileSync(new URL('client/account.js', root), 'utf8')
 const workspace = readFileSync(new URL('client/workspace.js', root), 'utf8')
+/*
+ * The Arya Standard preset's knobs are declared once, in the host half, and
+ * inlined here as ARYA_FIELDS so the settings form shows the same labels, bounds
+ * and defaults the host validates against. The client half cannot import it: the
+ * face is a factory body, not a module graph.
+ */
+const { ARYA_STANDARD_FIELDS } = await import(new URL('presets/arya-standard/fields.js', root))
+const arya = readFileSync(new URL('client/arya.js', root), 'utf8')
 const face = readFileSync(new URL('client/face.js', root), 'utf8')
 /*
  * html2canvas is the one third-party script the face needs: the right panel can
@@ -43,6 +53,7 @@ const indent = text => text.split('\n').map(line => (line === '' ? '' : '    ' +
 
 const constants = [
   `const SWITCHES = ${JSON.stringify(declaration.switches, null, 2)}`,
+  `const ARYA_FIELDS = ${JSON.stringify(ARYA_STANDARD_FIELDS, null, 2)}`,
   `const ROW_ID = ${JSON.stringify(declaration.row)}`,
   `const ROW_KEY = ${JSON.stringify(id)} + '#' + ROW_ID`,
   `const CLIENT_VERSION = ${JSON.stringify(manifest.version)}`,
@@ -52,7 +63,7 @@ const header = [
   '/**',
   ` * ${id} — the browser face bundle.`,
   ' *',
-  ' * GENERATED FILE. Edit client/face.js or client/switches.json and run',
+  ' * GENERATED FILE. Edit client/face.js, client/arya.js or client/switches.json and',
   ' * `pnpm build:client`; nothing here should be hand-edited.',
   ' */',
 ].join('\n')
@@ -71,6 +82,8 @@ ${indent(money.trimEnd().replace(/^export /gm, ''))}
 
 ${indent(account.trimEnd().replace(/^export /gm, ''))}
 ${indent(workspace.trimEnd().replace(/^export /gm, ''))}
+
+${indent(arya.trimEnd())}
 
 ${indent(face.trimEnd())}
   },

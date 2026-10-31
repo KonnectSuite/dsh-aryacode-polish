@@ -8,6 +8,7 @@
  * @module dsh-aryacode-polish
  */
 import z from '@deepseek-ai/schemastery'
+import { ARYA_STANDARD_SETTINGS_KEY, aryaStandardSchema } from '../presets/arya-standard/settings.js'
 import { flag } from './config.js'
 import { configSchema, features } from './registry.js'
 
@@ -22,8 +23,15 @@ export { features }
 /**
  * The row's config: one volatile boolean per registered feature, derived from
  * `entries/registry.js` so a new feature gains its switch automatically.
+ *
+ * `aryaStandardOptions` is the one non-volatile group. A volatile field is applied
+ * in place, which is right for a switch and wrong for a preset knob: the definition
+ * is built at mount time, so a knob edit has to re-run `apply()` and rebuild it.
  */
-export const Config = z.object(configSchema(z))
+export const Config = z.object({
+  ...configSchema(z),
+  [ARYA_STANDARD_SETTINGS_KEY]: aryaStandardSchema(z),
+})
 
 /**
  * Mount the enabled features and follow the switches at runtime.
@@ -44,7 +52,12 @@ export function apply(ctx, config = {}) {
       const wanted = flag(config[feature.id], feature.defaultOn ?? true)
       const running = mounted.get(feature.id)
       if (wanted && running === undefined) {
-        if (typeof feature.mount === 'function') mounted.set(feature.id, ctx.plugin(feature.mount))
+        if (typeof feature.mount === 'function') {
+          // A feature may derive its mount config from the row config — the Arya
+          // Standard preset reads its policy group here, once per mount.
+          const mountConfig = typeof feature.config === 'function' ? feature.config(config) : undefined
+          mounted.set(feature.id, ctx.plugin(feature.mount, mountConfig))
+        }
       } else if (!wanted && running !== undefined) {
         void running.dispose()
         mounted.delete(feature.id)
