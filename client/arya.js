@@ -359,8 +359,12 @@ function AryaSettingsEditor(props) {
   const enabled = aryaEnabled(current)
   const writable = state.writable === true
   const options = aryaOptionsOf(current)
-  const dirty = aryaDirty(value, current) || enabled !== aryaEnabled(value)
-  const editable = writable && enabled
+  // The form writes the volatile settings domain only: a non-volatile field such
+  // as this policy group is refused by the Host no matter which path shape it is
+  // sent with. The panel therefore shows the policy and edits only the switch;
+  // the group is edited in the row configuration file, which rebuilds the preset
+  // on the next start.
+  const dirty = enabled !== aryaEnabled(value)
 
   const update = (key, next) => setDraft({ ...current, [ARYA_GROUP]: { ...options, [key]: next } })
 
@@ -368,15 +372,15 @@ function AryaSettingsEditor(props) {
     setSaving(true)
     setNotice('')
     try {
-      const accepted = await live.mutate(aryaOps(aryaOptionsOf(current), enabled), state.revision)
-      if (accepted === false) {
-        setNotice('The Host refused the change.')
+      const acceptedSwitch = await live.mutate([{ op: 'set', path: [ARYA_SWITCH], value: enabled }], live.getSnapshot().revision)
+      if (acceptedSwitch === false) {
+        setNotice('The Host refused the switch.')
         return
       }
       setDraft(null)
-      setNotice('Saved. Sessions created from now on mount the preset with these values.')
-    } catch {
-      setNotice('The Host refused the change.')
+      setNotice('Saved. Sessions created from now on mount the preset with this switch.')
+    } catch (error) {
+      setNotice('The Host refused the switch: ' + (error instanceof Error ? error.message : String(error)))
     } finally {
       setSaving(false)
     }
@@ -399,7 +403,10 @@ function AryaSettingsEditor(props) {
         }),
         React.createElement('span', { style: { fontSize: '12.5px', fontWeight: 600, color: ARYA_THEME.text, whiteSpace: 'nowrap' } }, 'Mounted'))),
 
-    React.createElement(AryaSettingsFields, { options, enabled, disabled: !editable || saving, onChange: update }),
+    React.createElement(AryaSettingsFields, { options, enabled, disabled: true, onChange: update }),
+
+    React.createElement('p', { style: { ...ARYA_MUTED, fontSize: '11.5px', margin: '0 0 12px' } },
+      'The Host writes only volatile fields from this form, so the policy itself is read from the row configuration. Edit the polish row (Open configuration file above) and restart; the preset definition, its engine row and this tab rebuild from the new values.'),
 
     React.createElement('div', { style: { ...ARYA_ROW, justifyContent: 'flex-start', gap: '12px' } },
       React.createElement('button', {
@@ -407,7 +414,7 @@ function AryaSettingsEditor(props) {
         style: { ...ARYA_BUTTON_PRIMARY, opacity: !writable || !dirty || saving ? 0.45 : 1, cursor: !writable || !dirty || saving ? 'default' : 'pointer' },
         disabled: !writable || !dirty || saving,
         onClick: save,
-      }, saving ? 'Saving…' : 'Save changes'),
+      }, saving ? 'Saving…' : 'Save switch'),
       React.createElement('span', { style: { ...ARYA_MUTED, fontSize: '11.5px' } },
         writable ? (dirty ? 'Unsaved changes.' : 'Saved.') : 'This row is read-only in the current composition.'),
       notice.length === 0 ? null : React.createElement('span', { style: { ...ARYA_MUTED, fontSize: '11.5px' } }, notice)))

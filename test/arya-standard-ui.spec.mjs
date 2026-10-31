@@ -41,10 +41,12 @@ test('the Compaction tab is a conversation view with its own id and order', () =
   assert.ok(/name: 'conversation\.view',\s*\n\s*id: 'arya-standard-compaction',\s*\n\s*order: 40,/.test(bundle))
 })
 
-test('the settings form writes the policy group, not a bare switch', () => {
+test('the settings form writes the switch and reads the policy', () => {
   assert.ok(bundle.includes("const ARYA_GROUP = 'aryaStandardOptions'"))
-  assert.ok(bundle.includes('path: [ARYA_GROUP, field.key]'))
+  // The Host refuses a write to the non-volatile policy group from configForms,
+  // so the panel shows the policy read-only and patches only the volatile switch.
   assert.ok(bundle.includes('path: [ARYA_SWITCH]'))
+  assert.equal(bundle.includes('path: [ARYA_GROUP]'), false, 'the policy group must not be written from the form')
   assert.ok(bundle.includes('.getSnapshot()'))
   assert.ok(bundle.includes('.mutate('))
 })
