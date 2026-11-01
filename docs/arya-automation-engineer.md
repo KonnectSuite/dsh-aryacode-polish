@@ -216,5 +216,13 @@ ledger until it is added there — the tab never guesses from a name prefix.
 **Tests** — `test/arya-automation.spec.mjs` (9 specs): preset shape, persona
 content, tool classification, a read/check/write fold, a failed check staying red
 until a retry replaces it, non-engineering tools ignored, approval and live-write
-counters, and the projection's key/version. The bundle's UI spec additionally
-asserts the tab and the two new rows reach the built client.
+counters, and the projection's key/version. The build additionally runs ``node --check`` over the emitted client bundle, so a
+fragment that cannot parse fails the build instead of shipping.
+
+**Verified live** (2026-11-01, dev profile, plugin 0.112.1, the 0.22.2 Engineering
+seed bundle): a session created on **Arya Automation Engineer** opened
+``FC1000495_AFR.direct.L5X``, ran ``project_overview`` and ``run_checks``, and the
+Engineering tab showed READ (2 reads) and CHECKS (passing) lit with WRITE, VERIFY
+and LIVE grey � the same conclusion the agent's own answer reached ("nothing was
+modified, so there is no hand-off step"). The artifact list carried the L5X path and
+the project id, and the last tool was ``run_checks`` succeeded.
