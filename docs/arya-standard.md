@@ -248,6 +248,20 @@ writes `This is an automatically generated checkpoint…` and the
 `<compacted-summary>` tags. `prefix` plus one text block means the verbatim user
 section was dropped by the shrink guard.
 
+## The shared kit, and Arya Qwen
+
+`createAryaStandardCompaction(Base, kit)` takes its prompt and framing from a kit, so
+the same engine class backs both presets: Arya Standard passes Codex's checkpoint
+prompt, a handoff **prefix**, and `keepUserTokens` up to 20k; Arya Qwen passes Qwen
+Code's compression prompt, an empty prefix, a resume **suffix**, `stripAnalysis: true`
+and `minBodyTokens: 800`. A kit must frame its checkpoints somehow — prefix, suffix
+or both — and a kit with neither is refused at mount.
+
+Arya Standard keeps end-truncation (safe for prose). The floor exists because a
+structured envelope cannot be cut at an arbitrary point without losing its last
+sections; see [The presets compared](preset-comparison.md#4-the-fold-what-actually-happens)
+for the live run that exposed it.
+
 ## Attribution
 
 `presets/arya-standard/prompt.md`, `checkpoint-prompt.md` and `summary-prefix.md`

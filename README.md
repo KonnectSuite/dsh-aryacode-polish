@@ -38,7 +38,8 @@ Configure page automatically.
 | **Add a workspace from GitHub** (`githubWorkspace`) | On | Adds the GitHub half of the workspace sources: the dialog lists the repositories your GitHub CLI session can clone, and cloning one creates the workspace. The token never enters the browser — it is read on the Host, used only as git's http auth header, and never stored. The sidebar foot carries the sign-in state (`GitHub · <login>`). See [GitHub workspaces](docs/github-workspaces.md). |
 | **Add a workspace from this PC or GitHub** (`workspaceSources`) | On | The Workspaces **+** button gets a source menu: **On this PC** (the Host's OS chooser, or a folder list when the composition has no native chooser) and **GitHub repository…**. Off, the **+** button goes back to the shipped folder picker. |
 | **Right-panel screenshot** (`panelScreenshot`) | On | A camera button in the right panel's top-right corner photographs the open tab, copies the picture to the clipboard, and attaches it to the message being written. See [Right-panel screenshot](docs/panel-screenshot.md) for what it can and cannot capture. |
-| **Arya Standard preset** (`aryaStandard`) | On | Adds an **Arya Standard** agent preset that compacts the way Codex does, plus a Settings page for its knobs and a **Compaction** tab with the context trajectory, cache-hit strip, checkpoint cards, log and settings. See [Arya Standard](docs/arya-standard.md). |
+| **Better workspace** (`betterWorkspace`) | On | Replaces the sidebar workspace list with our own tree: workspaces with their sessions, a right-click menu on a workspace (open, copy path, remove), and the shipped session menu inside it. See [Better workspace](docs/better-workspace.md). |
+| **Arya Standard preset** (`aryaStandard`) | On | Adds an **Arya Standard** agent preset that compacts the way Codex does, plus a Settings page for its knobs and a **Compaction** tab with the context trajectory, cache-hit strip, checkpoint cards, log and settings. See [Arya Standard](docs/arya-standard.md) and [The presets compared](docs/preset-comparison.md). |
 | **Arya Qwen preset** (`aryaQwen`) | On | Adds an **Arya Qwen** agent preset: Qwen Code's system prompt and its `state_snapshot` compaction (analysis scratchpad stripped, resume trailer appended once), on Arya Standard's tool list. Shares the compaction policy and the Compaction tab with Arya Standard. See [Arya Qwen](docs/arya-qwen.md). |
 | **Cross-session memory** (`memory`) | On | Keeps short notes across sessions in `polish/memory.json` and quotes them into the system prompt as recalled context, never as instructions. **Settings → Memory** adds, filters and forgets them. See [Memory](docs/memory.md). |
 | **Lifecycle hooks** (`hooks`) | On | Runs a command when a turn stops, a session errors, or a checkpoint lands. Rules live in `polish/hooks.json`; dispatch is observational with a bounded in-memory log at **Settings → Hooks**. See [Hooks](docs/hooks.md). |
@@ -153,6 +154,27 @@ editing one re-runs `apply()` and rebuilds the definition — a session created
 afterwards mounts the new numbers, while a running session keeps the ones it
 started with.
 
+
+### Arya Qwen
+
+The second preset (`presets/arya-qwen/`) carries Qwen Code's system prompt and its
+history-compression prompt. Its row list is **derived** from Arya Standard's, so the
+tools, plan mode, pruner and manual `/compact` are identical; only three things
+differ:
+
+- the persona is Qwen Code's Core Mandates / Primary Workflows / Operational
+  Guidelines, with its tool names mapped onto this harness's (`read`, `write`,
+  `edit`, `grep`, `glob`, the shell tool, `todo_write`, `exit_plan_mode`, `skill`);
+- the checkpoint is Qwen Code's `<state_snapshot>` envelope: the `<analysis>`
+  drafting block is stripped before commit, a one-line resume trailer is appended
+  after the body instead of being regenerated each fold, and a fold that cannot fit
+  the envelope is refused rather than truncated (the 0.111.1 floor);
+- the policy is published as `aryaQwenPolicy` inside the preset's own isolated
+  realm, with `keepUserTokens: 0` because the summarizer already reproduces the
+  user's messages.
+
+See [Arya Qwen](docs/arya-qwen.md), and [The presets compared](docs/preset-comparison.md)
+for the measured three-way comparison against the shipped `standard` preset.
 
 ### How the cost is computed
 

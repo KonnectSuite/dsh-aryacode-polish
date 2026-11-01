@@ -3,6 +3,9 @@
 An agent preset built from [Qwen Code](https://github.com/QwenLM/qwen-code)'s
 prompt and history-compression prompt, on this harness's loop.
 
+For the measured three-way comparison against the shipped `standard` preset and
+Arya Standard, see [The presets compared](preset-comparison.md).
+
 ## What it is, and what it is not
 
 Arya Qwen **is not** Qwen Code's agent loop. Whatever preset a session mounts, the
@@ -45,6 +48,21 @@ own isolated realm), so a Qwen session can never read a Codex session's policy �
 and both presets can be registered at once without either seeing the other's
 state.
 
+## Verified
+
+Live on 2026-11-01 in the dev profile (plugin 0.111.0, `deepseek-account/deepseek-flash`):
+
+- the session log records `agent-preset/selected: arya-qwen`, so the preset really
+  mounted — not just appeared in the picker;
+- one shell turn (`echo arya-qwen-ok`) replied `arya-qwen-ok` in 3 s, 69.1k input
+  tokens, so the persona and the tool surface both work end to end;
+- a manual `/compact` committed a checkpoint whose body **starts with
+  `<state_snapshot>`**, contains **no `<analysis>` block**, and ends with the resume
+  trailer — the two properties this port adds;
+- that same fold found a defect: the span was only ~1,029 tokens, so the envelope
+  was end-truncated and lost `<next_step>` (8 of 9 sections). 0.111.1 adds the
+  `minBodyTokens` floor, and a regression test reproduces the tiny-span case.
+
 ## What was dropped
 
 Qwen Code machinery this harness does not have: interaction modes and their
@@ -61,6 +79,12 @@ harness provides equivalents.
 - **Not byte-identical to Qwen Code's runtime prompt.** Qwen Code assembles its
   prompt from conditionals at runtime; this preset carries the extracted default
   configuration (todos on, code mode off) and documents the removals above.
+- **Very short sessions do not fold.** The envelope needs roughly 800 tokens of body
+  room; below that the fold is skipped (manual `/compact` reports why) instead of
+  committing a checkpoint with its last sections cut off.
+- **Qwen Code's microcompaction is not ported.** Upstream clears old tool results by
+  tool class before paying for a summary; this bundle has the pruner and the
+  checkpoint but not the per-tool-class clearing.
 - **No projection of its own.** The Compaction tab's numbers come from the shared
   `aryaStandard` projection, which folds every session's `compaction/*` events
   regardless of preset.

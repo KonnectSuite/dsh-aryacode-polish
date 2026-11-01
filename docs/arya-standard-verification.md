@@ -199,3 +199,27 @@ host with its own environment â€” so the engine's `[arya-standard]` lines never 
 the launcher log. The durable session log is the reliable channel; decode it with the
 concatenated-frame reader above, because Node's `zstdDecompressSync` stops at the first
 frame.
+
+## 11. The Arya Qwen run (0.111.x)
+
+Run on 2026-11-01 against the same dev profile, plugin 0.111.0, routed model
+`deepseek-account/deepseek-flash`. Session `7c2d5182`, decoded from
+`session.v4.jsonl.zstd` the same way as section 10.
+
+| Claim | Evidence in the log |
+|---|---|
+| The preset mounted | `agent-preset/selected` = `arya-qwen` |
+| The persona and tools work | one shell call, reply `arya-qwen-ok`, `Completed in 3s`, 69.1k input tokens |
+| The checkpoint is Qwen Code's | `compaction/summary.data.summary[0].text` starts with `<state_snapshot>` and opens `<primary_request_and_intent>` |
+| The scratchpad is stripped | the summary text contains **no** `<analysis>` block |
+| The trailer is appended | the text ends with `Resume the prior task using the summary above. Continue from the last in-flight step; …` |
+| The fold was small | `command/done` = `Compacted 6 history items (~1029 tokens).` |
+
+The same run found a defect: the checkpoint carried **8 of 9 sections**, missing
+`next_step`, because the body was end-truncated to fit a ~1,029-token span. 0.111.1
+adds a `minBodyTokens` floor (800 for Arya Qwen) so the fold is refused rather than
+mutilated, with a regression test that reproduces the tiny-span case.
+
+Current static gate on this line: `node --test` ? **503 pass, 0 fail**, including the
+two-definition comparison, the Qwen extraction-hole scan, the suffix-framing kit test
+and the floor test.
