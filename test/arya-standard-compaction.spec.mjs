@@ -192,6 +192,21 @@ test('the verbatim section is dropped when the body already fills the checkpoint
   assert.ok(result.summary[0].text.startsWith(`${PREFIX}\n`))
 })
 
+test('a structured checkpoint the span cannot hold is refused, not truncated', async () => {
+  // Qwen Code's envelope has sections after the prose; cutting it at the end
+  // drops <next_step>. A span below the kit's floor must fail the fold instead.
+  const { engine, kit } = engineOf({ blocks: [{ type: 'text', text: '<state_snapshot>' + 'Z'.repeat(400) + '</state_snapshot>' }] })
+  kit.minBodyTokens = 2000
+  await assert.rejects(
+    () => engine.summarize({ messages: [longUser(1)] }, makeAgent(), undefined),
+    /the replaced span is too small for a checkpoint/,
+  )
+  // The same span with no floor still commits, so the guard is the floor and not
+  // the small span alone.
+  const loose = engineOf({ blocks: [{ type: 'text', text: 'a short body' }] })
+  const result = await loose.engine.summarize({ messages: manyUsers() }, makeAgent(), undefined)
+  assert.ok(result.summary[0].text.length > 0)
+})
 test('a previous checkpoint is never re-quoted as the user’s words', async () => {
   const { engine } = engineOf()
   const previous = { role: 'user', content: [{ type: 'text', text: `${PREFIX}\nan old checkpoint ` + 'z'.repeat(800) }] }
