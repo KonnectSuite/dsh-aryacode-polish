@@ -731,8 +731,13 @@ test('the trash row, the trash card and the undo are all in the tree', () => {
   // A trashed log is undone through the trash route, not the archive service.
   assert.ok(workspaceSource.includes("payload.kind === 'trash'"), 'Undo must know the trash kind')
   assert.ok(workspaceSource.includes("offerUndo({ kind: 'trash', ids: [row.id] })"), 'trashing must offer Undo')
+  // The Host re-pulls its Session baseline after every trash action: the folder moved
+  // on disk, which is not a Host verb, so a trashed row must leave the tree right
+  // away and not sit there until the app restarts.
+  assert.ok(workspaceSource.includes("typeof list.refresh === 'function'"), 'the seat must offer the session-list refresh')
+  assert.ok(workspaceSource.includes('await services.refreshSessions()'), 'every trash action must re-pull the session list')
   // And the same hooks reach the emitted bundle.
-  for (const marker of ['data-polish-trash-card', 'data-polish-trash-restore', '"key": "sessionTrash"']) {
+  for (const marker of ['data-polish-trash-card', 'data-polish-trash-restore', '"key": "sessionTrash"', 'typeof list.refresh']) {
     assert.ok(bundle.includes(marker), 'the bundle should carry ' + marker)
   }
 })

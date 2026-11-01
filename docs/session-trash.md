@@ -37,6 +37,12 @@ owns the id, and the tree lists a Session it discovered on disk by its folder na
 is accepted in both spellings, the archive gate is checked against the id the row
 carried, and the folder the store moves always carries the canonical uuid.
 
+The Session list the tree renders is the Host's baseline, and a folder this store
+moved is not a Host verb — nothing on the Host's side notices. So every trash
+action asks the sessions service for its own `refresh()` before updating the card:
+the trashed row leaves the tree, and a restored row comes back, at once rather
+than at the next restart.
+
 The **Archived** header menu gains **Trash · N sessions**, opening a card that
 lists each trashed Session with its title, how long ago it went, and the bytes it
 takes. From there:

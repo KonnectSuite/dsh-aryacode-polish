@@ -1,3 +1,9 @@
+## [0.108.1]
+
+### Fixed
+
+- A trashed session now leaves the tree right away. The Session list is the Host's baseline, and moving a transcript folder is not a Host verb, so the tree was rendering a list the Host never re-pulled — the trashed row sat in Archived (and the restored row stayed away) until an app restart. The seat now carries the sessions service's own `refresh()`, and every trash action — Move to trash, Undo, Restore, Delete for good, Empty trash — re-pulls the baseline before the card state updates. A busy tree hid this (its activity kept refreshing the list), which is why it looked fine in the verification app and stale in an idle one.
+
 ## [0.108.0]
 
 ### Added

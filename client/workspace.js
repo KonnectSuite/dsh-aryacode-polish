@@ -2700,9 +2700,16 @@ export function BetterWorkspace(props) {
       error.code = body && body.code
       throw error
     }
+    // The folder moved under the Host's feet, so ask for its Session baseline again:
+    // the trashed row leaves the tree now, and a restored one comes back now.
+    try {
+      await services.refreshSessions()
+    } catch {
+      /* a failed pull still leaves the trash's own answer in hand */
+    }
     await refreshTrash()
     return body
-  }, [refreshTrash])
+  }, [refreshTrash, services])
   const split = splitArchived(visibleSessions, archiveSet)
   const byPin = splitPinned(split.active, (workspaceState && workspaceState.pinnedSessionIds) || [])
   const pinnedSessions = byPin.pinned
@@ -5634,6 +5641,13 @@ export function installWorkspaceSeat(ctx, configForms, extras = {}) {
             openFolder: async (path) => {
               const answer = await seated.remote.session.openWorkspacePath({ path })
               if (answer && answer.ok === false) throw new Error('cannot open the folder')
+            },
+            // The Session list is the Host's baseline, re-pulled on demand. The trash
+            // moves a log folder on disk, which is not a Host verb, so the tree asks
+            // for the pull itself: without it a trashed row lingers until a restart.
+            refreshSessions: () => {
+              const list = seated.sessions
+              if (list && typeof list.refresh === 'function') return list.refresh()
             },
           }
           seated.slots.inject('sidebar.workspaces', () => seated.slots.register({
