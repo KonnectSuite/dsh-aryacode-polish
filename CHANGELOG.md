@@ -1,3 +1,14 @@
+## [0.108.0]
+
+### Added
+
+- **Session trash** (`sessionTrash`, default on). An archived session's row gains a red **Move to trash…** row: the first press arms it, the second moves that session's own transcript folder from `sessions/<cwd>/session-<id>` into `<home>/polish-trash/sessions/<id>` and records the source path in an atomic 0600 manifest. The **Archived** header menu gains **Trash · N sessions**, opening a card with **Restore** (the folder goes back to the exact recorded path, and the session reappears in Archived), **Delete for good**, and **Empty trash**, which reconciles manifest with filesystem so an empty trash is empty on disk. Trashing offers the tree's twelve-second **Undo**, restoring through the same route. The workspace folder and every file in it are never touched, the content-addressed attachment store is left alone, and a session that is not archived is refused — the host half re-reads the Host's own archive set on every request, so the gate is not the browser's. `docs/session-trash.md` carries the boundary and why the Host left session deletion outside its own.
+
+### Notes
+
+- Failure answers carry stable codes (`trash_not_archived`, `trash_not_found`, `trash_already_trashed`, `trash_restore_target_busy`, `trash_missing_entry`, `trash_registry_unavailable`, `trash_bad_id`) so the tree can name the gate that stopped the action instead of forwarding a filesystem message. A corrupt manifest is moved aside to `trash-manifest.json.corrupt-<timestamp>` and the feature answers empty, because that file is the only map back to the trashed logs.
+- Host half in `entries/trash-store.js` (filesystem, manifest, byte accounting) plus `entries/trash.js` (`POST api/polish.trash`, actions `list`/`trash`/`restore`/`purge`/`empty`). New specs in `test/trash.spec.mjs` cover the gates, the round trips, manifest recovery, byte accounting, and the two id spellings the app uses — the tree lists a discovered Session by its folder name (`session-<uuid>`) and its archive entry carries that form, so every request is accepted both ways and the move always uses the canonical uuid. The route parses the Request body (`requestBody: 'buffered'` hands over bytes, not a string).
+
 ## [0.107.5]
 
 ### Fixed

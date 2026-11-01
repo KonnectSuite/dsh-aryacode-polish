@@ -712,3 +712,27 @@ test('secondary rows carry the same facts', () => {
     assert.ok(!workspaceSource.includes(gone), 'the secondary-row cost pills are gone: ' + gone)
   }
 })
+
+test('the trash row, the trash card and the undo are all in the tree', () => {
+  // The destructive row lives only inside the archived menu, gated on the switch.
+  for (const marker of [
+    "'data-polish-trash-move'",
+    "'data-polish-trash-open'",
+    "'data-polish-trash-card'",
+    "'data-polish-trash-restore'",
+    "'data-polish-trash-purge'",
+    "'data-polish-trash-empty-button'",
+    "'data-polish-trash-close'",
+    "trashOn\n        ? React.createElement('button'",
+    "useSwitch(services.configForms, 'sessionTrash', true)",
+  ]) {
+    assert.ok(workspaceSource.includes(marker), 'the tree should carry ' + marker)
+  }
+  // A trashed log is undone through the trash route, not the archive service.
+  assert.ok(workspaceSource.includes("payload.kind === 'trash'"), 'Undo must know the trash kind')
+  assert.ok(workspaceSource.includes("offerUndo({ kind: 'trash', ids: [row.id] })"), 'trashing must offer Undo')
+  // And the same hooks reach the emitted bundle.
+  for (const marker of ['data-polish-trash-card', 'data-polish-trash-restore', '"key": "sessionTrash"']) {
+    assert.ok(bundle.includes(marker), 'the bundle should carry ' + marker)
+  }
+})

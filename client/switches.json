@@ -44,6 +44,12 @@
       "defaultOn": true
     },
     {
+      "key": "sessionTrash",
+      "label": "Session trash",
+      "description": "Move an archived session’s transcript to a trash you can restore from, and empty it when you want the space back.",
+      "defaultOn": true
+    },
+    {
       "key": "aryaStandard",
       "label": "Arya Standard preset",
       "description": "Add the Arya Standard agent preset, with Codex checkpoint compaction and its own Compaction tab.",

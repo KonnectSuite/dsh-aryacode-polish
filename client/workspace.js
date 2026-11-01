@@ -1410,6 +1410,42 @@ export function elapsedLabel(ms) {
   return hours < 24 ? hours + 'h' : Math.floor(hours / 24) + 'd'
 }
 
+/** A byte count, so the trash can say how much space each transcript takes. */
+export function bytesLabel(bytes) {
+  const value = Number(bytes)
+  if (!Number.isFinite(value) || value < 0) return ''
+  if (value < 1024) return String(Math.round(value)) + ' B'
+  const kb = value / 1024
+  if (kb < 1024) return (kb < 10 ? kb.toFixed(1) : String(Math.round(kb))) + ' KB'
+  const mb = kb / 1024
+  if (mb < 1024) return (mb < 10 ? mb.toFixed(2) : String(Math.round(mb))) + ' MB'
+  const gb = mb / 1024
+  return (gb < 10 ? gb.toFixed(2) : String(Math.round(gb))) + ' GB'
+}
+
+/**
+ * The words for a trash failure, keyed by the store's stable code.
+ *
+ * The store names which safety gate stopped the action; the tree says that back
+ * plainly, because "ENOENT, EACCES" tells a user nothing about their transcript.
+ *
+ * @param error - the failure, carrying `code`.
+ * @returns {string} the sentence for the notice line.
+ */
+export function trashFailureNotice(error) {
+  const code = error && error.code
+  if (code === 'trash_not_archived') return 'Only an archived session can be moved to the trash.'
+  if (code === 'trash_not_found') return 'That session has no stored transcript to move.'
+  if (code === 'trash_already_trashed') return 'That session is already in the trash.'
+  if (code === 'trash_restore_target_busy') return 'That transcript is back on disk already.'
+  if (code === 'trash_missing_entry') return 'That session is not in the trash.'
+  if (code === 'trash_registry_unavailable') return 'The workspace registry is not answering, so the trash is closed.'
+  if (code === 'trash_bad_id') return 'That session id is not one AryaCode knows.'
+  if (code === 'trash_bad_request' || code === 'trash_post_required') return 'The trash request reached the Host malformed.'
+  if (code === 'trash_unknown_action') return 'The trash does not know that request.'
+  return 'Could not move that session to the trash.'
+}
+
 /** The exact moment behind an age label, for the tooltip. */
 export const DAY_GROUPS = ['today', 'yesterday', 'week', 'older']
 
@@ -2611,6 +2647,62 @@ export function BetterWorkspace(props) {
     () => (showSubagents ? sessionList : sessionList.filter((row) => row && !subagents.has(row.id))),
     [sessionList, showSubagents, subagents],
   )
+  // The trash: the host half owns the filesystem, so the tree asks the route and
+  // renders what it answers. It only ever offers the row inside the Archived
+  // section, and the host re-checks the archive on every request.
+  const trashOn = useSwitch(services.configForms, 'sessionTrash', true)
+  const [trash, setTrash] = React.useState([])
+  const [trashBytes, setTrashBytes] = React.useState(0)
+  const [trashOpen, setTrashOpen] = React.useState(false)
+  const [trashEmpty, setTrashEmpty] = React.useState(false)
+  const refreshTrash = React.useCallback(async () => {
+    if (!trashOn) {
+      setTrash((prev) => (prev.length === 0 ? prev : []))
+      setTrashBytes(0)
+      return
+    }
+    try {
+      const answer = await fetch('api/polish.trash', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ action: 'list' }),
+      })
+      if (!answer.ok) return
+      const body = await answer.json()
+      setTrash(Array.isArray(body && body.items) ? body.items : [])
+      setTrashBytes(Number(body && body.bytes) || 0)
+    } catch {
+      /* the route is silent when the feature is off */
+    }
+  }, [trashOn])
+  React.useEffect(() => {
+    refreshTrash()
+  }, [refreshTrash, sessionList.length])
+  /** Ask the trash route one thing, and fail loudly with the store's own code. */
+  const callTrash = React.useCallback(async (action, sessionId, title) => {
+    const answer = await fetch('api/polish.trash', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({
+        action,
+        sessionId: typeof sessionId === 'string' ? sessionId : undefined,
+        title: typeof title === 'string' && title !== '' ? title : undefined,
+      }),
+    })
+    let body = {}
+    try {
+      body = await answer.json()
+    } catch {
+      /* the failure branch below reports it */
+    }
+    if (!answer.ok || !body || body.ok !== true) {
+      const error = new Error((body && body.message) || 'trash failed')
+      error.code = body && body.code
+      throw error
+    }
+    await refreshTrash()
+    return body
+  }, [refreshTrash])
   const split = splitArchived(visibleSessions, archiveSet)
   const byPin = splitPinned(split.active, (workspaceState && workspaceState.pinnedSessionIds) || [])
   const pinnedSessions = byPin.pinned
@@ -3341,7 +3433,33 @@ export function BetterWorkspace(props) {
             setNotice('Could not copy the session id.')
           }
         },
-      }, 'Copy session id'))
+      }, 'Copy session id'),
+      trashOn
+        ? React.createElement('button', {
+          type: 'button',
+          'data-polish-trash-move': menu.row.id,
+          style: Object.assign({}, WS_MENU_ITEM, { color: 'var(--dsw-alias-label-error, #d92d20)' }),
+          onClick: async () => {
+            const row = menu.row
+            // The repo's own rule for a destructive row: the first press arms it,
+            // the second acts. The label says which one the press is.
+            if (!armed || armed !== 'trash:' + row.id) {
+              setArmed('trash:' + row.id)
+              setMenu(Object.assign({}, menu))
+              return
+            }
+            closeMenu()
+            setArmed(null)
+            try {
+              await callTrash('trash', row.id, row.displayTitle)
+              offerUndo({ kind: 'trash', ids: [row.id] })
+              setNotice('Moved the transcript to the trash. The folder and its files are untouched.')
+            } catch (error) {
+              setNotice(trashFailureNotice(error))
+            }
+          },
+        }, armed && armed === 'trash:' + menu.row.id ? 'Move to trash?' : 'Move to trash…')
+        : null)
     : null
 
   const saveViewMenu = menu && menu.kind === 'saveView'
@@ -3394,7 +3512,120 @@ export function BetterWorkspace(props) {
           else setNotice('Could not restore the archived sessions.')
         },
       }, restoreLabel(archivedSessions.length)),
+      trashOn
+        ? React.createElement('button', {
+          type: 'button',
+          'data-polish-trash-open': String(trash.length),
+          style: WS_MENU_ITEM,
+          onClick: () => {
+            closeMenu()
+            setTrashEmpty(false)
+            setTrashOpen(true)
+            refreshTrash()
+          },
+        }, trash.length === 0
+          ? 'Trash…'
+          : 'Trash · ' + String(trash.length) + (trash.length === 1 ? ' session' : ' sessions'))
+        : null,
       React.createElement('div', { style: WS_MENU_HINT }, 'Sessions come back to their own workspace.'))
+    : null
+
+  const trashCard = trashOn && trashOpen
+    ? ReactDOM.createPortal(React.createElement(React.Fragment, null,
+      React.createElement('div', { style: SWITCHER_BACKDROP, onClick: () => setTrashOpen(false) }),
+      React.createElement('div', {
+        'data-polish-trash-card': 'open',
+        role: 'dialog',
+        'aria-label': 'Session trash',
+        style: { position: 'fixed', top: '16%', left: '50%', transform: 'translateX(-50%)', zIndex: 1350, width: 'min(480px, calc(100vw - 32px))', maxHeight: '62vh', overflow: 'auto', background: 'Canvas', color: 'CanvasText', border: '1px solid var(--dsw-alias-border-l2, rgba(0, 0, 0, 0.12))', borderRadius: '12px', boxShadow: '0 12px 32px rgba(0, 0, 0, 0.18)', padding: '14px' },
+      },
+        React.createElement('div', { style: { display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: '8px' } },
+          React.createElement('strong', { style: { fontSize: '13px' } }, 'Session trash'),
+          React.createElement('span', {
+            'data-polish-trash-total': 'true',
+            style: { fontSize: '12px', fontVariantNumeric: 'tabular-nums', color: 'var(--dsw-alias-label-tertiary, #6b6b6b)' },
+          }, String(trash.length) + ' · ' + bytesLabel(trashBytes))),
+        React.createElement('div', {
+          style: { marginTop: '6px', fontSize: '11px', lineHeight: '1.5', color: 'var(--dsw-alias-label-quaternary, #8a8a8a)' },
+        }, 'Transcripts only. The workspace folders and every file in them stay exactly where they are.'),
+        trash.length === 0
+          ? React.createElement('div', {
+            'data-polish-trash-empty': 'true',
+            style: { padding: '14px 2px', fontSize: '12px', color: 'var(--dsw-alias-label-quaternary, #8a8a8a)' },
+          }, 'The trash is empty.')
+          : React.createElement('div', { style: { display: 'flex', flexDirection: 'column', gap: '6px', marginTop: '10px' } },
+            trash.map((entry) => React.createElement('div', {
+              key: 'trash:' + entry.id,
+              'data-polish-trash-row': entry.id,
+              style: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px', fontSize: '12px' },
+            },
+              React.createElement('span', {
+                style: { minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' },
+                title: entry.id,
+              }, (entry.title || 'Untitled session') + ' · ' + ageLabel(entry.trashedAt, Date.now()) + ' · ' + bytesLabel(entry.bytes)),
+              React.createElement('span', { style: { display: 'flex', gap: '4px', flexShrink: 0 } },
+                React.createElement('button', {
+                  type: 'button',
+                  'data-polish-trash-restore': entry.id,
+                  style: Object.assign({}, WS_MENU_ITEM, { display: 'inline-block', width: 'auto', padding: '0 6px' }),
+                  onClick: async () => {
+                    try {
+                      await callTrash('restore', entry.id)
+                      setNotice('Restored that session. It is back in the Archived list.')
+                    } catch (error) {
+                      setNotice(trashFailureNotice(error))
+                    }
+                  },
+                }, 'Restore'),
+                React.createElement('button', {
+                  type: 'button',
+                  'data-polish-trash-purge': entry.id,
+                  style: Object.assign({}, WS_MENU_ITEM, { display: 'inline-block', width: 'auto', padding: '0 6px', color: 'var(--dsw-alias-label-error, #d92d20)' }),
+                  onClick: async () => {
+                    if (armed !== 'purge:' + entry.id) {
+                      setArmed('purge:' + entry.id)
+                      return
+                    }
+                    setArmed(null)
+                    try {
+                      const done = await callTrash('purge', entry.id)
+                      setNotice('Deleted that transcript for good. ' + bytesLabel(done.bytes) + ' freed.')
+                    } catch (error) {
+                      setNotice(trashFailureNotice(error))
+                    }
+                  },
+                }, armed === 'purge:' + entry.id ? 'Delete for good?' : 'Delete for good'))))),
+        React.createElement('div', {
+          style: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px', marginTop: '12px', paddingTop: '10px', borderTop: '1px solid var(--dsw-alias-border-l2, rgba(0, 0, 0, 0.12))' },
+        },
+          React.createElement('button', {
+            type: 'button',
+            'data-polish-trash-empty-button': trashEmpty ? 'armed' : 'ready',
+            disabled: trash.length === 0,
+            style: Object.assign({}, WS_MENU_ITEM, { display: 'inline-block', width: 'auto', padding: '0 6px', color: 'var(--dsw-alias-label-error, #d92d20)' }),
+            onClick: async () => {
+              if (!trashEmpty) {
+                setTrashEmpty(true)
+                return
+              }
+              setTrashEmpty(false)
+              try {
+                const done = await callTrash('empty')
+                setTrashOpen(false)
+                setNotice('Emptied the trash. ' + String(done.removed) + (done.removed === 1 ? ' transcript' : ' transcripts') + ' gone, ' + bytesLabel(done.bytes) + ' freed.')
+              } catch (error) {
+                setNotice(trashFailureNotice(error))
+              }
+            },
+          }, trashEmpty ? 'Empty the trash for good?' : 'Empty trash'),
+          React.createElement('button', {
+            type: 'button',
+            'data-polish-trash-close': 'true',
+            style: Object.assign({}, WS_MENU_ITEM, { display: 'inline-block', width: 'auto', padding: '0 6px' }),
+            onClick: () => setTrashOpen(false),
+          }, 'Close'))
+      )),
+      document.body)
     : null
 
   const folderMenu = menu && menu.kind === 'folder'
@@ -4441,6 +4672,21 @@ export function BetterWorkspace(props) {
         setNotice('Flags put back.')
         return
       }
+      // A trashed log comes back through the trash route, not the archive service:
+      // the folder has to move before the row can mean anything again.
+      if (payload.kind === 'trash') {
+        let back = 0
+        for (let at = 0; at < payload.ids.length; at += 1) {
+          try {
+            await callTrash('restore', payload.ids[at])
+            back += 1
+          } catch { /* keep going */ }
+        }
+        setNotice(back === payload.ids.length
+          ? 'Restored from the trash.'
+          : 'Restored ' + String(back) + ' of ' + String(payload.ids.length) + ' from the trash.')
+        return
+      }
       const count = payload.ids.length
       let back = 0
       for (let at = 0; at < count; at += 1) {
@@ -5229,6 +5475,7 @@ export function BetterWorkspace(props) {
   helpCard,
   spendCard,
   costPeekCard,
+  trashCard,
   folderLookMenu,
   sessionMenu,
   glyphMenu,

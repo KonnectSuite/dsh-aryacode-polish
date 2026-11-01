@@ -123,6 +123,8 @@ import {
   splitPinned,
   costOf,
   costLabel, sumCost, folderHasRunning, readHelp, writeHelp, sumCostLabel,
+  bytesLabel,
+  trashFailureNotice,
   GLYPHS,
   restoreLabel,
   moveTarget,
@@ -1685,4 +1687,45 @@ it('the linked ids join the projection set', () => {
   const linked = new Set(['child-b'])
   linked.forEach((id) => merged.add(id))
   assert.deepEqual([...merged].sort(), ['child-a', 'child-b'])
+})
+
+describe('bytesLabel', () => {
+  it('says bytes, KB, MB, GB with the digits a folder list can scan', () => {
+    assert.equal(bytesLabel(0), '0 B')
+    assert.equal(bytesLabel(512), '512 B')
+    assert.equal(bytesLabel(1023), '1023 B')
+    assert.equal(bytesLabel(1024), '1.0 KB')
+    assert.equal(bytesLabel(1536), '1.5 KB')
+    assert.equal(bytesLabel(10240), '10 KB')
+    assert.equal(bytesLabel(1024 * 1024), '1.00 MB')
+    assert.equal(bytesLabel(100 * 1024 * 1024), '100 MB')
+    assert.equal(bytesLabel(2 * 1024 * 1024 * 1024), '2.00 GB')
+  })
+
+  it('answers an empty string for a number that is not a size', () => {
+    assert.equal(bytesLabel(-1), '')
+    assert.equal(bytesLabel(Number.NaN), '')
+    assert.equal(bytesLabel(undefined), '')
+  })
+})
+
+describe('trashFailureNotice', () => {
+  it('names the gate that stopped the action, in words', () => {
+    assert.match(trashFailureNotice({ code: 'trash_not_archived' }), /archived/)
+    assert.match(trashFailureNotice({ code: 'trash_not_found' }), /stored transcript/)
+    assert.match(trashFailureNotice({ code: 'trash_already_trashed' }), /already in the trash/)
+    assert.match(trashFailureNotice({ code: 'trash_restore_target_busy' }), /back on disk/)
+    assert.match(trashFailureNotice({ code: 'trash_missing_entry' }), /not in the trash/)
+    assert.match(trashFailureNotice({ code: 'trash_registry_unavailable' }), /registry/)
+    assert.match(trashFailureNotice({ code: 'trash_bad_id' }), /session id/)
+    assert.match(trashFailureNotice({ code: 'trash_bad_request' }), /malformed/)
+    assert.match(trashFailureNotice({ code: 'trash_post_required' }), /malformed/)
+    assert.match(trashFailureNotice({ code: 'trash_unknown_action' }), /does not know/)
+  })
+
+  it('falls back to one honest sentence for a code it does not know', () => {
+    assert.equal(trashFailureNotice({ code: 'trash_failed' }), 'Could not move that session to the trash.')
+    assert.equal(trashFailureNotice(undefined), 'Could not move that session to the trash.')
+    assert.equal(trashFailureNotice({}), 'Could not move that session to the trash.')
+  })
 })
