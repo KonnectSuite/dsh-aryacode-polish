@@ -103,7 +103,7 @@ function AryaEngineeringTab(props) {
       React.createElement('div', { style: { ...ARYA_MUTED, fontSize: '10.5px' } }, gates.policy.length > 0 ? 'policy: ' + gates.policy : 'no approval policy yet')),
     React.createElement('div', null,
       React.createElement('div', { style: ARYA_EYEBROW }, 'Live controller'),
-      React.createElement('div', { style: { fontSize: '13px', fontWeight: 600, color: live.writes > 0 ? ARYA_THEME.warn : ARYA_THEME.text } }, live.reads + ' reads · ' + live.writes + ' writes')),
+      React.createElement('div', { style: { fontSize: '13px', fontWeight: 600, color: live.writes > 0 ? ARYA_THEME.warn : ARYA_THEME.text } }, live.reads + ' reads · ' + live.writes + ' writes'),
       React.createElement('div', { style: { ...ARYA_MUTED, fontSize: '10.5px' } }, live.writes > 0 ? 'a live write happened in this session' : 'nothing was written to a live target')),
     React.createElement('div', null,
       React.createElement('div', { style: ARYA_EYEBROW }, 'Last tool'),

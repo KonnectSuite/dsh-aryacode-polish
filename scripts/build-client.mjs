@@ -11,7 +11,10 @@
  * settings and tab, then `face.js`, which registers every slot.
  */
 
-import { readFileSync, writeFileSync } from 'node:fs'
+import { readFileSync, rmSync, writeFileSync } from 'node:fs'
+import { spawnSync } from 'node:child_process'
+import { tmpdir } from 'node:os'
+import { join } from 'node:path'
 
 const root = new URL('../', import.meta.url)
 const manifest = JSON.parse(readFileSync(new URL('package.json', root), 'utf8'))
@@ -106,4 +109,19 @@ ${indent(face.trimEnd())}
 `
 
 writeFileSync(new URL('lib/client.js', root), bundle, 'utf8')
+
+// Parse the bundle before shipping it. A stray parenthesis in a hand-written
+// fragment broke a release once: the build wrote it, npm accepted it, and the app
+// failed to load the plugin at runtime. `node --check` catches that here instead.
+const probe = join(tmpdir(), `dsh-client-check-${process.pid}.mjs`)
+writeFileSync(probe, bundle, 'utf8')
+try {
+  const checked = spawnSync(process.execPath, ['--check', probe], { encoding: 'utf8' })
+  if (checked.status !== 0) {
+    throw new Error(`lib/client.js does not parse:\n${checked.stderr ?? checked.stdout}`)
+  }
+} finally {
+  rmSync(probe, { force: true })
+}
+
 process.stdout.write(`wrote lib/client.js (${bundle.length} bytes, ${declaration.switches.length} switch(es))\n`)

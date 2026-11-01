@@ -1,3 +1,9 @@
+## [0.112.1]
+
+### Fixed
+
+- **The client bundle now parses before it ships.** 0.112.0's Engineering tab closed two React children in the wrong place, so `client.js` failed at load with `Missing initializer in const declaration` and the app reported "AryaCode is unavailable". `scripts/build-client.mjs` now runs `node --check` over the emitted bundle and fails the build instead of writing a file that cannot load.
+
 ## [0.112.0]
 
 ### Added
