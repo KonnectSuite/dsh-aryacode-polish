@@ -1,3 +1,14 @@
+## [0.111.1]
+
+### Fixed
+
+- **A small span no longer truncates a structured checkpoint.** A live Qwen session with a ~1k-token span produced a checkpoint cut off inside <current_work>: end-truncation had dropped <next_step>, the one section a resuming agent needs most. The factory now takes a `minBodyTokens` floor and refuses the fold when the span cannot hold the checkpoint, so the session keeps its history and a manual `/compact` says why. Arya Qwen sets the floor to 800 tokens; Arya Standard keeps end-truncation, which is harmless for prose.
+
+### Verified
+
+- A real Arya Qwen turn in the 0.111.0 dev build: the preset mounted (`agent-preset/selected: arya-qwen`), the shell tool ran, the reply was `arya-qwen-ok` in 3 s.
+- A real `/compact` in that session committed a `compaction/summary` whose body starts with `<state_snapshot>`, carries 8 of the 9 sections, and has no `<analysis>` block — the scratchpad strip works. The ninth (`next_step`) is what the truncation above ate, and what this release stops shipping.
+
 ## [0.111.0]
 
 ### Added

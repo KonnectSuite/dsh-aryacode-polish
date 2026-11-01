@@ -19,7 +19,7 @@ import {
 } from '../presets/arya-qwen/definition.js'
 import { adaptQwenPrompt } from '../presets/arya-qwen/adapt.js'
 import { qwenBasePrompt, qwenCheckpointPrompt, qwenSummarySuffix } from '../presets/arya-qwen/files.js'
-import { AryaQwenEngine } from '../presets/arya-qwen/engine.js'
+import { ARYA_QWEN_KIT, AryaQwenEngine } from '../presets/arya-qwen/engine.js'
 import { ARYA_QWEN_POLICY_SERVICE } from '../presets/arya-qwen/policy.js'
 import { buildDefinition as buildAryaStandard } from '../presets/arya-standard/definition.js'
 import { createAryaStandardCompaction } from '../presets/arya-standard/compaction.js'
@@ -106,6 +106,15 @@ test('the engine reads aryaQwenPolicy', () => {
   assert.equal(typeof descriptor.get, 'function')
   assert.equal(descriptor.get.call({}), ARYA_QWEN_POLICY_SERVICE)
   assert.equal(ARYA_QWEN_POLICY_SERVICE, 'aryaQwenPolicy')
+})
+
+test('the shipped kit frames with the trailer, strips the analysis and refuses a tiny fold', () => {
+  assert.equal(ARYA_QWEN_KIT.summaryPrefix, '')
+  assert.ok(ARYA_QWEN_KIT.summarySuffix.includes('Resume the prior task'))
+  assert.equal(ARYA_QWEN_KIT.stripAnalysis, true)
+  assert.equal(ARYA_QWEN_KIT.checkpointMarker, '<state_snapshot>')
+  // Below this much room the envelope would be cut and lose <next_step>.
+  assert.ok(ARYA_QWEN_KIT.minBodyTokens >= 500, 'a structured checkpoint needs a floor')
 })
 
 test('a kit frames with a suffix and no prefix; an empty frame is refused', () => {

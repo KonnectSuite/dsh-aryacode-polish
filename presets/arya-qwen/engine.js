@@ -1,7 +1,7 @@
 /**
  * The engine row Arya Qwen mounts.
  *
- * The trigger logic, retention maths and transaction work are Arya Standard's â€”
+ * The trigger logic, retention maths and transaction work are Arya Standard's Ã¢â‚¬â€
  * imported, not copied, so a fix to the pre-warm gate reaches both presets. What
  * differs is the kit:
  *
@@ -27,7 +27,8 @@ export class AryaQwenEngine extends ObservableCompactionEngine {
   }
 }
 
-export default createAryaStandardCompaction(AryaQwenEngine, {
+/** The kit both the live row and the tests read, so its shape stays checkable. */
+export const ARYA_QWEN_KIT = {
   BlockAssembler,
   LlmError,
   contentHasImage,
@@ -37,5 +38,10 @@ export default createAryaStandardCompaction(AryaQwenEngine, {
   summarySuffix: qwenSummarySuffix(),
   stripAnalysis: true,
   checkpointMarker: '<state_snapshot>',
+  // The envelope is ~800 tokens even when nearly empty, and cutting it at the
+  // end loses `<next_step>`. Below this much room the fold is skipped instead.
+  minBodyTokens: 800,
   contextWindowExceededCode: CONTEXT_WINDOW_EXCEEDED_CODE,
-})
+}
+
+export default createAryaStandardCompaction(AryaQwenEngine, ARYA_QWEN_KIT)

@@ -421,6 +421,15 @@ export function createAryaStandardCompaction(Base, kit) {
       // provider wrote too long for a small span must be cut, not committed.
       const frameTokens = estimateTokens([prefix, suffix].filter((part) => part.length > 0).join('\n\n'))
       const room = Math.max(0, Math.floor(spanTokens * SHRINK_SAFETY) - FRAME_RESERVE_TOKENS - frameTokens)
+      // A structured checkpoint (Qwen Code's XML envelope) cannot be cut at an
+      // arbitrary point: truncating it drops the sections at the end, which is
+      // where `next_step` lives. When the span is too small to hold the envelope,
+      // commit nothing rather than a mutilated one; the session simply keeps its
+      // history, and a manual /compact reports why.
+      const minimum = Number.isFinite(kit.minBodyTokens) && kit.minBodyTokens > 0 ? kit.minBodyTokens : 0
+      if (room < minimum) {
+        throw new Error(`arya-standard compaction: the replaced span is too small for a checkpoint (${spanTokens} estimated tokens, ${room} available)`)
+      }
       const fitted = estimateTokens(body) > room ? truncateToTokens(body, room).trimEnd() : body
       if (fitted.length === 0) {
         throw new Error(`arya-standard compaction: the replaced span is too small for a checkpoint (${spanTokens} estimated tokens)`)
