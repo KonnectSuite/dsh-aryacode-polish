@@ -136,16 +136,13 @@ against its threshold, in a session whose spans end on a completed turn boundary
 
 ## 8. Not covered, and why
 
-- **Automatic compaction crossing the threshold live.** The threshold arithmetic is
-  verified (50 % / 62.1k in a real session) and manual compaction exercises the same
-  `summarize()`, checkpoint write, projection fold and tab render. What is not
-  exercised live is `compactIfNeeded`'s trigger check — and that code is **not ours**:
+- **Automatic compaction crossing the threshold live.** Manual compaction is now
+  verified end to end (§10), and the threshold arithmetic was verified above. The
+  automatic trigger check itself is `compaction-basic`'s, not ours:
   `presets/arya-standard/engine.js` binds `BasicCompactionEngine` and overrides
-  `summarize` only. Reaching 62,144 tokens on this machine is not possible from the
-  UI: the only model has a 262,144-token window, the schema floors the threshold at
-  `window − 200000 = 62,144`, the tool-result pruner caps every tool result at ~5 k
-  chars, and the `@` attachment is passed as a path the model reads (pruned) rather
-  than inlined. Two batches of ten 240 KB reads moved pressure from 31 k to 35 k.
+  `summarize` plus the post-turn trigger added in 0.109.0. Reaching the 90 % line on
+  this machine is impractical — 776.6k of a 1,048,576-token window — so the post-turn
+  path has a unit spec but no live transcript yet.
 - **Plan mode.** The Codex plan section is verified statically — the definition hands
   `plan-mode.md` to the `plan-mode` row, and the spec "the plan-mode row receives the
   shipped section" pins it — but this composition exposes no plan-mode control I could
@@ -162,3 +159,43 @@ node tools/read-session.mjs "<profile>/sessions/<workspace>/session-<id>/session
 The two scripts used here (`read-session.mjs` for the concatenated zstd frames,
 `verify.mjs` for the per-session report) are kept in `%TEMP%` on this machine; moving
 them into `tools/` is one commit.
+
+## 10. The 0.109.x run: a checkpoint committed live
+
+Run on 2026-11-01 against the dev build (`%LOCALAPPDATA%\AryaCode-dev\home`), plugin
+0.109.3, `deepseek-account/deepseek-flash`, session `13dab9e4`.
+
+The dev app was started through `AryaCode-dev.bat desktop` — that wrapper clears
+`ELECTRON_RUN_AS_NODE` (the harness exports it, and `electron.exe` then rejects
+`--user-data-dir`/`--remote-debugging-port` with "bad option") and gives the build a
+private temp root. Session **Oka** recorded
+`agent-preset/selected {"agentPreset":"arya-standard"}`, ran one turn, and then
+**Compact now** wrote:
+
+```
+#49 compaction/start
+#51 compaction/summary  "Another language model started to solve this problem …"
+#53 compaction/end      (no error)
+#54 command/done        "Compacted 6 history items (~999 tokens)."
+```
+
+The Compaction tab reads **CHECKPOINTS 1** (1 manual · 0 automatic) and **FREED BY
+COMPACTION 999**, with a fold mark on the trajectory.
+
+Three defects surfaced in that run, none reachable from the stub suites:
+
+1. **`agent-preset/invalid: Preset services require isolate realms:
+   aryaStandardPolicy`** — every `New Session` failed. A preset row may only provide a
+   service inside a realm its group declares, and 0.109.0 did not declare it.
+2. **`summary is not smaller than the shadowed content (1623 >= 999)`** — the token
+   estimate assumed four characters per token, which under-prices a Chinese checkpoint
+   by roughly 4x, and the body was never fitted to the span it replaces.
+3. **`(1781 >= 999)`** after the first fix — the span budget summed the replayed
+   prefix including the ~33k-token system prompt, so the fitted budget was always far
+   larger than the shadowed content. Only non-system messages count now.
+
+`ARYA_STANDARD_DEBUG` does not reach the desktop host process — the app spawns its
+host with its own environment — so the engine's `[arya-standard]` lines never appear in
+the launcher log. The durable session log is the reliable channel; decode it with the
+concatenated-frame reader above, because Node's `zstdDecompressSync` stops at the first
+frame.

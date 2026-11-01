@@ -59,6 +59,9 @@ const policySchema = z.object({
   retainRatio: z.number(),
   maxTokens: z.number(),
   keepUserTokens: z.number(),
+  postTurnThresholdPercent: z.number(),
+  autoCompactTokenLimit: z.number(),
+  dropOldestRetries: z.number(),
   auto: z.boolean(),
 }).strict()
 
@@ -264,10 +267,13 @@ export function createAryaStandardProjection(settings) {
     retainRatio: Number(settings.retainRatio),
     maxTokens: Number(settings.maxTokens),
     keepUserTokens: Number(settings.keepUserTokens),
+    postTurnThresholdPercent: Number(settings.postTurnThresholdPercent),
+    autoCompactTokenLimit: Number(settings.autoCompactTokenLimit),
+    dropOldestRetries: Number(settings.dropOldestRetries),
   }
   return {
     key: ARYA_STANDARD_PROJECTION_KEY,
-    stateVersion: 2,
+    stateVersion: 3,
     stateSchema,
     init: () => ({
       checkpoints: [],

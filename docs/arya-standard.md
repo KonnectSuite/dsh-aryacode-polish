@@ -15,8 +15,9 @@ and a session mounts it like any other: one composition, one row id.
 | System prompt | "You are a coding agent…" plus the harness runtime context | Codex's own instructions, adapted once at registration to this harness's tool names |
 | Compaction backend | `compaction-basic` | `compaction-basic` with the `summarize()` hook replaced |
 | Checkpoint instruction | eight fixed Markdown sections | Codex's `CONTEXT CHECKPOINT COMPACTION` prompt |
-| Checkpoint framing | `<compacted-summary>` tags | Codex's `SUMMARY_PREFIX` handoff sentence, then the summary |
-| What survives | a priced recent tail of the whole surface | Codex's summary framing plus up to 20k tokens of the user's own messages, quoted verbatim, over a verbatim tail |
+| When it compacts | step pressure, provider overflow, model switch | the same three, plus a post-turn threshold and an absolute token limit |
+| Checkpoint framing | `<compacted-summary>` tags | the same tags, with Codex's `SUMMARY_PREFIX` handoff sentence inside them |
+| What survives | a priced recent tail of the whole surface | Codex's user-quote section over a verbatim tail, budgeted by `keepUserTokens` and capped at half of what is replaced |
 | Subagents | `delegation` group | not mounted |
 | Scheduled jobs | `tool-schedule` | not mounted |
 | In-app plugin installs | `tool-plugin-manager`, `tool-plugin-market` | not mounted |
@@ -101,18 +102,50 @@ The earlier session ("Ask Me A Question") had the same behaviour outside plan
 mode: a question card appeared in the transcript and the turn resumed on the
 answer.
 
+## The trigger set
+
+`compaction-basic` owns when to compact and how a summary is committed. Arya
+Standard adds the two triggers Codex has and the base engine does not, both on the
+idle transition after a turn, so they never race the turn that just ended:
+
+- **post-turn threshold** (`model_post_turn_compact_threshold_percent`) — a share of
+  the window, 90% by default. The engine's own pressure check runs before a step;
+  this one runs after a turn, which is where Codex folds;
+- **absolute token limit** (`model_auto_compact_token_limit`) — whichever of the two
+  is lower wins, so a small window still compacts at a predictable token count.
+
+Both are configured on the `arya-standard-policy` row, which publishes the
+`aryaStandardPolicy` service. They cannot ride on the engine row: `compaction-basic`
+validates a closed configuration key set and throws at mount on anything else.
+
+Two more Codex behaviours live inside the summarizer:
+
+- **drop-oldest-and-retry** — when the summarization request itself overflows
+  (`Context window exceeded while compacting; removing oldest history item.` in
+  Codex), the oldest whole turn leaves the replayed prefix and the request is
+  retried, bounded by **Summarizer overflow retries**. The system prefix and the
+  newest turn always survive;
+- **an overridable checkpoint instruction** (`compact_prompt`) — the Settings field
+  replaces the vendored `checkpoint-prompt.md`.
+
+The two waterfalls `arya-standard/compaction/pre` and
+`arya-standard/compaction/post` fire around the summarization request, mirroring
+Codex's pre/post compact hooks. They observe a summary, not the durable commit: the
+transaction stays the base engine's.
+
 ## What Codex does that this cannot
 
 Codex's loop is a turn machine: it samples, runs the tool calls, and decides
 mid-turn whether to roll into a new context window before the next sample. DSH's
-`ReactLoopAgent` is not replaceable from a preset, so the parts that belong to the
-loop are documented gaps rather than approximations:
+`ReactLoopAgent` is not replaceable from a preset, so what belongs to the loop
+itself stays out:
 
-- **post-turn compaction thresholds** (`model_post_turn_compact_threshold_percent`)
-  — DSH compacts at step pressure and on a confirmed context-window error instead;
+- **turn-scoped token accounting** (`model_auto_compact_token_limit_scope`) — DSH
+  has one session-scoped meter, so a limit applies to the whole surface;
 - **token-budget reminders and the auto-compact fallback prompt** — no equivalent
   fragment is injected near the limit;
-- **speculative/async compaction** of a finished history.
+- **speculative/async compaction** of a finished history;
+- **approval policy** and the JSON-RPC turn/item model.
 
 The retention difference is approximated, not reproduced. Codex rebuilds the
 history as "every real user message (up to 20k tokens) plus one summary", dropping
@@ -143,8 +176,12 @@ started with.
 | Verbatim tail | 0.16 | Fraction of the window kept unsummarized after a checkpoint. Codex keeps none; a live tool loop needs its last step. |
 | Checkpoint budget | 20000 | Output cap for the summary request. |
 | Keep the user's words | 20000 | Upper bound on the verbatim user section; also capped at half of what is replaced, and dropped when it would trip the shrink guard. |
+| Post-turn threshold | 90 | Compact when a finished turn leaves the session this share of the window. 0 disables the trigger. |
+| Absolute token limit | 0 (off) | Compact at this many tokens too, whichever trigger fires first. |
+| Checkpoint instruction | empty | Replaces Codex's vendored checkpoint prompt. Empty keeps it. |
 | Summary retries | 1 | Retries for a failed summarization. |
 | Overflow retries | 1 | Retries after a provider-confirmed context-window error. |
+| Summarizer overflow retries | 2 | Drop the oldest turn and retry when the summarization request itself overflows. |
 | Summarizer provider / model | empty | Empty means "the model this session last routed to". |
 
 ## The Compaction tab
@@ -170,7 +207,7 @@ tabs:
   page.
 
 The data comes from the `aryaStandard` projection (`projection.js`, state version
-2), which folds `request/context`, `assistant/message` usage, `compaction/summary`
+3), which folds `request/context`, `assistant/message` usage, `compaction/summary`
 and `compaction/end` out of the durable session log — the provider's own numbers,
 not an estimate the browser makes up. No route of our own, no iframe: the tab
 renders the same projections the rest of the chat does.

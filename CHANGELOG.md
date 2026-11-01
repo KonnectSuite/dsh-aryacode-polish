@@ -1,3 +1,43 @@
+## [0.109.3]
+
+### Fixed
+
+- **The span budget counted the system prompt.** `input.messages` is the replayed prefix � the fixed system prompt plus the span being replaced � while the base engine prices only the shadowed content. Summing every message inflated the budget by the whole prompt (~30k tokens on this session), so the body was never fitted and live `/compact` kept failing with `summary is not smaller than the shadowed content (1781 estimated framed tokens >= 999)`. `estimateSpanTokens` now skips `system` and `developer` messages, and a spec pins that a 40,000-character system prompt does not enlarge the checkpoint.
+
+## [0.109.2]
+
+### Fixed
+
+- **Manual compaction failed on a small span.** `/compact` on a young session recorded `compaction/end {"error":"summary is not smaller than the shadowed content (1623 estimated framed tokens >= 999)"}` and the composer reported "Compaction could not produce a useful summary". Two causes, both in `presets/arya-standard/compaction.js`: the token estimate assumed four characters per token, which under-prices a Chinese checkpoint by roughly 4x — the model on this machine answers in Chinese — and the body was never fitted to the room the replaced span actually leaves. `estimateTokens` is now wide-character aware, the body is fitted into `span × 0.9 − frame − handoff prefix` (truncating the summary rather than committing one the base engine will refuse), and the verbatim user section takes only what is left. A span too small to hold any checkpoint now fails with `the replaced span is too small for a checkpoint` instead of the misleading shrink error. Reproduced and fixed against a live dev host, not only the stubs.
+
+## [0.109.1]
+
+### Fixed
+
+- **Arya Standard sessions could not be created at all.** The Host rejected the registration with `agent-preset/invalid: Preset services require isolate realms: aryaStandardPolicy`, and every `New Session` failed with `SessionCreateError`. A preset row may only provide a service inside a realm its group declares, so the `compaction` group now isolates `aryaStandardPolicy` alongside `compaction` and `toolResultPruner`. Found by booting the dev build and creating a session — the unit suite asserted the engine-config key set but never reached the registry's own validation of the definition.
+
+## [0.109.0]
+
+### Added
+
+- **Codex's post-turn compaction triggers.** Arya Standard now compacts on the idle transition after a turn, at a share of the window (**Post-turn threshold**, 90% by default) or at an absolute token count (**Absolute token limit**), whichever is lower — Codex's `model_post_turn_compact_threshold_percent` and `model_auto_compact_token_limit`. The base engine only compacts before a step, on provider overflow, and on a model switch. The trigger uses the engine's own idle-reserving `compactNow` path and never throws into the loop: a failed post-turn attempt is logged and the session continues.
+- **Drop-oldest-and-retry when summarization overflows.** A summarization request that the provider refuses for context length now drops the oldest whole turn of the replayed prefix and retries, bounded by **Summarizer overflow retries** (2 by default) — Codex's `Context window exceeded while compacting; removing oldest history item.` The system prefix and the newest turn are never dropped. This is why the replayed prefix cannot be replaced by a single-message "shadow" request.
+- **Checkpoint instruction override.** **Checkpoint instruction** replaces the vendored `CONTEXT CHECKPOINT COMPACTION` prompt at runtime, mirroring Codex's `compact_prompt`.
+- **Compaction hooks.** `arya-standard/compaction/pre` and `arya-standard/compaction/post` waterfalls fire around the summarization request, mirroring Codex's pre/post compact hooks. They observe a summary; the durable transaction stays the base engine's.
+- The `arya-standard-policy` row publishes the new `aryaStandardPolicy` service, carrying every Arya-only knob.
+
+### Fixed
+
+- **Keep the user's words was inert.** `presets/arya-standard/compaction.js` read `this.config.keepUserTokens`, but `compaction-basic` validates a closed configuration key set — a key like that cannot exist on the engine row, and `engineConfig()` never passed it, so the budget was always 0 and the verbatim user section was never produced. The budget now comes from the policy service, which is the only channel the base engine leaves open. A regression test asserts that `engineConfig()` stays inside the eleven keys the base accepts and that no Arya-only knob appears there.
+- The shrink guard priced the checkpoint without the base engine's own preamble and `<compacted-summary>` tags, and leaned on an unexplained `0.9`. Both are now explicit: a reserved frame budget and a named safety factor.
+- The replaced span was priced from text parts only, ignoring the tool output that dominates a real session.
+
+### Notes
+
+- No engine configuration key changed. The policy row is additive and optional: a composition without it falls back to the declared defaults, so this is safe to mount beside an older definition.
+- The `aryaStandard` projection is state version 3; older sessions re-fold from the durable event log, so no checkpoint data is lost.
+- The trigger fires only when the base engine's `auto` is on, because that is what gates `_registerAutomaticCompaction`.
+
 ## [0.108.4]
 
 ### Fixed

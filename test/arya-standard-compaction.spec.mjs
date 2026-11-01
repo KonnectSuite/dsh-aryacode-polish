@@ -15,14 +15,17 @@ import { test } from 'node:test'
 import {
   ARYA_STANDARD_RETAINED_PREAMBLE,
   createAryaStandardCompaction,
+  dropOldestTurn,
   finishError,
   resolveSummarizationTarget,
   retainedUserMessages,
   summaryTextBlocks,
 } from '../presets/arya-standard/compaction.js'
+import { ARYA_STANDARD_POLICY_FALLBACK, resolvePolicy } from '../presets/arya-standard/policy.js'
 
 const PROMPT = 'You are performing a CONTEXT CHECKPOINT COMPACTION. Create a handoff summary for another LLM that will resume the task.'
 const PREFIX = 'Another language model started to solve this problem and produced a summary of its thinking process.'
+const OVERFLOW = 'CONTEXT_WINDOW_EXCEEDED'
 
 class StubLlmError extends Error {
   constructor(message, code, details) {
@@ -68,16 +71,29 @@ function makeKit(state = {}) {
     deepFreeze: (value) => value,
     checkpointPrompt: PROMPT,
     summaryPrefix: PREFIX,
+    contextWindowExceededCode: OVERFLOW,
   }
   const ctx = {
     llm: {
-      // Same shape as `ctx.llm.stream`: an async iterable of chunks.
+      // Same shape as `ctx.llm.stream`: an async iterable of chunks. A queued
+      // failure is thrown from the first `next()`, which is where a provider's
+      // context-window refusal surfaces.
       stream(request) {
         requests.push(request)
         state.onRequest?.(request)
-        return (async function* chunks() { yield { kind: 'text' } })()
+        const failure = state.failures?.shift()
+        return (async function* chunks() {
+          if (failure !== undefined) throw failure
+          yield { kind: 'text' }
+        })()
       },
     },
+    // The policy service, as the real row provides it. Tests drive retention and
+    // the checkpoint instruction through here, never through the engine config.
+    get(name) {
+      return name === 'aryaStandardPolicy' ? (state.policy ?? ARYA_STANDARD_POLICY_FALLBACK) : undefined
+    },
+    waterfall: async (name, payload, fallback) => fallback(),
   }
   return { kit, requests, ctx }
 }
@@ -99,13 +115,14 @@ function makeAgent(overrides = {}) {
   }
 }
 
+// Only keys `compaction-basic` itself accepts. Every Arya-only knob travels
+// through the policy service, which is why this object stays this small.
 const CONFIG = {
   auto: true,
   thresholdRatio: 0.9,
   headroomTokens: 16000,
   retainRatio: 0.16,
   maxTokens: 20000,
-  keepUserTokens: 20000,
 }
 
 /** Build the engine under test. */
@@ -122,7 +139,7 @@ function longUser(index) {
 
 test('the checkpoint prompt is the last message and the call is purpose-tagged', async () => {
   const { engine, requests } = engineOf()
-  const messages = [longUser(1), { role: 'assistant', content: [{ type: 'text', text: 'working' }] }]
+  const messages = [...manyUsers(), { role: 'assistant', content: [{ type: 'text', text: 'working' }] }]
   const before = JSON.stringify(messages)
   await engine.summarize({ messages }, makeAgent(), undefined)
   assert.equal(requests.length, 1)
@@ -144,7 +161,7 @@ test('the checkpoint prompt is the last message and the call is purpose-tagged',
 
 test('the summary is framed with Codex’s prefix', async () => {
   const { engine } = engineOf()
-  const result = await engine.summarize({ messages: [longUser(1)] }, makeAgent(), undefined)
+  const result = await engine.summarize({ messages: manyUsers() }, makeAgent(), undefined)
   assert.equal(result.llmStreamCall, true)
   assert.equal(result.provider, 'routed-provider')
   assert.equal(result.model, 'routed-model')
@@ -166,13 +183,13 @@ test('a large replaced span carries the user’s own words', async () => {
   assert.ok(result.summary[0].text.includes('the checkpoint body'))
 })
 
-test('the verbatim section is dropped when it would trip the shrink guard', async () => {
-  // A 30-token span against an 85-token checkpoint: the base engine would refuse
-  // the summary, so the section that can go is the one that goes.
-  const { engine } = engineOf({ blocks: [{ type: 'text', text: 'Z'.repeat(240) }] })
-  const messages = [{ role: 'user', content: [{ type: 'text', text: 'x'.repeat(120) }] }]
-  const result = await engine.summarize({ messages }, makeAgent(), undefined)
-  assert.equal(result.summary.length, 1, 'a checkpoint must stay smaller than what it replaces')
+test('the verbatim section is dropped when the body already fills the checkpoint', async () => {
+  // A body that eats the room leaves nothing for the user quote. The summary must
+  // still commit, framed, with the section that cannot fit left out — not fail.
+  const { engine } = engineOf({ blocks: [{ type: 'text', text: 'Z'.repeat(4200) }] })
+  const result = await engine.summarize({ messages: manyUsers() }, makeAgent(), undefined)
+  assert.equal(result.summary.length, 1, 'only the summary block fits')
+  assert.ok(result.summary[0].text.startsWith(`${PREFIX}\n`))
 })
 
 test('a previous checkpoint is never re-quoted as the user’s words', async () => {
@@ -227,7 +244,7 @@ test('a configured summarizer wins over the routed model', async () => {
   const { kit, ctx, requests } = makeKit()
   const Engine = createAryaStandardCompaction(StubBase, kit)
   const engine = new Engine(ctx, { ...CONFIG, summarizationProvider: 'aux-provider', summarizationModel: 'aux-model' })
-  await engine.summarize({ messages: [longUser(1)] }, makeAgent(), undefined)
+  await engine.summarize({ messages: manyUsers() }, makeAgent(), undefined)
   assert.equal(requests[0].provider, 'aux-provider')
   assert.equal(requests[0].model, 'aux-model')
 })
@@ -240,6 +257,49 @@ test('the factory refuses a missing base or missing vendored text', () => {
   assert.equal(typeof createAryaStandardCompaction(StubBase, kit), 'function')
 })
 
+test('a checkpoint is fitted to a small span instead of failing the shrink guard', async () => {
+  // The live failure this reproduces: a model that answers in Chinese spends
+  // about one token per character, so an unfitted body plus the handoff prefix
+  // and the base engine's framing is larger than the span it replaces, and
+  // compaction is refused with "summary is not smaller than the shadowed
+  // content". The body must be cut to fit instead.
+  const body = '要点'.repeat(400)
+  const { engine } = engineOf({ blocks: [{ type: 'text', text: body }] })
+  const messages = [{ role: 'user', content: [{ type: 'text', text: 'x'.repeat(1200) }] }]
+  const result = await engine.summarize({ messages }, makeAgent(), undefined)
+  const text = result.summary.map((block) => block.text).join('\n')
+  const wide = ([...text].filter((character) => character.codePointAt(0) >= 0x2e80)).length
+  const latin = text.length - wide
+  assert.ok(text.startsWith(PREFIX), 'the handoff prefix survives the cut')
+  assert.ok(wide + latin / 4 < 300 * 0.9, `the fitted checkpoint must stay under the span, got ~${Math.round(wide + latin / 4)}`)
+  assert.ok(wide > 0, 'the summary body is kept, just shortened')
+})
+
+test('a span too small to hold any checkpoint is refused clearly', async () => {
+  const { engine } = engineOf()
+  const messages = [{ role: 'user', content: [{ type: 'text', text: 'short' }] }]
+  await assert.rejects(
+    () => engine.summarize({ messages }, makeAgent(), undefined),
+    /the replaced span is too small for a checkpoint/,
+  )
+})
+
+test('the system prompt does not inflate the span budget', async () => {
+  // The replayed prefix carries the fixed system prompt, which the base engine
+  // does not count as shadowed content. If this module counted it the body would
+  // never be fitted and the checkpoint would be refused as "not smaller than the
+  // shadowed content".
+  const body = 'Z'.repeat(3600)
+  const { engine } = engineOf({ blocks: [{ type: 'text', text: body }] })
+  const messages = [
+    { role: 'system', content: [{ type: 'text', text: 'S'.repeat(40000) }] },
+    ...manyUsers(),
+  ]
+  const result = await engine.summarize({ messages }, makeAgent(), undefined)
+  const text = result.summary.map((block) => block.text).join('\n')
+  assert.ok(text.length < 6000, `the checkpoint stays span-sized, got ${text.length} chars`)
+})
+
 test('the helpers keep their documented contracts', () => {
   assert.equal(finishError(undefined, StubLlmError), undefined)
   assert.equal(finishError({ kind: 'done' }, StubLlmError), undefined)
@@ -248,4 +308,73 @@ test('the helpers keep their documented contracts', () => {
   assert.deepEqual(resolveSummarizationTarget({}, { session: { requestHeader: () => undefined }, options: { provider: 'own', model: 'own-model' } }), { provider: 'own', model: 'own-model' })
   assert.deepEqual(retainedUserMessages([longUser(1)], 0, PREFIX), { text: '', tokens: 0 })
   assert.deepEqual(retainedUserMessages(undefined, 100, PREFIX), { text: '', tokens: 0 })
+})
+
+/** Twelve user messages, so a 20k budget still has to stop somewhere. */
+function manyUsers() {
+  const messages = []
+  for (let index = 0; index < 12; index += 1) messages.push(longUser(index))
+  return messages
+}
+
+test('the retention budget comes from the policy service, not the engine config', async () => {
+  const off = engineOf({ policy: resolvePolicy({ keepUserTokens: 0 }) })
+  const withoutSection = await off.engine.summarize({ messages: manyUsers() }, makeAgent(), undefined)
+  assert.equal(withoutSection.summary.length, 1, 'a zero budget keeps nothing verbatim')
+
+  const on = engineOf({ policy: resolvePolicy({ keepUserTokens: 20000 }) })
+  const withSection = await on.engine.summarize({ messages: manyUsers() }, makeAgent(), undefined)
+  assert.equal(withSection.summary.length, 2, 'the service budget reaches the summarizer')
+  assert.ok(withSection.summary[1].text.startsWith(ARYA_STANDARD_RETAINED_PREAMBLE))
+})
+
+test('a configured checkpoint instruction replaces the vendored one', async () => {
+  const { engine, requests } = engineOf({ policy: resolvePolicy({ compactPromptOverride: 'CUSTOM CHECKPOINT INSTRUCTION' }) })
+  await engine.summarize({ messages: manyUsers() }, makeAgent(), undefined)
+  assert.equal(requests[0].messages.at(-1).content[0].text, 'CUSTOM CHECKPOINT INSTRUCTION')
+})
+
+test('an overflowing summarization request drops the oldest turn and retries', async () => {
+  const overflow = Object.assign(new Error('context window exceeded'), { code: OVERFLOW })
+  const { engine, requests } = engineOf({ failures: [overflow] })
+  const messages = [
+    { role: 'system', content: [{ type: 'text', text: 'the system prompt' }] },
+    longUser(1),
+    { role: 'assistant', content: [{ type: 'text', text: 'working' }] },
+    longUser(2),
+    { role: 'assistant', content: [{ type: 'text', text: 'working' }] },
+    longUser(3),
+  ]
+  const result = await engine.summarize({ messages }, makeAgent(), undefined)
+  assert.equal(requests.length, 2, 'the request was retried once')
+  assert.equal(requests[0].messages.length, messages.length + 1)
+  assert.equal(requests[1].messages.length, messages.length - 1, 'the oldest turn left the prefix')
+  assert.equal(requests[1].messages[0].role, 'system', 'the cache-warm prefix survives')
+  assert.equal(result.summary[0].text.startsWith(`${PREFIX}\n`), true)
+})
+
+test('the overflow fallback is bounded and rethrows the provider failure', async () => {
+  const overflow = () => Object.assign(new Error('context window exceeded'), { code: OVERFLOW })
+  const { engine, requests } = engineOf({ failures: [overflow(), overflow(), overflow()], policy: resolvePolicy({ dropOldestRetries: 1 }) })
+  await assert.rejects(() => engine.summarize({ messages: manyUsers() }, makeAgent(), undefined), (error) => {
+    assert.equal(error.code, OVERFLOW)
+    return true
+  })
+  assert.equal(requests.length, 2, 'one initial attempt plus one retry')
+})
+
+test('dropOldestTurn keeps the system prefix and the newest turn', () => {
+  assert.equal(dropOldestTurn(undefined), null)
+  assert.equal(dropOldestTurn([]), null)
+  assert.equal(dropOldestTurn([{ role: 'system', content: 's' }]), null)
+  const messages = [
+    { role: 'system', content: 's' },
+    { role: 'user', content: 'u1' },
+    { role: 'assistant', content: 'a1' },
+    { role: 'user', content: 'u2' },
+  ]
+  const shorter = dropOldestTurn(messages)
+  assert.deepEqual(shorter.map((message) => message.role), ['system', 'user'])
+  assert.equal(shorter[1].content, 'u2')
+  assert.equal(dropOldestTurn([{ role: 'user', content: 'only' }]), null, 'never empties the request')
 })

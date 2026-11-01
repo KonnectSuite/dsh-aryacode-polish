@@ -13,6 +13,8 @@ import { adaptPrompt, FORBIDDEN_TOKENS, PROMPT_SUBSTITUTIONS } from '../presets/
 import {
   ARYA_STANDARD_ENGINE_MODULE,
   ARYA_STANDARD_ENGINE_ROW_ID,
+  ARYA_STANDARD_POLICY_MODULE,
+  ARYA_STANDARD_POLICY_ROW_ID,
   ARYA_STANDARD_PRESET_ID,
   ARYA_STANDARD_PRESET_NAME,
   ARYA_STANDARD_PRESET_ORDER,
@@ -20,7 +22,25 @@ import {
 } from '../presets/arya-standard/definition.js'
 import { ARYA_STANDARD_FIELDS } from '../presets/arya-standard/fields.js'
 import { codexBasePrompt, planModeSection } from '../presets/arya-standard/files.js'
-import { ARYA_STANDARD_DEFAULTS, engineConfig, isDefaultSettings, readSettings } from '../presets/arya-standard/settings.js'
+import { ARYA_STANDARD_DEFAULTS, engineConfig, isDefaultSettings, policyConfig, readSettings } from '../presets/arya-standard/settings.js'
+
+/**
+ * The complete configuration key set `compaction-basic` accepts. Anything else on
+ * the engine row throws at mount, so `engineConfig` must stay inside this list.
+ */
+const BASE_ENGINE_KEYS = new Set([
+  'thresholdRatio',
+  'headroomTokens',
+  'retainRatio',
+  'retainTokens',
+  'summarizationProvider',
+  'summarizationModel',
+  'maxTokens',
+  'compactionRetries',
+  'maxOverflowRetries',
+  'modelPolicies',
+  'auto',
+])
 
 const definition = buildDefinition()
 
@@ -80,27 +100,63 @@ test('the toolset is the shipped standard toolset minus delegation and schedulin
   }
 })
 
-test('the compaction group isolates its services and mounts our engine row', () => {
+test('the compaction group isolates its services and mounts our two rows', () => {
   const group = rowOf('compaction')
   assert.equal(group.name, 'cordis:group')
   assert.equal(group.group, true)
-  assert.deepEqual(group.isolate, { compaction: true, toolResultPruner: true })
-  assert.deepEqual(group.config.map((row) => row.id), [ARYA_STANDARD_ENGINE_ROW_ID, 'command-compact', 'tool-result-pruner'])
-  const engine = group.config[0]
+  assert.deepEqual(group.isolate, { compaction: true, toolResultPruner: true, aryaStandardPolicy: true })
+  assert.deepEqual(group.config.map((row) => row.id), [
+    ARYA_STANDARD_POLICY_ROW_ID,
+    ARYA_STANDARD_ENGINE_ROW_ID,
+    'command-compact',
+    'tool-result-pruner',
+  ])
+  const engine = group.config.find((row) => row.id === ARYA_STANDARD_ENGINE_ROW_ID)
 
   assert.equal(engine.name, ARYA_STANDARD_ENGINE_MODULE)
   assert.equal(engine.name, '@aryacode/dsh-aryacode-polish/arya-standard')
   assert.deepEqual(engine.config, engineConfig(ARYA_STANDARD_DEFAULTS))
   assert.equal(group.config.find((row) => row.id === 'tool-result-pruner').config.thresholdChars, 8192)
+
+  // The policy row is how the Codex-only knobs reach the summarizer: the engine's
+  // own configuration set is closed, so they cannot ride on it.
+  const policy = group.config.find((row) => row.id === ARYA_STANDARD_POLICY_ROW_ID)
+  assert.equal(policy.name, ARYA_STANDARD_POLICY_MODULE)
+  assert.deepEqual(policy.config, policyConfig(ARYA_STANDARD_DEFAULTS))
+  assert.equal(policy.config.keepUserTokens, 20000)
+  assert.equal(policy.config.postTurnThresholdPercent, 90)
 })
 
-test('a settings override reaches the engine row', () => {
-  const settings = readSettings({ aryaStandardOptions: { thresholdRatio: 0.7, maxTokens: 12000, auto: false } })
+test('the engine config never carries a key the base engine rejects', () => {
+  const keys = Object.keys(engineConfig(ARYA_STANDARD_DEFAULTS)).sort()
+  assert.deepEqual(keys, [
+    'auto',
+    'compactionRetries',
+    'headroomTokens',
+    'maxOverflowRetries',
+    'maxTokens',
+    'retainRatio',
+    'thresholdRatio',
+  ])
+  for (const key of keys) assert.ok(BASE_ENGINE_KEYS.has(key), `${key} is not a compaction-basic config key`)
+  for (const key of ['keepUserTokens', 'postTurnThresholdPercent', 'autoCompactTokenLimit', 'compactPromptOverride', 'dropOldestRetries']) {
+    assert.equal(key in engineConfig(ARYA_STANDARD_DEFAULTS), false, `${key} belongs on the policy row`)
+  }
+})
+
+test('a settings override reaches the engine and policy rows', () => {
+  const settings = readSettings({
+    aryaStandardOptions: { thresholdRatio: 0.7, maxTokens: 12000, auto: false, keepUserTokens: 4000, postTurnThresholdPercent: 65 },
+  })
   const tuned = buildDefinition(settings)
-  const engine = tuned.plugins.find((row) => row.id === 'compaction').config[0]
+  const group = tuned.plugins.find((row) => row.id === 'compaction')
+  const engine = group.config.find((row) => row.id === ARYA_STANDARD_ENGINE_ROW_ID)
   assert.equal(engine.config.thresholdRatio, 0.7)
   assert.equal(engine.config.maxTokens, 12000)
   assert.equal(engine.config.auto, false)
+  const policy = group.config.find((row) => row.id === ARYA_STANDARD_POLICY_ROW_ID)
+  assert.equal(policy.config.keepUserTokens, 4000)
+  assert.equal(policy.config.postTurnThresholdPercent, 65)
 })
 
 test('the persona keeps the harness capabilities first-class', () => {
@@ -218,11 +274,12 @@ test('mounting registers the preset and its projection, and disposes them', asyn
   assert.equal(registered.length, 1)
   assert.equal(registered[0].id, 'arya-standard')
   assert.equal(registered[0].name, 'Arya Standard')
-  const engine = registered[0].plugins.find((row) => row.id === 'compaction').config[0]
+  const engine = registered[0].plugins.find((row) => row.id === 'compaction').config
+    .find((row) => row.id === ARYA_STANDARD_ENGINE_ROW_ID)
   assert.equal(engine.config.thresholdRatio, 0.75)
   assert.equal(projections.length, 1)
   assert.equal(projections[0].key, 'aryaStandard')
-  assert.equal(projections[0].stateVersion, 2)
+  assert.equal(projections[0].stateVersion, 3)
   assert.equal(effects.length, 1)
 
   // The projection folds the route and the billed usage into the trajectory the

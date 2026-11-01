@@ -20,10 +20,11 @@
  * @module dsh-aryacode-polish-arya-standard
  */
 import { BasicCompactionEngine } from '@deepseek-ai/dsh-compaction-basic'
-import { BlockAssembler, LlmError, contentHasImage } from '@deepseek-ai/dsh-llm'
+import { BlockAssembler, CONTEXT_WINDOW_EXCEEDED_CODE, LlmError, contentHasImage } from '@deepseek-ai/dsh-llm'
 import { deepFreeze } from '@deepseek-ai/dsh-util-values'
 import { codexCheckpointPrompt, codexSummaryPrefix } from './files.js'
 import { createAryaStandardCompaction } from './compaction.js'
+import { postTurnThresholdTokens, readPolicy } from './policy.js'
 
 export { createAryaStandardCompaction }
 
@@ -40,24 +41,72 @@ function report(message) {
   if (DEBUG) process.stderr.write(`[arya-standard] ${message}\n`)
 }
 
-/** The base engine with one observable seam over `compactIfNeeded`. */
-class ObservableCompactionEngine extends BasicCompactionEngine {
+/**
+ * The base engine with the observable seams and this preset's own triggers.
+ *
+ * Exported so the trigger registration can be driven without a Host; the preset
+ * row mounts the subclass produced at the bottom of this module.
+ */
+export class ObservableCompactionEngine extends BasicCompactionEngine {
   /**
-   * Measure, delegate, and say what happened — including the error the base
-   * engine's pre-step hook would otherwise swallow.
-   * @param {object} agent the agent asking to compact.
-   * @param {string} trigger which trigger fired.
-   * @param {AbortSignal} signal the turn's signal.
-   * @returns {Promise<object | null>} the compaction result, if any.
-   */
-  /**
-   * Say that the automatic hook was registered, so a missing registration and a
-   * missing call stay distinguishable.
+   * Register the base engine's automatic hooks, then this preset's post-turn
+   * trigger. The base still decides whether automatic compaction runs at all.
    * @returns {void} nothing.
    */
   _registerAutomaticCompaction() {
     report('registerAutomaticCompaction')
-    return super._registerAutomaticCompaction()
+    super._registerAutomaticCompaction()
+    this._registerAryaStandardTriggers()
+  }
+
+  /**
+   * Compact once a finished turn leaves the session above Codex's post-turn
+   * threshold.
+   *
+   * Codex compacts after a turn, at a share of the window or an absolute token
+   * limit, whichever is lower. The base engine only compacts before a step and on
+   * provider overflow, so this listens for the idle transition and calls
+   * `compactNow`, the base's idle-reserving maintenance path. A compaction failure
+   * here is a missed optimisation, never a failed session, so nothing is thrown
+   * into the loop.
+   * @returns {void} nothing.
+   */
+  _registerAryaStandardTriggers() {
+    const policy = readPolicy(this.ctx)
+    if (policy.postTurnThresholdPercent <= 0 && policy.autoCompactTokenLimit <= 0) return
+    const inFlight = new WeakSet()
+    this.ctx.on('agent/status', ({ agent, status }) => {
+      if (status !== 'idle' || inFlight.has(agent)) return
+      inFlight.add(agent)
+      this._compactAfterTurn(agent, inFlight).catch(() => {})
+    })
+  }
+
+  /**
+   * Measure a now-idle session and compact it when it is over the threshold.
+   * @param {object} agent the idle agent.
+   * @param {WeakSet<object>} inFlight agents whose trigger is already running.
+   * @returns {Promise<void>} resolves once the attempt settled.
+   */
+  async _compactAfterTurn(agent, inFlight) {
+    const controller = new AbortController()
+    let dispose
+    try {
+      const policy = readPolicy(this.ctx)
+      const measured = this.ctx.tokenMeter.measure(agent.session)
+      const threshold = postTurnThresholdTokens(measured, policy)
+      if (threshold <= 0 || !(Number(measured?.totalTokens) >= threshold)) return
+      report(`post-turn compaction total=${measured.totalTokens} threshold=${threshold}`)
+      dispose = this.ctx.on('agent/disposed', ({ agent: disposed }) => {
+        if (disposed === agent) controller.abort()
+      })
+      await this.compactNow(agent, controller.signal, undefined)
+    } catch (error) {
+      report(`post-turn compaction skipped: ${error instanceof Error ? error.message : String(error)}`)
+    } finally {
+      if (typeof dispose === 'function') dispose()
+      inFlight.delete(agent)
+    }
   }
 
   /**
@@ -99,4 +148,5 @@ export default createAryaStandardCompaction(ObservableCompactionEngine, {
   deepFreeze,
   checkpointPrompt: codexCheckpointPrompt(),
   summaryPrefix: codexSummaryPrefix(),
+  contextWindowExceededCode: CONTEXT_WINDOW_EXCEEDED_CODE,
 })

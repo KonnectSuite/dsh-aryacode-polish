@@ -109,6 +109,10 @@ export function readSettings(raw) {
  * The policy fields a compaction engine row accepts, with the empty summarizer
  * pair dropped so the engine follows the session's own routed model.
  *
+ * `compaction-basic` validates its configuration against a closed key set and
+ * throws on anything else, so this function must never grow an Arya-only knob:
+ * those travel through {@link policyConfig} to the policy row instead.
+ *
  * @param {{ [key: string]: boolean | number | string }} settings validated settings.
  * @returns {Record<string, boolean | number | string>} the engine row configuration.
  */
@@ -129,6 +133,27 @@ export function engineConfig(settings) {
     config.summarizationModel = model
   }
   return config
+}
+
+/**
+ * The Arya-only knobs, for the policy row beside the engine.
+ *
+ * These cannot ride on the engine row: `compaction-basic` validates its own closed
+ * key set and throws at mount on anything else. The row publishes them as the
+ * `aryaStandardPolicy` service, which the summarizer reads for retention and the
+ * engine reads for the post-turn trigger.
+ *
+ * @param {{ [key: string]: boolean | number | string }} settings validated settings.
+ * @returns {Record<string, number | string>} the policy row configuration.
+ */
+export function policyConfig(settings) {
+  return {
+    keepUserTokens: Number(settings.keepUserTokens),
+    postTurnThresholdPercent: Number(settings.postTurnThresholdPercent),
+    autoCompactTokenLimit: Number(settings.autoCompactTokenLimit),
+    compactPromptOverride: typeof settings.compactPromptOverride === 'string' ? settings.compactPromptOverride.trim() : '',
+    dropOldestRetries: Number(settings.dropOldestRetries),
+  }
 }
 
 /**

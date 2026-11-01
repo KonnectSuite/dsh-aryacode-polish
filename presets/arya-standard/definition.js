@@ -9,9 +9,11 @@
  *   1. `persona` carries Codex's base instructions (adapted by `adapt.js`) instead
  *      of the one-line default. `complete` stays false and the runtime context
  *      stays included, because the preset should still look like a DSH session.
- *   2. The `compaction` group's engine row is ours (`arya-standard-compaction`)
- *      rather than `compaction-basic`. It keeps the base engine's trigger,
- *      retention, locking and transaction work and replaces only the summary.
+ *   2. The `compaction` group carries two rows of ours instead of one: the engine
+ *      (`arya-standard-compaction`) keeps the base engine's trigger, retention,
+ *      locking and transaction work and replaces only the summary, while the
+ *      policy row (`arya-standard-policy`) publishes the knobs that engine's own
+ *      closed configuration cannot carry.
  *   3. The `delegation` group is absent. Codex has no subagent fan-out, and a
  *      preset that promises Codex behaviour should not quietly ship it.
  *   4. `tool-schedule`, `tool-plugin-manager` and `tool-plugin-market` are absent
@@ -25,7 +27,7 @@
  */
 import { adaptPrompt } from './adapt.js'
 import { codexBasePrompt, nativePrompt, planModeSection } from './files.js'
-import { engineConfig, readSettings } from './settings.js'
+import { engineConfig, policyConfig, readSettings } from './settings.js'
 
 /** The preset id sessions record in their header. */
 export const ARYA_STANDARD_PRESET_ID = 'arya-standard'
@@ -44,6 +46,12 @@ export const ARYA_STANDARD_ENGINE_ROW_ID = 'arya-standard-compaction'
 
 /** The package and subpath the engine row mounts. */
 export const ARYA_STANDARD_ENGINE_MODULE = '@aryacode/dsh-aryacode-polish/arya-standard'
+
+/** The row id of the policy row inside the preset. */
+export const ARYA_STANDARD_POLICY_ROW_ID = 'arya-standard-policy'
+
+/** The package and subpath the policy row mounts. */
+export const ARYA_STANDARD_POLICY_MODULE = '@aryacode/dsh-aryacode-polish/arya-standard-policy'
 
 /**
  * Build the preset definition.
@@ -94,8 +102,13 @@ export function buildDefinition(settings = readSettings()) {
         id: 'compaction',
         name: 'cordis:group',
         group: true,
-        isolate: { compaction: true, toolResultPruner: true },
+        // A preset may only provide a service inside a realm it declares. The
+        // registry rejects the whole definition otherwise with
+        // `agent-preset/invalid: Preset services require isolate realms:
+        // aryaStandardPolicy`, which surfaces as a failed session create.
+        isolate: { compaction: true, toolResultPruner: true, aryaStandardPolicy: true },
         config: [
+          { id: ARYA_STANDARD_POLICY_ROW_ID, name: ARYA_STANDARD_POLICY_MODULE, config: policyConfig(settings) },
           { id: ARYA_STANDARD_ENGINE_ROW_ID, name: ARYA_STANDARD_ENGINE_MODULE, config: engineConfig(settings) },
           { id: 'command-compact', name: '@deepseek-ai/dsh-command-compact' },
           {
