@@ -24,7 +24,7 @@ import { BlockAssembler, CONTEXT_WINDOW_EXCEEDED_CODE, LlmError, contentHasImage
 import { deepFreeze } from '@deepseek-ai/dsh-util-values'
 import { codexCheckpointPrompt, codexSummaryPrefix } from './files.js'
 import { createAryaStandardCompaction } from './compaction.js'
-import { postTurnThresholdTokens, readPolicy } from './policy.js'
+import { foldClearsFloor, postTurnThresholdTokens, preemptiveThresholdTokens, readPolicy } from './policy.js'
 
 export { createAryaStandardCompaction }
 
@@ -60,21 +60,25 @@ export class ObservableCompactionEngine extends BasicCompactionEngine {
   }
 
   /**
-   * Compact once a finished turn leaves the session above Codex's post-turn
-   * threshold.
+   * Compact once a finished turn leaves the session above one of the two levels.
    *
    * Codex compacts after a turn, at a share of the window or an absolute token
    * limit, whichever is lower. The base engine only compacts before a step and on
    * provider overflow, so this listens for the idle transition and calls
-   * `compactNow`, the base's idle-reserving maintenance path. A compaction failure
-   * here is a missed optimisation, never a failed session, so nothing is thrown
-   * into the loop.
+   * `compactNow`, the base's idle-reserving maintenance path.
+   *
+   * Two levels are used: a pre-warm level that buys the fold while the user is
+   * still reading, and the post-turn level as the hard fallback. A pre-warm fold is
+   * skipped when it would free less than the configured floor, so a small session
+   * is not compacted over and over. A compaction failure here is a missed
+   * optimisation, never a failed session, so nothing is thrown into the loop.
    * @returns {void} nothing.
    */
   _registerAryaStandardTriggers() {
     const policy = readPolicy(this.ctx)
-    if (policy.postTurnThresholdPercent <= 0 && policy.autoCompactTokenLimit <= 0) return
+    if (policy.postTurnThresholdPercent <= 0 && policy.preemptivePercent <= 0 && policy.autoCompactTokenLimit <= 0) return
     const inFlight = new WeakSet()
+    if (policy.autoCompactScope === 'turn') this._registerTurnBaselines()
     this.ctx.on('agent/status', ({ agent, status }) => {
       if (status !== 'idle' || inFlight.has(agent)) return
       inFlight.add(agent)
@@ -83,7 +87,48 @@ export class ObservableCompactionEngine extends BasicCompactionEngine {
   }
 
   /**
-   * Measure a now-idle session and compact it when it is over the threshold.
+   * Record what the surface held when the current turn's first step began.
+   *
+   * Turn scope needs only the difference between the surface now and the surface
+   * at the start of the turn, so this keeps one number per agent instead of
+   * walking the session log.
+   * @returns {void} nothing.
+   */
+  _registerTurnBaselines() {
+    const baselines = new WeakMap()
+    this._turnBaselines = baselines
+    this.ctx.on('agent/pre-step', async ({ agent, turn }, next) => {
+      const seen = baselines.get(agent)
+      if (seen === undefined || seen.turn !== turn) {
+        let total = 0
+        try {
+          total = Number(this.ctx.tokenMeter.measure(agent.session).totalTokens) || 0
+        } catch {
+          total = 0
+        }
+        baselines.set(agent, { turn, total })
+      }
+      return next()
+    })
+  }
+
+  /**
+   * Read the pressure the configured scope asks for.
+   * @param {object} agent the agent whose turn is measured.
+   * @param {{ totalTokens?: number, contextWindow?: number }} measured the meter reading.
+   * @param {ReturnType<typeof readPolicy>} policy the policy in force.
+   * @returns {{ total: number, turn: number | null }} thread and turn pressure.
+   */
+  _scopedPressure(agent, measured, policy) {
+    const total = Number(measured?.totalTokens) || 0
+    if (policy.autoCompactScope !== 'turn') return { total, turn: null }
+    const seen = this._turnBaselines?.get(agent)
+    if (seen === undefined) return { total, turn: null }
+    return { total, turn: Math.max(0, total - seen.total) }
+  }
+
+  /**
+   * Measure a now-idle session and compact it when it is over a threshold.
    * @param {object} agent the idle agent.
    * @param {WeakSet<object>} inFlight agents whose trigger is already running.
    * @returns {Promise<void>} resolves once the attempt settled.
@@ -94,9 +139,18 @@ export class ObservableCompactionEngine extends BasicCompactionEngine {
     try {
       const policy = readPolicy(this.ctx)
       const measured = this.ctx.tokenMeter.measure(agent.session)
-      const threshold = postTurnThresholdTokens(measured, policy)
-      if (threshold <= 0 || !(Number(measured?.totalTokens) >= threshold)) return
-      report(`post-turn compaction total=${measured.totalTokens} threshold=${threshold}`)
+      const pressure = this._scopedPressure(agent, measured, policy)
+      const value = pressure.turn === null ? pressure.total : pressure.turn
+      const postTurn = postTurnThresholdTokens(measured, policy)
+      const preemptive = preemptiveThresholdTokens(measured, policy)
+      const target = [postTurn, preemptive].filter((level) => level > 0).sort((a, b) => a - b)[0]
+      if (target === undefined || !(value >= target)) return
+      const preWarm = postTurn <= 0 || value < postTurn
+      if (preWarm && !foldClearsFloor(measured, policy, this.config?.retainRatio)) {
+        report(`pre-warm skipped: a fold here would free less than ${policy.minFreedTokens} tokens`)
+        return
+      }
+      report(`${preWarm ? 'pre-warm' : 'post-turn'} compaction ${pressure.turn === null ? 'thread' : 'turn'}=${value} target=${target} window=${measured.contextWindow}`)
       dispose = this.ctx.on('agent/disposed', ({ agent: disposed }) => {
         if (disposed === agent) controller.abort()
       })

@@ -27,6 +27,8 @@ const workspace = readFileSync(new URL('client/workspace.js', root), 'utf8')
  */
 const { ARYA_STANDARD_FIELDS } = await import(new URL('presets/arya-standard/fields.js', root))
 const arya = readFileSync(new URL('client/arya.js', root), 'utf8')
+const memory = readFileSync(new URL('client/memory.js', root), 'utf8')
+const hooks = readFileSync(new URL('client/hooks.js', root), 'utf8')
 const mcp = readFileSync(new URL('client/mcp.js', root), 'utf8')
 const aryasearch = readFileSync(new URL('client/aryasearch.js', root), 'utf8')
 const face = readFileSync(new URL('client/face.js', root), 'utf8')
@@ -63,7 +65,7 @@ const constants = [
 
 const header = [
   '/**',
-  ` * ${id} — the browser face bundle.`,
+  ` * ${id} â€” the browser face bundle.`,
   ' *',
   ' * GENERATED FILE. Edit client/face.js, client/arya.js or client/switches.json and',
   ' * `pnpm build:client`; nothing here should be hand-edited.',
@@ -76,7 +78,7 @@ window.__ModuleLoader__.load({
   factory: (require) => {
 ${indent(constants)}
 
-/* html2canvas 1.4.1 — MIT, vendored from vendor/html2canvas.min.js.
+/* html2canvas 1.4.1 â€” MIT, vendored from vendor/html2canvas.min.js.
  * A UMD build, so it assigns itself to globalThis; face.js reads it lazily. */
 ${indent(html2canvas.trimEnd())}
 
@@ -86,6 +88,10 @@ ${indent(account.trimEnd().replace(/^export /gm, ''))}
 ${indent(workspace.trimEnd().replace(/^export /gm, ''))}
 
 ${indent(arya.trimEnd())}
+
+${indent(memory.trimEnd())}
+
+${indent(hooks.trimEnd())}
 
 ${indent(mcp.trimEnd())}
 

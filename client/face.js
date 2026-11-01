@@ -2298,6 +2298,22 @@ return {
       label: () => 'Arya Standard',
       inject: () => ({ configForms }),
     }, AryaStandardSettingsPage))
+    // Memory is its own section: it belongs to the profile, not to a preset, and
+    // the switch beside it can be off while the page still explains itself.
+    ctx.slots.inject('settings.section', () => ctx.slots.register({
+      name: 'settings.section',
+      id: 'arya-memory',
+      order: 61,
+      label: () => 'Memory',
+      inject: () => ({}),
+    }, AryaMemoryPage))
+    ctx.slots.inject('settings.section', () => ctx.slots.register({
+      name: 'settings.section',
+      id: 'arya-hooks',
+      order: 62,
+      label: () => 'Hooks',
+      inject: () => ({}),
+    }, AryaHooksPage))
     // AryaSearch sits next to the shipped Web search card, because that is where
     // the harness keeps search-provider configuration.
     ctx.slots.inject('plugins.item', () => ctx.slots.register({

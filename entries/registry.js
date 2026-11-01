@@ -30,6 +30,8 @@ import { readSettings } from '../presets/arya-standard/settings.js'
 import { mountCost } from './cost.js'
 import { mountFolders } from './folders.js'
 import { mountGithub } from './github.js'
+import { mountHooks } from './hooks.js'
+import { mountMemory } from './memory.js'
 import { mountSessions } from './sessions.js'
 import { mountTrash } from './trash.js'
 
@@ -103,6 +105,20 @@ export const features = [
     // The mount needs the policy group beside the switches, not the switches
     // themselves: `readSettings` validates it and fills in every default.
     config: rowConfig => readSettings(rowConfig),
+  },
+  {
+    id: 'memory',
+    label: 'Cross-session memory',
+    description: 'Keep short notes across sessions. Recalled into the system prompt as quoted context, and managed from Settings → Memory.',
+    defaultOn: true,
+    mount: mountMemory,
+  },
+  {
+    id: 'hooks',
+    label: 'Lifecycle hooks',
+    description: 'Run a command when a turn stops, a session errors, or a checkpoint lands. Rules live in polish/hooks.json; Settings → Hooks lists and validates them.',
+    defaultOn: true,
+    mount: mountHooks,
   },
   {
     id: 'mcpManager',

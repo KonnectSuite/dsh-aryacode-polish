@@ -231,7 +231,7 @@ test('every field descriptor is well formed and unique', () => {
   assert.equal(new Set(keys).size, keys.length)
   for (const field of ARYA_STANDARD_FIELDS) {
     assert.match(field.key, /^[a-z][a-zA-Z0-9]*$/)
-    assert.ok(['boolean', 'number', 'text'].includes(field.kind))
+    assert.ok(['boolean', 'number', 'text', 'choice'].includes(field.kind))
     assert.equal(typeof field.label, 'string')
     assert.equal(typeof field.description, 'string')
     assert.ok(field.default !== undefined)
@@ -239,6 +239,10 @@ test('every field descriptor is well formed and unique', () => {
       assert.equal(typeof field.min, 'number')
       assert.equal(typeof field.max, 'number')
       assert.ok(field.default >= field.min && field.default <= field.max)
+    }
+    if (field.kind === 'choice') {
+      assert.ok(Array.isArray(field.options) && field.options.length >= 2, `${field.key} needs options`)
+      assert.ok(field.options.some((option) => option.value === field.default), `${field.key} default must be an option`)
     }
   }
 })
@@ -279,7 +283,7 @@ test('mounting registers the preset and its projection, and disposes them', asyn
   assert.equal(engine.config.thresholdRatio, 0.75)
   assert.equal(projections.length, 1)
   assert.equal(projections[0].key, 'aryaStandard')
-  assert.equal(projections[0].stateVersion, 3)
+  assert.equal(projections[0].stateVersion, 4)
   assert.equal(effects.length, 1)
 
   // The projection folds the route and the billed usage into the trajectory the

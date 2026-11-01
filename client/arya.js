@@ -297,6 +297,38 @@ function AryaSettingsFields(props) {
           props.onChange(field.key, Number.isFinite(number) ? number : field.default)
         },
       })
+    } else if (field.kind === 'choice') {
+      // A two-value knob reads as a segmented control, not a text box: the same
+      // two-button shape the tab strip uses, so the policy form stays consistent.
+      const current = props.options[field.key] ?? field.default
+      input = React.createElement('div', {
+        role: 'group',
+        style: {
+          display: 'inline-flex',
+          padding: '2px',
+          gap: '2px',
+          borderRadius: '9px',
+          background: ARYA_THEME.surface2,
+          border: '1px solid ' + ARYA_THEME.border,
+        },
+      }, field.options.map(option => React.createElement('button', {
+        key: option.value,
+        type: 'button',
+        disabled: props.disabled,
+        'aria-pressed': current === option.value,
+        onClick: () => props.onChange(field.key, option.value),
+        style: {
+          font: 'inherit',
+          fontSize: '11.5px',
+          fontWeight: 600,
+          padding: '4px 10px',
+          borderRadius: '7px',
+          border: 'none',
+          cursor: props.disabled ? 'default' : 'pointer',
+          background: current === option.value ? ARYA_THEME.brand : 'transparent',
+          color: current === option.value ? '#fff' : ARYA_THEME.muted,
+        },
+      }, option.label)))
     } else {
       input = React.createElement('input', {
         id,
@@ -437,8 +469,9 @@ function AryaStandardSettingsPage(props) {
 }
 
 /**
- * The live context gauge: what the next step would cost, and where the threshold sits.
- * @param {{ used: number, window: number, thresholdRatio: number, headroomTokens: number, thresholdTokens?: number }} props
+ * The live context gauge: what the next step would cost, and where the two
+ * automatic levels sit.
+ * @param {{ used: number, window: number, thresholdRatio: number, headroomTokens: number, thresholdTokens?: number, preemptiveRatio?: number, preemptiveTokens?: number, turnTokens?: number | null, scope?: string }} props
  *   the numbers.
  * @returns {object} the gauge.
  */
@@ -450,6 +483,11 @@ function AryaGauge(props) {
   const headroom = Math.max(0, Number(props.headroomTokens) || 0)
   const thresholdTokens = Math.max(0, Number(props.thresholdTokens) || Math.round(contextWindow * threshold))
   const untilThreshold = Math.max(0, thresholdTokens - used)
+  const preRatio = Math.min(0.99, Math.max(0, Number(props.preemptiveRatio) || 0))
+  const preTokens = Math.max(0, Number(props.preemptiveTokens) || (contextWindow > 0 ? Math.round(contextWindow * preRatio) : 0))
+  const preShare = contextWindow > 0 ? Math.min(1, preTokens / contextWindow) : 0
+  const turnTokens = props.turnTokens === null || props.turnTokens === undefined ? null : Math.max(0, Number(props.turnTokens) || 0)
+  const showPre = preTokens > 0 && contextWindow > 0 && preShare < threshold - 0.03
   const tone = share >= threshold ? ARYA_THEME.warn : ARYA_DATA
   const meter = {
     position: 'relative',
@@ -492,6 +530,21 @@ function AryaGauge(props) {
     color: ARYA_THEME.warn,
     whiteSpace: 'nowrap',
   }
+  const preMark = {
+    position: 'absolute',
+    top: '-3px',
+    bottom: '-3px',
+    left: Math.round(preShare * 1000) / 10 + '%',
+    width: '0',
+    borderLeft: '2px dashed ' + ARYA_DATA,
+    opacity: 0.75,
+  }
+  const preFlag = {
+    ...flag,
+    top: '-32px',
+    left: 'calc(' + Math.round(preShare * 1000) / 10 + '% - 22px)',
+    color: ARYA_DATA,
+  }
   const label = contextWindow > 0
     ? aryaNumberText(used) + ' of ' + aryaNumberText(contextWindow) + ' tokens used'
     : 'Waiting for the first request in this session.'
@@ -508,17 +561,25 @@ function AryaGauge(props) {
         share >= threshold ? 'near threshold' : 'healthy')),
     React.createElement('div', { style: { position: 'relative' } },
       contextWindow > 0 ? React.createElement('span', { style: flag }, Math.round(threshold * 100) + '%') : null,
+      showPre ? React.createElement('span', { style: preFlag }, 'pre-warm ' + Math.round(preShare * 100) + '%') : null,
       React.createElement('div', { style: meter },
         React.createElement('div', { style: fill }),
+        showPre ? React.createElement('div', { style: preMark }) : null,
         contextWindow > 0 ? React.createElement('div', { style: mark }) : null)),
     React.createElement('div', { style: { ...ARYA_ROW, marginTop: '2px' } },
       React.createElement('span', { style: { ...ARYA_MUTED, fontSize: '10.5px' } }, '0'),
       React.createElement('span', { style: { ...ARYA_MUTED, fontSize: '10.5px', fontFamily: ARYA_FONT_MONO } }, Math.round(share * 1000) / 10 + '% used'),
       React.createElement('span', { style: { ...ARYA_MUTED, fontSize: '10.5px' } }, aryaCompact(contextWindow))),
-    React.createElement('div', { style: { display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', gap: '10px', marginTop: '10px' } },
+    turnTokens === null ? null : React.createElement('div', {
+      style: { ...ARYA_MUTED, fontSize: '10.5px', marginTop: '4px', fontFamily: ARYA_FONT_MONO },
+    }, 'turn ' + aryaCompact(turnTokens) + ' · thread ' + aryaCompact(used)),
+    React.createElement('div', { style: { display: 'grid', gridTemplateColumns: 'repeat(4, minmax(0, 1fr))', gap: '10px', marginTop: '10px' } },
       React.createElement('div', null,
         React.createElement('div', { style: ARYA_EYEBROW }, 'Compacts at'),
         React.createElement('div', { style: { fontSize: '13px', fontWeight: 600, color: ARYA_THEME.text } }, Math.round(threshold * 100) + '% · ' + aryaCompact(thresholdTokens))),
+      React.createElement('div', null,
+        React.createElement('div', { style: ARYA_EYEBROW }, 'Pre-warms at'),
+        React.createElement('div', { style: { fontSize: '13px', fontWeight: 600, color: showPre ? ARYA_THEME.text : ARYA_THEME.muted } }, showPre ? Math.round(preShare * 100) + '% · ' + aryaCompact(preTokens) : 'off')),
       React.createElement('div', null,
         React.createElement('div', { style: ARYA_EYEBROW }, 'Headroom'),
         React.createElement('div', { style: { fontSize: '13px', fontWeight: 600, color: ARYA_THEME.text } }, aryaNumberText(headroom) + ' tokens')),
@@ -768,7 +829,9 @@ function AryaCheckpointCard(props) {
     React.createElement('div', { style: { ...ARYA_ROW, alignItems: 'flex-start', gap: '12px' } },
       React.createElement('div', { style: { minWidth: 0 } },
         React.createElement('div', { style: { display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' } },
-          AryaChip({ tone: checkpoint.manual ? ARYA_THEME.brand : ARYA_THEME.muted }, checkpoint.manual ? 'manual' : 'automatic'),
+          AryaChip({
+            tone: checkpoint.manual ? ARYA_THEME.brand : checkpoint.trigger === 'pre-warm' ? ARYA_DATA : ARYA_THEME.muted,
+          }, checkpoint.manual ? 'manual' : checkpoint.trigger === 'pre-warm' ? 'pre-warm' : checkpoint.trigger === 'post-turn' ? 'post-turn' : 'automatic'),
           React.createElement('span', { style: { fontFamily: ARYA_FONT_MONO, fontSize: '12.5px', fontWeight: 600, color: ARYA_THEME.text } }, checkpoint.id.slice(0, 8)),
           React.createElement('span', { style: { ...ARYA_MUTED, fontSize: '11px' } }, when)),
         React.createElement('div', { style: { ...ARYA_MUTED, fontSize: '11px', marginTop: '3px' } }, model)),
@@ -879,6 +942,11 @@ function AryaCompactionView(props) {
   const folds = checkpoints.map(checkpoint => checkpoint.startSeq)
   const manualCount = checkpoints.filter(checkpoint => checkpoint.manual === true).length
   const autoCount = checkpoints.length - manualCount
+  const preemptiveTokens = Number(view.preemptiveTokens) || 0
+  const preCompactions = Number(view.preCompactions) || 0
+  const freedEarly = Number(view.freedEarly) || 0
+  const scope = policy.autoCompactScope === 'turn' ? 'Turn' : 'Thread'
+  const preemptivePercent = Number(policy.preemptivePercent) || 0
 
   const compactNow = async () => {
     setBusy(true)
@@ -998,6 +1066,9 @@ function AryaCompactionView(props) {
               thresholdRatio: policy.thresholdRatio,
               headroomTokens: policy.headroomTokens,
               thresholdTokens,
+              preemptiveRatio: preemptivePercent / 100,
+              preemptiveTokens,
+              scope: policy.autoCompactScope,
             })),
           React.createElement('div', { style: { ...ARYA_CARD, margin: 0 } },
             React.createElement('div', { style: { ...ARYA_ROW, marginBottom: '10px' } },
@@ -1013,6 +1084,15 @@ function AryaCompactionView(props) {
                   : manualCount + ' manual · ' + autoCount + ' automatic',
               }),
               React.createElement(AryaStat, { label: 'Freed by compaction', value: aryaCompact(savedTokens), hint: 'tokens dropped from the prompt', tone: savedTokens > 0 ? ARYA_THEME.ok : undefined }),
+              React.createElement(AryaStat, {
+                label: 'Pre-warmed folds',
+                value: String(preCompactions),
+                hint: preemptivePercent > 0
+                  ? 'before the ' + Math.round((Number(policy.postTurnThresholdPercent) || 90)) + '% fallback · ' + aryaCompact(freedEarly) + ' freed early'
+                  : 'pre-warm is off',
+                tone: preCompactions > 0 ? ARYA_THEME.ok : undefined,
+              }),
+              React.createElement(AryaStat, { label: 'Budget scope', value: scope, hint: 'pressure the gates read' }),
               React.createElement(AryaStat, { label: 'Input tokens', value: aryaCompact(totals.input), hint: 'including cached' }),
               React.createElement(AryaStat, { label: 'Cache hit', value: Math.round(cacheHitRatio * 100) + '%', hint: aryaCompact(totals.cached) + ' read from cache' })))),
         React.createElement(AryaTrajectory, { series, window: contextWindow, thresholdTokens, folds }),

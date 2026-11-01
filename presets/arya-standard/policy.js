@@ -24,6 +24,9 @@ export const ARYA_STANDARD_POLICY_SERVICE = 'aryaStandardPolicy'
 export const ARYA_STANDARD_POLICY_DEFAULTS = Object.freeze({
   keepUserTokens: 20000,
   postTurnThresholdPercent: 90,
+  preemptivePercent: 70,
+  minFreedTokens: 4000,
+  autoCompactScope: 'thread',
   autoCompactTokenLimit: 0,
   compactPromptOverride: '',
   dropOldestRetries: 2,
@@ -62,6 +65,9 @@ export function resolvePolicy(raw) {
   return Object.freeze({
     keepUserTokens: clampInteger(source.keepUserTokens, defaults.keepUserTokens, 0, MAX_TOKENS),
     postTurnThresholdPercent: clampInteger(source.postTurnThresholdPercent, defaults.postTurnThresholdPercent, 0, 100),
+    preemptivePercent: clampInteger(source.preemptivePercent, defaults.preemptivePercent, 0, 100),
+    minFreedTokens: clampInteger(source.minFreedTokens, defaults.minFreedTokens, 0, MAX_TOKENS),
+    autoCompactScope: source.autoCompactScope === 'turn' ? 'turn' : 'thread',
     autoCompactTokenLimit: clampInteger(source.autoCompactTokenLimit, defaults.autoCompactTokenLimit, 0, MAX_TOKENS),
     compactPromptOverride: typeof source.compactPromptOverride === 'string' ? source.compactPromptOverride.trim() : '',
     dropOldestRetries: clampInteger(source.dropOldestRetries, defaults.dropOldestRetries, 0, 5),
@@ -94,6 +100,22 @@ export function readPolicy(ctx) {
 }
 
 /**
+ * Resolve one share-of-window threshold, capped by the absolute token limit.
+ *
+ * @param {{ contextWindow?: number } | undefined} measurement the token meter reading.
+ * @param {number} percent the share of the window, 0 disables that share.
+ * @param {number} limit the absolute token limit, 0 disables it.
+ * @returns {number} the token level, or 0 when everything it needs is off.
+ */
+function shareThresholdTokens(measurement, percent, limit) {
+  const window = Number(measurement?.contextWindow)
+  const absolute = limit > 0 ? limit : Number.POSITIVE_INFINITY
+  const shareOff = !(percent > 0) || !Number.isFinite(window) || window <= 0
+  if (shareOff) return absolute === Number.POSITIVE_INFINITY ? 0 : absolute
+  return Math.min(Math.floor(window * (percent / 100)), absolute)
+}
+
+/**
  * Resolve the token level at which a finished turn should be compacted.
  *
  * This is Codex's `model_post_turn_compact_threshold_percent` and
@@ -106,11 +128,45 @@ export function readPolicy(ctx) {
  * @returns {number} the token level, or 0 when this trigger is disabled.
  */
 export function postTurnThresholdTokens(measurement, policy) {
+  return shareThresholdTokens(measurement, policy.postTurnThresholdPercent, policy.autoCompactTokenLimit)
+}
+
+/**
+ * Resolve the earlier level at which a fold is worth doing before it is needed.
+ *
+ * Codex compacts after a turn rather than at the step that needs the room; this is
+ * the same idea applied earlier, so the fold is paid while the user is still
+ * reading instead of inside the next request. Zero disables the pre-warm.
+ *
+ * @param {{ totalTokens?: number, contextWindow?: number } | undefined} measurement
+ *   the token meter's reading for the session.
+ * @param {ReturnType<typeof resolvePolicy>} policy the policy in force.
+ * @returns {number} the token level, or 0 when the pre-warm is disabled.
+ */
+export function preemptiveThresholdTokens(measurement, policy) {
+  return shareThresholdTokens(measurement, policy.preemptivePercent, policy.autoCompactTokenLimit)
+}
+
+/**
+ * Whether a pre-warm fold would free enough to be worth doing.
+ *
+ * A fold that rewrites a nearly empty surface costs a summarization call and gains
+ * almost nothing, so the floor keeps the trigger from churning on small windows.
+ *
+ * @param {{ totalTokens?: number, contextWindow?: number } | undefined} measurement
+ *   the token meter's reading for the session.
+ * @param {ReturnType<typeof resolvePolicy>} policy the policy in force.
+ * @param {number} retainRatio the engine's verbatim tail, as a share of the window.
+ * @returns {boolean} true when the fold would clear the floor.
+ */
+export function foldClearsFloor(measurement, policy, retainRatio) {
+  const total = Number(measurement?.totalTokens)
   const window = Number(measurement?.contextWindow)
-  const absolute = policy.autoCompactTokenLimit > 0 ? policy.autoCompactTokenLimit : Number.POSITIVE_INFINITY
-  if (policy.postTurnThresholdPercent <= 0) return absolute === Number.POSITIVE_INFINITY ? 0 : absolute
-  if (!Number.isFinite(window) || window <= 0) return absolute === Number.POSITIVE_INFINITY ? 0 : absolute
-  return Math.min(Math.floor(window * (policy.postTurnThresholdPercent / 100)), absolute)
+  if (!Number.isFinite(total) || total <= 0) return false
+  if (policy.minFreedTokens <= 0) return true
+  if (!Number.isFinite(window) || window <= 0) return true
+  const retained = Math.floor(window * (Number.isFinite(retainRatio) ? retainRatio : 0.16))
+  return total - retained >= policy.minFreedTokens
 }
 
 /**

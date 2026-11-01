@@ -50,6 +50,7 @@ function harness(state = {}) {
       return null
     },
     _compactAfterTurn: ObservableCompactionEngine.prototype._compactAfterTurn,
+    _scopedPressure: ObservableCompactionEngine.prototype._scopedPressure,
   }
   return { engine, listeners, compactions }
 }
@@ -93,7 +94,9 @@ test('the absolute token limit wins when it is the smaller of the two', async ()
 })
 
 test('both knobs at zero leave the trigger unregistered', () => {
-  const harnessed = harness({ policy: resolvePolicy({ postTurnThresholdPercent: 0, autoCompactTokenLimit: 0 }) })
+  const harnessed = harness({
+    policy: resolvePolicy({ postTurnThresholdPercent: 0, preemptivePercent: 0, autoCompactTokenLimit: 0 }),
+  })
   ObservableCompactionEngine.prototype._registerAryaStandardTriggers.call(harnessed.engine)
   assert.equal(harnessed.listeners.get('agent/status'), undefined)
 })

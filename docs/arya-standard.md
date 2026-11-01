@@ -105,18 +105,34 @@ answer.
 ## The trigger set
 
 `compaction-basic` owns when to compact and how a summary is committed. Arya
-Standard adds the two triggers Codex has and the base engine does not, both on the
-idle transition after a turn, so they never race the turn that just ended:
+Standard adds the triggers Codex has and the base engine does not, all on the idle
+transition after a turn, so they never race the turn that just ended:
 
+- **pre-warm threshold** — a share of the window, 70% by default. The fold is paid
+  on the idle transition, while the user is still reading, so the next request
+  starts on an already-shrunk surface instead of inside the request that needs the
+  room. A pre-warm fold is skipped when it would free less than **Minimum fold**
+  tokens, so a small session is not compacted over and over;
 - **post-turn threshold** (`model_post_turn_compact_threshold_percent`) — a share of
-  the window, 90% by default. The engine's own pressure check runs before a step;
-  this one runs after a turn, which is where Codex folds;
-- **absolute token limit** (`model_auto_compact_token_limit`) — whichever of the two
-  is lower wins, so a small window still compacts at a predictable token count.
+  the window, 90% by default, and the hard fallback behind the pre-warm;
+- **absolute token limit** (`model_auto_compact_token_limit`) — whichever is lower
+  wins, so a small window still compacts at a predictable token count;
+- **budget scope** — `Thread` (default) or `Turn`. Thread reads the whole surface;
+  turn reads the difference between the surface now and the surface at the current
+  turn's first step, which is one number kept per agent rather than a walk of the
+  session log. The base engine's own step-pressure check stays thread-scoped, and
+  the panel says so where the scope is chosen.
 
-Both are configured on the `arya-standard-policy` row, which publishes the
+All of them are configured on the `arya-standard-policy` row, which publishes the
 `aryaStandardPolicy` service. They cannot ride on the engine row: `compaction-basic`
 validates a closed configuration key set and throws at mount on anything else.
+
+The Compaction tab draws both levels: a dashed pre-warm marker beside the warn
+threshold, a **Pre-warm at** readout, and a trigger badge on every checkpoint —
+`manual`, `pre-warm` or `post-turn`. That badge is derived rather than recorded:
+the fold happens on the idle transition and no plugin may append its own session
+event, so the projection compares the pressure billed just before the checkpoint
+against the two levels.
 
 Two more Codex behaviours live inside the summarizer:
 

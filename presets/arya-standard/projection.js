@@ -60,6 +60,9 @@ const policySchema = z.object({
   maxTokens: z.number(),
   keepUserTokens: z.number(),
   postTurnThresholdPercent: z.number(),
+  preemptivePercent: z.number(),
+  minFreedTokens: z.number(),
+  autoCompactScope: z.string(),
   autoCompactTokenLimit: z.number(),
   dropOldestRetries: z.number(),
   auto: z.boolean(),
@@ -106,6 +109,7 @@ const cardSchema = checkpointSchema.extend({
   freedTokens: z.number(),
   truncated: z.boolean(),
   pin: z.string(),
+  trigger: z.string(),
 })
 
 const viewSchema = z.object({
@@ -117,6 +121,10 @@ const viewSchema = z.object({
   series: z.array(pointSchema),
   totals: totalsSchema,
   thresholdTokens: z.number(),
+  postTurnTokens: z.number(),
+  preemptiveTokens: z.number(),
+  preCompactions: z.number(),
+  freedEarly: z.number(),
   savedTokens: z.number(),
   cacheHitRatio: z.number(),
 })
@@ -268,12 +276,15 @@ export function createAryaStandardProjection(settings) {
     maxTokens: Number(settings.maxTokens),
     keepUserTokens: Number(settings.keepUserTokens),
     postTurnThresholdPercent: Number(settings.postTurnThresholdPercent),
+    preemptivePercent: Number(settings.preemptivePercent),
+    minFreedTokens: Number(settings.minFreedTokens),
+    autoCompactScope: settings.autoCompactScope === 'turn' ? 'turn' : 'thread',
     autoCompactTokenLimit: Number(settings.autoCompactTokenLimit),
     dropOldestRetries: Number(settings.dropOldestRetries),
   }
   return {
     key: ARYA_STANDARD_PROJECTION_KEY,
-    stateVersion: 3,
+    stateVersion: 4,
     stateSchema,
     init: () => ({
       checkpoints: [],
@@ -299,19 +310,53 @@ export function createAryaStandardProjection(settings) {
           ? Math.min(Math.floor(contextWindow * policy.thresholdRatio), Math.max(0, budget))
           : 0
         const savedTokens = state.checkpoints.reduce((sum, checkpoint) => sum + checkpoint.shadowedTokens, 0)
-        // `totals.input` already counts cache reads (the point folds them in), so
-        // the hit ratio is cached over the whole prompt the provider billed.
-        return {
-          count: state.checkpoints.length,
-          checkpoints: state.checkpoints.map((checkpoint) => ({
+        // The two automatic levels, at the engine's own rule: a share of the window
+        // capped by the absolute limit. Both are 0 when that trigger is off.
+        const limit = policy.autoCompactTokenLimit > 0 ? policy.autoCompactTokenLimit : Number.POSITIVE_INFINITY
+        const level = (percent) => {
+          if (!(percent > 0) || contextWindow <= 0) return limit === Number.POSITIVE_INFINITY ? 0 : limit
+          return Math.min(Math.floor(contextWindow * (percent / 100)), limit)
+        }
+        const postTurnTokens = level(policy.postTurnThresholdPercent)
+        const preemptiveTokens = level(policy.preemptivePercent)
+        // The trigger is derived, not recorded: the fold happens on the idle
+        // transition, and no plugin may append its own session event. The pressure
+        // billed just before the checkpoint tells pre-warm from hard fallback.
+        const pressureBefore = (seq) => {
+          let seen = null
+          for (const point of state.series) {
+            if (point.seq >= seq) break
+            seen = point
+          }
+          return seen === null ? null : seen.input
+        }
+        const checkpoints = state.checkpoints.map((checkpoint) => {
+          const pressure = pressureBefore(checkpoint.startSeq)
+          const trigger = checkpoint.manual
+            ? 'manual'
+            : pressure === null || postTurnTokens <= 0
+              ? 'automatic'
+              : pressure >= postTurnTokens ? 'post-turn' : 'pre-warm'
+          return {
             ...checkpoint,
             freedTokens: checkpoint.shadowedTokens,
             truncated: checkpoint.summary.length > PREVIEW_LIMIT,
             pin: `${checkpoint.provider}/${checkpoint.model}`,
+            trigger,
             summary: checkpoint.summary.length > PREVIEW_LIMIT
               ? `${checkpoint.summary.slice(0, PREVIEW_LIMIT)}…`
               : checkpoint.summary,
-          })),
+          }
+        })
+        const preCompactions = checkpoints.filter((checkpoint) => checkpoint.trigger === 'pre-warm').length
+        const freedEarly = checkpoints
+          .filter((checkpoint) => checkpoint.trigger === 'pre-warm')
+          .reduce((sum, checkpoint) => sum + checkpoint.shadowedTokens, 0)
+        // `totals.input` already counts cache reads (the point folds them in), so
+        // the hit ratio is cached over the whole prompt the provider billed.
+        return {
+          count: state.checkpoints.length,
+          checkpoints,
           policy,
           failure: state.failure,
           window: state.window,
@@ -319,6 +364,10 @@ export function createAryaStandardProjection(settings) {
           totals: state.totals,
           thresholdTokens,
           thresholdExact: state.reserved > 0,
+          postTurnTokens,
+          preemptiveTokens,
+          preCompactions,
+          freedEarly,
           savedTokens,
           cacheHitRatio: state.totals.input > 0 ? state.totals.cached / state.totals.input : 0,
         }

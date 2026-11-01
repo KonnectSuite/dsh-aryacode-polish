@@ -1,6 +1,6 @@
 {
   "name": "@aryacode/dsh-aryacode-polish",
-  "version": "0.109.3",
+  "version": "0.110.0",
   "description": "AryaCode Polish: one install for the small things that make AryaCode feel finished. One Plugins row, one switch per quality-of-life feature.",
   "keywords": [
     "dsh",
@@ -55,7 +55,7 @@
   "scripts": {
     "build:client": "node scripts/build-client.mjs",
     "prepack": "node scripts/build-client.mjs",
-    "test": "node --test test/patch.spec.mjs test/config.spec.mjs test/registry.spec.mjs test/cost.spec.mjs test/money.spec.mjs test/account.spec.mjs test/github.spec.mjs test/workspace.spec.mjs test/sessions.spec.mjs test/folders.spec.mjs test/trash.spec.mjs test/docs.spec.mjs test/manifests.spec.mjs test/client-face.spec.mjs test/vendor.spec.mjs test/arya-standard.spec.mjs test/arya-standard-compaction.spec.mjs test/arya-standard-triggers.spec.mjs test/arya-standard-ui.spec.mjs test/mcp-store.spec.mjs test/mcp-catalog.spec.mjs test/mcp-host.spec.mjs test/mcp-ui.spec.mjs test/aryasearch.spec.mjs test/aryasearch-ui.spec.mjs"
+    "test": "node --test test/patch.spec.mjs test/config.spec.mjs test/registry.spec.mjs test/cost.spec.mjs test/money.spec.mjs test/account.spec.mjs test/github.spec.mjs test/workspace.spec.mjs test/sessions.spec.mjs test/folders.spec.mjs test/trash.spec.mjs test/docs.spec.mjs test/manifests.spec.mjs test/client-face.spec.mjs test/vendor.spec.mjs test/arya-standard.spec.mjs test/arya-standard-compaction.spec.mjs test/arya-standard-triggers.spec.mjs test/memory.spec.mjs test/hooks.spec.mjs test/arya-standard-ui.spec.mjs test/mcp-store.spec.mjs test/mcp-catalog.spec.mjs test/mcp-host.spec.mjs test/mcp-ui.spec.mjs test/aryasearch.spec.mjs test/aryasearch-ui.spec.mjs"
   },
   "dependencies": {
     "zod": "^4.4.3"

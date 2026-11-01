@@ -81,6 +81,10 @@ function readField(value, field) {
     const clamped = Math.min(upper, Math.max(lower, number))
     return field.integer === true ? Math.round(clamped) : clamped
   }
+  if (field.kind === 'choice') {
+    const allowed = Array.isArray(field.options) ? field.options.map((option) => option.value) : []
+    return allowed.includes(bare) ? bare : field.default
+  }
   if (typeof bare === 'string') return bare.trim()
   if (typeof bare === 'number' || typeof bare === 'boolean') return String(bare)
   return field.default
@@ -150,6 +154,9 @@ export function policyConfig(settings) {
   return {
     keepUserTokens: Number(settings.keepUserTokens),
     postTurnThresholdPercent: Number(settings.postTurnThresholdPercent),
+    preemptivePercent: Number(settings.preemptivePercent),
+    minFreedTokens: Number(settings.minFreedTokens),
+    autoCompactScope: settings.autoCompactScope === 'turn' ? 'turn' : 'thread',
     autoCompactTokenLimit: Number(settings.autoCompactTokenLimit),
     compactPromptOverride: typeof settings.compactPromptOverride === 'string' ? settings.compactPromptOverride.trim() : '',
     dropOldestRetries: Number(settings.dropOldestRetries),

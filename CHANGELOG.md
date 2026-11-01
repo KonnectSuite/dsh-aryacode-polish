@@ -1,3 +1,23 @@
+## [0.110.0]
+
+### Added
+
+- **Pre-warm compaction.** A second, earlier level on the idle transition: at 70% of the window (configurable, 0 disables) the fold is paid while the user is still reading, so the next request starts on a shrunk surface instead of inside the request that needs the room. A pre-warm fold is skipped when it would free less than **Minimum fold** tokens. The 90% post-turn gate stays as the hard fallback, and every checkpoint card now carries a derived trigger badge — `manual`, `pre-warm` or `post-turn`.
+- **Budget scope.** `Thread` (default) or `Turn` for the automatic gates. Turn pressure is the surface now minus the surface at the current turn's first step, kept as one number per agent rather than a walk of the session log. The Compaction tab shows the scope and the two levels on its gauge; the engine's own step-pressure check stays thread-scoped and the docs say so.
+- **Cross-session memory** (`memory`). `polish/memory.json` holds up to 200 notes of 500 characters; one system-prompt section (`arya-memory`) renders them from a provider on every assembly, so a new note applies without a restart and an empty store contributes nothing. Notes are quoted and labelled as recalled context, never instructions. **Settings ? Memory** lists, filters, adds and forgets them through `POST api/polish.memory`. See [Memory](docs/memory.md).
+- **Lifecycle hooks** (`hooks`). `polish/hooks.json` holds rules for `turn/stopping`, `agent/error`, `compaction/summary` and `compaction/end`; each rule runs one `exec` action without a shell, with the payload in `POLISH_HOOK_PAYLOAD` and a 10 s default timeout. Dispatch is observational: a hook cannot veto a tool call or block a turn. **Settings ? Hooks** names the file, validates it with per-rule errors, and lists the last 50 dispatches. See [Hooks](docs/hooks.md).
+
+### Changed
+
+- The `aryaStandard` projection is state version 4 (policy fields, `postTurnTokens`, `preemptiveTokens`, `preCompactions`, `freedEarly`, per-checkpoint `trigger`).
+- `fields.js` gains a `choice` kind, rendered in the policy form as a segmented control rather than a text box.
+- `client/arya.js` stays free of network I/O: the Memory and Hooks panels live in their own fragments (`client/memory.js`, `client/hooks.js`).
+
+### Notes
+
+- Memory and hooks are profile-wide features, not preset rows: they mount with the bundle, so they work in every session regardless of the agent preset.
+- Model-facing memory tools and hook vetoes are deliberately not shipped; the boundaries are documented in their pages rather than left implicit.
+
 ## [0.109.3]
 
 ### Fixed
