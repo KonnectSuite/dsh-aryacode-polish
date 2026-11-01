@@ -204,7 +204,8 @@ verify and live, correlates each result by call id, and ignores everything else.
 
 The Engineering bundle's own rows are not re-mounted — they belong to the installed
 bundle and stay visible to every session. See
-[Arya Automation Engineer](docs/arya-automation-engineer.md).
+[Arya Automation Engineer](docs/arya-automation-engineer.md) and
+[The presets compared](docs/preset-comparison.md).
 
 ### How the cost is computed
 The numbers come from the Host, never from the browser:
