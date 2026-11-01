@@ -62,6 +62,12 @@
       "defaultOn": true
     },
     {
+      "key": "aryaQwen",
+      "label": "Arya Qwen preset",
+      "description": "Add the Arya Qwen agent preset: Qwen Code’s prompt and its state_snapshot checkpoint compaction, on Arya Standard’s tool list.",
+      "defaultOn": true
+    },
+    {
       "key": "memory",
       "label": "Cross-session memory",
       "description": "Keep short notes across sessions. Recalled into the system prompt as quoted context, and managed from Settings → Memory.",

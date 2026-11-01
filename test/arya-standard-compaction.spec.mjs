@@ -252,7 +252,16 @@ test('a configured summarizer wins over the routed model', async () => {
 test('the factory refuses a missing base or missing vendored text', () => {
   assert.throws(() => createAryaStandardCompaction(undefined, {}), /a base engine class is required/)
   assert.throws(() => createAryaStandardCompaction(StubBase, { summaryPrefix: 'x' }), /the checkpoint prompt is missing/)
-  assert.throws(() => createAryaStandardCompaction(StubBase, { checkpointPrompt: 'x' }), /the summary prefix is missing/)
+  // A kit may frame before the body (Codex) or after it (Qwen Code), but it must
+  // frame the checkpoint somehow.
+  assert.throws(() => createAryaStandardCompaction(StubBase, { checkpointPrompt: 'x' }), /the summary frame is missing/)
+  assert.throws(
+    () => createAryaStandardCompaction(StubBase, { checkpointPrompt: 'x', summaryPrefix: ' ', summarySuffix: '' }),
+    /the summary frame is missing/,
+  )
+  assert.doesNotThrow(
+    () => createAryaStandardCompaction(StubBase, { checkpointPrompt: 'x', summaryPrefix: '', summarySuffix: 'resume' }),
+  )
   const { kit } = makeKit()
   assert.equal(typeof createAryaStandardCompaction(StubBase, kit), 'function')
 })

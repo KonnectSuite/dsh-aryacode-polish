@@ -86,10 +86,10 @@ export const ARYA_STANDARD_POLICY_FALLBACK = resolvePolicy(undefined)
  * @param {object | undefined} ctx the engine's context.
  * @returns {ReturnType<typeof resolvePolicy>} the policy in force.
  */
-export function readPolicy(ctx) {
+export function readPolicy(ctx, service = ARYA_STANDARD_POLICY_SERVICE) {
   try {
     if (typeof ctx?.get !== 'function') return ARYA_STANDARD_POLICY_FALLBACK
-    const value = ctx.get(ARYA_STANDARD_POLICY_SERVICE, false)
+    const value = ctx.get(service, false)
     if (value === null || typeof value !== 'object' || typeof value.keepUserTokens !== 'number') {
       return ARYA_STANDARD_POLICY_FALLBACK
     }

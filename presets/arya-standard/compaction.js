@@ -334,8 +334,12 @@ export function createAryaStandardCompaction(Base, kit) {
   if (typeof kit?.checkpointPrompt !== 'string' || kit.checkpointPrompt.trim().length === 0) {
     throw new Error('arya-standard compaction: the checkpoint prompt is missing')
   }
-  if (typeof kit?.summaryPrefix !== 'string' || kit.summaryPrefix.trim().length === 0) {
-    throw new Error('arya-standard compaction: the summary prefix is missing')
+  // A kit frames its checkpoints either before the body (Codex's handoff prefix)
+  // or after it (Qwen Code's resume trailer), or both; one of them must be there.
+  const framePrefix = typeof kit?.summaryPrefix === 'string' ? kit.summaryPrefix : ''
+  const frameSuffix = typeof kit?.summarySuffix === 'string' ? kit.summarySuffix : ''
+  if (framePrefix.trim().length === 0 && frameSuffix.trim().length === 0) {
+    throw new Error('arya-standard compaction: the summary frame is missing')
   }
 
   return class AryaStandardCompaction extends Base {
@@ -348,7 +352,7 @@ export function createAryaStandardCompaction(Base, kit) {
      * @returns {Promise<object>} the `summarized` record the base engine commits.
      */
     async summarize(input, agent, signal) {
-      const policy = readPolicy(this.ctx)
+      const policy = readPolicy(this.ctx, this.policyService)
       const target = resolveSummarizationTarget(this.config, agent)
       const instructionText = policy.compactPromptOverride.length > 0
         ? policy.compactPromptOverride
@@ -397,36 +401,47 @@ export function createAryaStandardCompaction(Base, kit) {
       if (failure !== undefined) throw failure
       const rawOutput = assembler.blocks()
       const blocks = summaryTextBlocks(rawOutput, kit.contentHasImage, kit.LlmError)
-      const body = blocks.map((block) => block.text).join('').trim()
+      let body = blocks.map((block) => block.text).join('').trim()
+      // Qwen Code's compression prompt asks for a chain-of-thought scratchpad in
+      // `<analysis>` before the envelope; it is drafting material and must not
+      // reach the transcript. Keeping it if the strip empties everything is safer
+      // than committing an empty checkpoint.
+      if (kit.stripAnalysis === true) {
+        const stripped = body.replace(/<analysis>[\s\S]*?<\/analysis>/gi, '').trim()
+        if (stripped.length > 0) body = stripped
+      }
       if (body.length === 0) throw new Error('summarization produced no text summary content')
 
-      const prefix = kit.summaryPrefix
+      const prefix = framePrefix
+      const suffix = frameSuffix
       const spanTokens = estimateSpanTokens(messages)
       // The base engine prices the whole framed checkpoint against the span it
       // replaces and refuses anything that does not shrink it. Reserve the frame
       // and the handoff prefix, then fit the body into what is left: a summary the
       // provider wrote too long for a small span must be cut, not committed.
-      const room = Math.max(
-        0,
-        Math.floor(spanTokens * SHRINK_SAFETY) - FRAME_RESERVE_TOKENS - estimateTokens(`${prefix}\n`),
-      )
+      const frameTokens = estimateTokens([prefix, suffix].filter((part) => part.length > 0).join('\n\n'))
+      const room = Math.max(0, Math.floor(spanTokens * SHRINK_SAFETY) - FRAME_RESERVE_TOKENS - frameTokens)
       const fitted = estimateTokens(body) > room ? truncateToTokens(body, room).trimEnd() : body
       if (fitted.length === 0) {
         throw new Error(`arya-standard compaction: the replaced span is too small for a checkpoint (${spanTokens} estimated tokens)`)
       }
-      const summary = [{ type: 'text', text: `${prefix}\n${fitted}` }]
+      const framed = [prefix, fitted, suffix].filter((part) => part.length > 0).join('\n\n')
+      const summary = [{ type: 'text', text: framed }]
       const budget = Math.min(
         Math.max(0, policy.keepUserTokens),
         Math.floor(spanTokens * RETAINED_SHARE),
         Math.max(0, room - estimateTokens(fitted)),
       )
-      const retained = retainedUserMessages(messages, budget, prefix)
+      const marker = typeof kit.checkpointMarker === 'string' && kit.checkpointMarker.length > 0
+        ? kit.checkpointMarker
+        : prefix.length > 0 ? prefix : '\u0000'
+      const retained = retainedUserMessages(messages, budget, marker)
       if (retained.text.length > 0) summary.push({ type: 'text', text: retained.text })
 
       await notifyWaterfall(this.ctx, 'arya-standard/compaction/post', {
         session: agent.session,
         agent,
-        summaryTokens: estimateTokens(`${prefix}\n${fitted}`),
+        summaryTokens: estimateTokens(framed),
         spanTokens,
         retainedTokens: retained.tokens,
       })

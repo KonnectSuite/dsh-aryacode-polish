@@ -1,3 +1,25 @@
+## [0.111.0]
+
+### Added
+
+- **Arya Qwen preset** (`aryaQwen`). A second agent preset built from Qwen Code's prompt and history-compression prompt, for sessions running Qwen models:
+  - the system prompt carries Qwen Code's Core Mandates, Primary Workflows and Operational Guidelines (Apache-2.0, vendored and adapted in `prompt.md`), with its tool names mapped onto this harness's;
+  - compaction uses Qwen Code's compression prompt: an `<analysis>` drafting scratchpad that is **stripped** before the checkpoint enters history, a 9-section `<state_snapshot>` envelope, and a one-line resume trailer appended after the body instead of being regenerated every fold;
+  - the row list is *derived* from Arya Standard's, so the tools, groups, plan mode and pruner stay identical and only the persona and the compaction rows differ;
+  - the preset publishes its own `aryaQwenPolicy` inside its isolated realm, and asks for `keepUserTokens: 0` because Qwen Code's summarizer already reproduces the user's messages in `<all_user_messages>`.
+  See [Arya Qwen](docs/arya-qwen.md).
+
+### Changed
+
+- The compaction kit frames a checkpoint before the body (Codex's prefix), after it (Qwen Code's trailer), or both; a kit with neither is refused at mount, where before an empty prefix alone was.
+- `readPolicy` takes the service name, and the engine reads it from `policyService`, so two presets can each own a policy realm without sharing one.
+- The client switch list is 14 entries.
+
+### Notes
+
+- Thinking parameters are deliberately out of scope: the adapter plugin owns `enable_thinking` and friends, and the preset neither reads nor sets them.
+- Not byte-identical to Qwen Code's runtime prompt: Qwen Code assembles it from conditionals, and this preset carries the extracted default configuration with the harness-inapplicable sections removed.
+
 ## [0.110.0]
 
 ### Added

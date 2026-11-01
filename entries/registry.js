@@ -26,6 +26,7 @@
 import { mountMcpManager } from './mcp.js'
 import { mountAryaSearch } from './web-search.js'
 import { mountAryaStandard } from '../presets/arya-standard/plugin.js'
+import { mountAryaQwen } from '../presets/arya-qwen/plugin.js'
 import { readSettings } from '../presets/arya-standard/settings.js'
 import { mountCost } from './cost.js'
 import { mountFolders } from './folders.js'
@@ -104,6 +105,14 @@ export const features = [
     mount: mountAryaStandard,
     // The mount needs the policy group beside the switches, not the switches
     // themselves: `readSettings` validates it and fills in every default.
+    config: rowConfig => readSettings(rowConfig),
+  },
+  {
+    id: 'aryaQwen',
+    label: 'Arya Qwen preset',
+    description: 'Add the Arya Qwen agent preset: Qwen Code’s prompt and its state_snapshot checkpoint compaction, on Arya Standard’s tool list.',
+    defaultOn: true,
+    mount: mountAryaQwen,
     config: rowConfig => readSettings(rowConfig),
   },
   {

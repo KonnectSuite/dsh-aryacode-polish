@@ -3,8 +3,8 @@
  *
  * A preset row is loaded like any other bundle entry, so this module's default
  * export is the compaction service itself: DSH's base engine with Codex's summary
- * hung on the documented `summarize()` hook. Importing the real base class here —
- * rather than in `compaction.js` — keeps that file pure, so the summary logic is
+ * hung on the documented `summarize()` hook. Importing the real base class here â€”
+ * rather than in `compaction.js` â€” keeps that file pure, so the summary logic is
  * testable without a Host.
  *
  * `@deepseek-ai/dsh-llm` supplies `BlockAssembler`, `LlmError` and
@@ -49,6 +49,15 @@ function report(message) {
  */
 export class ObservableCompactionEngine extends BasicCompactionEngine {
   /**
+   * The policy service this engine reads. A preset with its own policy row
+   * overrides it; the Arya Standard row provides `aryaStandardPolicy`.
+   * @returns {string} the service name.
+   */
+  get policyService() {
+    return 'aryaStandardPolicy'
+  }
+
+  /**
    * Register the base engine's automatic hooks, then this preset's post-turn
    * trigger. The base still decides whether automatic compaction runs at all.
    * @returns {void} nothing.
@@ -75,7 +84,7 @@ export class ObservableCompactionEngine extends BasicCompactionEngine {
    * @returns {void} nothing.
    */
   _registerAryaStandardTriggers() {
-    const policy = readPolicy(this.ctx)
+    const policy = readPolicy(this.ctx, this.policyService)
     if (policy.postTurnThresholdPercent <= 0 && policy.preemptivePercent <= 0 && policy.autoCompactTokenLimit <= 0) return
     const inFlight = new WeakSet()
     if (policy.autoCompactScope === 'turn') this._registerTurnBaselines()
@@ -137,7 +146,7 @@ export class ObservableCompactionEngine extends BasicCompactionEngine {
     const controller = new AbortController()
     let dispose
     try {
-      const policy = readPolicy(this.ctx)
+      const policy = readPolicy(this.ctx, this.policyService)
       const measured = this.ctx.tokenMeter.measure(agent.session)
       const pressure = this._scopedPressure(agent, measured, policy)
       const value = pressure.turn === null ? pressure.total : pressure.turn
