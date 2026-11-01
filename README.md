@@ -41,6 +41,7 @@ Configure page automatically.
 | **Better workspace** (`betterWorkspace`) | On | Replaces the sidebar workspace list with our own tree: workspaces with their sessions, a right-click menu on a workspace (open, copy path, remove), and the shipped session menu inside it. See [Better workspace](docs/better-workspace.md). |
 | **Arya Standard preset** (`aryaStandard`) | On | Adds an **Arya Standard** agent preset that compacts the way Codex does, plus a Settings page for its knobs and a **Compaction** tab with the context trajectory, cache-hit strip, checkpoint cards, log and settings. See [Arya Standard](docs/arya-standard.md) and [The presets compared](docs/preset-comparison.md). |
 | **Arya Qwen preset** (`aryaQwen`) | On | Adds an **Arya Qwen** agent preset: Qwen Code's system prompt and its `state_snapshot` compaction (analysis scratchpad stripped, resume trailer appended once), on Arya Standard's tool list. Shares the compaction policy and the Compaction tab with Arya Standard. See [Arya Qwen](docs/arya-qwen.md). |
+| **Arya Automation Engineer preset** (`aryaAutomation`) | On | Adds an **Arya Automation Engineer** preset and an **Engineering** tab. The preset carries the five-step engineering contract (read before writing, act in a copy, verify with the vendor engine, name the human steps) and engineering-tuned compaction; the tab folds a session's tool calls into those five steps. See [Arya Automation Engineer](docs/arya-automation-engineer.md). |
 | **Cross-session memory** (`memory`) | On | Keeps short notes across sessions in `polish/memory.json` and quotes them into the system prompt as recalled context, never as instructions. **Settings â†’ Memory** adds, filters and forgets them. See [Memory](docs/memory.md). |
 | **Lifecycle hooks** (`hooks`) | On | Runs a command when a turn stops, a session errors, or a checkpoint lands. Rules live in `polish/hooks.json`; dispatch is observational with a bounded in-memory log at **Settings â†’ Hooks**. See [Hooks](docs/hooks.md). |
 | **MCP servers** (`mcpManager`) | On | Adds **Settings â†’ MCP servers**: a live list of Model Context Protocol servers with health, tools, a bundled catalog, GitHub search, a paste importer and a manual form. Servers mount through the harness's own `dsh-mcp-client`, so their tools appear as `mcp__name__tool`. See [MCP servers](docs/mcp-servers.md). |
@@ -176,8 +177,36 @@ differ:
 See [Arya Qwen](docs/arya-qwen.md), and [The presets compared](docs/preset-comparison.md)
 for the measured three-way comparison against the shipped `standard` preset.
 
-### How the cost is computed
+### Arya Automation Engineer
 
+The preset for `@aryacode/dsh-engineering` work. Its row list is Arya Standard's —
+same loop behaviour, plan mode, pruner and tool rows — with two changes: the persona
+and the compaction knobs.
+
+The persona (`presets/arya-automation/persona.md`) is written for this preset rather
+than adapted from another agent. It states the engineering loop as a contract — point
+at the work, read before writing, act in a copy, verify with the vendor engine, hand
+off what is human — plus the gates (never write to a running controller without the
+request naming it, never treat a download as proof, never invent an instruction),
+identity discipline (every finding names the file, project, revision, routine or tag)
+and honesty rules (a check that did not run is reported as not run).
+
+Compaction is tuned for read-heavy engineering sessions: pre-warm at 65 %, post-turn
+at 85 %, a 6,000-token minimum fold, 12,000 tokens of verbatim user text, and a
+tool-result pruner that keeps 16k/8k/2k of a large L5X read. The engine and policy
+rows are Arya Standard's modules, so the checkpoint is the Codex one.
+
+The **Engineering** tab (`conversation.view`, id `arya-engineering`) folds the
+session's tool calls into the ledger: five stage cards, the artifacts a tool named,
+every check and its newest outcome, approvals, live reads versus live writes and the
+last engineering tool. It classifies engineering tool names into read, check, write,
+verify and live, correlates each result by call id, and ignores everything else.
+
+The Engineering bundle's own rows are not re-mounted — they belong to the installed
+bundle and stay visible to every session. See
+[Arya Automation Engineer](docs/arya-automation-engineer.md).
+
+### How the cost is computed
 The numbers come from the Host, never from the browser:
 
 - `entries/usage.js` folds model-attributed provider usage out of the durable

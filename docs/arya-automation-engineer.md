@@ -1,8 +1,8 @@
-# Arya Automation Engineer: preset design
+# Arya Automation Engineer
 
-**Status: design, not implemented.** This page records what was taken from the
-installed PLC Copilot, what `dsh-engineering` already provides, and the preset this
-bundle should ship next.
+**Status: shipped in 0.112.0.** This page records what was taken from the installed
+PLC Copilot, what `dsh-engineering` provides, and the preset and Engineering tab
+that were built from it.
 
 ## 1. What was inspected
 
@@ -171,3 +171,50 @@ work; the preset is a composition plus a persona.
    their probes) would make the preset legible, but it duplicates what the bundle's
    own card already shows. Skip in v1, or ship it because the preset picker gives no
    other signal?
+
+## 8. As built (0.112.0)
+
+The three questions were decided as: **keep every inherited tool**, **write the
+persona fresh**, and **ship the tab**.
+
+**Preset** — `presets/arya-automation/`
+
+| File | What it holds |
+|---|---|
+| `persona.md` | the engineering contract: role, the five-step loop, gates, identity discipline, honesty, how to start with the probes |
+| `files.js` | reads and caches the persona |
+| `definition.js` | Arya Standard's row list, with the persona and the compaction knobs replaced |
+| `plugin.js` | registers the preset and the projection, releases both with the switch |
+| `projection.js` | the ledger fold and its wire view |
+
+The compaction group reuses Arya Standard's engine and policy **modules** (the
+Codex checkpoint kit and its policy row), so the preset changes values, not code:
+pre-warm 65 %, post-turn 85 %, minimum fold 6 000 tokens, 12 000 tokens of verbatim
+user text, and a pruner at 16 384 / 8 192 / 2 048.
+
+**Engineering tab** — `client/engineering.js`, mounted on `conversation.view` as
+`arya-engineering` (order 41), reading the `aryaAutomation` projection
+(stateVersion 1). It shows:
+
+- five stage cards — Read, Checks, Write, Verify, Live/hand-off — each done only
+  because the tool that proves it ran and succeeded;
+- **Artifacts in play**, newest first: the file, project id, application, folder,
+  controller IP or tag a tool named, with the tool that named it;
+- **Checks and verifications**: one row per tool, newest result wins, failures
+  chipped red and counted;
+- approvals (asked/decided and the policy), live reads versus live writes, and the
+  last engineering tool with its outcome.
+
+Nothing is inferred from prose: the fold classifies `tool/call` names, correlates
+`tool/result` by `callId`, and ignores every non-engineering tool. The empty state
+explains the tab instead of showing an empty frame.
+
+**Known boundary.** Classification is a name table. A future engineering tool that
+is not in `READ`, `CHECK`, `WRITE`, `VERIFY` or `LIVE` will not appear in the
+ledger until it is added there — the tab never guesses from a name prefix.
+
+**Tests** — `test/arya-automation.spec.mjs` (9 specs): preset shape, persona
+content, tool classification, a read/check/write fold, a failed check staying red
+until a retry replaces it, non-engineering tools ignored, approval and live-write
+counters, and the projection's key/version. The bundle's UI spec additionally
+asserts the tab and the two new rows reach the built client.

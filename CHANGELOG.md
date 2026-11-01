@@ -1,3 +1,18 @@
+## [0.112.0]
+
+### Added
+
+- **Arya Automation Engineer preset** (`aryaAutomation`), built for `@aryacode/dsh-engineering` sessions:
+  - the persona is written for this preset (`presets/arya-automation/persona.md`) rather than adapted from another agent: the five-step engineering loop as a contract (point at the work, read before writing, act in a copy, verify with the vendor engine, hand off what is human), the gates (never write to a running controller unless the request names it, never treat a download as proof, never invent an instruction), identity discipline (every finding names the file, project, revision, routine or tag) and honesty rules;
+  - compaction is tuned for read-heavy work: pre-warm 65 %, post-turn 85 %, a 6,000-token minimum fold, 12,000 tokens of verbatim user text, and a pruner at 16,384/8,192/2,048; the engine and policy rows are Arya Standard's modules, so the checkpoint is unchanged;
+  - the Engineering bundle's own rows are not re-mounted; they stay visible to every session.
+- **Engineering tab** (`conversation.view`, id `arya-engineering`) over a new `aryaAutomation` projection (stateVersion 1): five stage cards (Read, Checks, Write, Verify, Live/hand-off), artifacts a tool named, every check with its newest outcome, approvals, live reads versus writes, and the last engineering tool. The fold classifies tool names, correlates results by call id, and never claims a step that the proving tool did not run.
+
+### Notes
+
+- Classification is a name table; a future engineering tool that is not in it will not appear in the ledger until it is added, because the tab never guesses from a prefix.
+- The PLC Copilot analysis that preceded this release is recorded in [Arya Automation Engineer](docs/arya-automation-engineer.md): its engine is bytenode-compiled and its prompts are server-side, so the portable part was the working contract, not code.
+
 ## [0.111.1]
 
 ### Fixed

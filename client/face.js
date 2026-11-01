@@ -2314,6 +2314,15 @@ return {
       label: () => 'Hooks',
       inject: () => ({}),
     }, AryaHooksPage))
+    // The engineering ledger is a conversation view beside the Compaction tab:
+    // what was read, checked, written, verified, and left to a human.
+    ctx.slots.inject('conversation.view', () => ctx.slots.register({
+      name: 'conversation.view',
+      id: 'arya-engineering',
+      order: 41,
+      label: () => 'Engineering',
+      inject: () => ({}),
+    }, AryaEngineeringTab))
     // AryaSearch sits next to the shipped Web search card, because that is where
     // the harness keeps search-provider configuration.
     ctx.slots.inject('plugins.item', () => ctx.slots.register({
