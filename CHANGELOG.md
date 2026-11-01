@@ -1,3 +1,9 @@
+## [0.107.5]
+
+### Fixed
+
+- The better-workspace row menu now closes when a shipped row acts. Pin, Rename, Fork, Archive, Copy Session ID and Open workspace folder all dismiss the menu through the slot's `useMenuOpenState` hook; the tree was handing those rows a private throwaway state, so their `setOpen(false)` closed nothing. The menu stayed floating over a tree that had already reflowed beneath it, relabelling itself in place (Archive became Unarchive, Pin disappeared), which read as a ghost menu. `shippedMenuOpenState` now hands the rows the tree's real pair: they render as open, and a dismissal reaches `setMenu(null)`. The tree's own rows already closed the menu; six new specs pin the contract.
+
 ## [0.107.4]
 
 ### Fixed

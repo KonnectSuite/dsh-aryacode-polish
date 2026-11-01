@@ -111,6 +111,7 @@ import {
   writeAppearance,
   menuRuntime,
   rowMenuEntries,
+  shippedMenuOpenState,
   workspaceLabel,
   sessionRank,
   shippedBrowserEntry,
@@ -202,6 +203,40 @@ describe('menu runtime', () => {
     const runtime = menuRuntime(ctx, slots, { wide: true })
     const pair = [true, () => {}]
     assert.equal(runtime.bindHook(pair)(), pair)
+  })
+
+  it('reports the menu open, because shipped rows render only inside it', () => {
+    assert.equal(shippedMenuOpenState(() => {})[0], true)
+  })
+
+  it('routes a row dismissal to the tree menu close', () => {
+    let closed = 0
+    const pair = shippedMenuOpenState(() => { closed += 1 })
+    pair[1](false)
+    assert.equal(closed, 1)
+  })
+
+  it('keeps opening the tree menu the tree decision, not the row\'s', () => {
+    let closed = 0
+    const pair = shippedMenuOpenState(() => { closed += 1 })
+    pair[1](true)
+    assert.equal(closed, 0)
+  })
+
+  it('survives a row with no close to route to', () => {
+    const pair = shippedMenuOpenState(undefined)
+    assert.equal(pair[0], true)
+    assert.doesNotThrow(() => pair[1](false))
+  })
+
+  it('gives a shipped row a pair whose close reaches the tree', () => {
+    const runtime = menuRuntime(ctx, slots, { wide: true })
+    let closed = 0
+    const hook = runtime.bindHook(shippedMenuOpenState(() => { closed += 1 }))
+    const [open, setOpen] = hook()
+    assert.equal(open, true)
+    setOpen(false)
+    assert.equal(closed, 1)
   })
 
   it('passes the owner inject face to the occupants', () => {

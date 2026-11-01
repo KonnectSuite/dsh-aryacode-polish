@@ -1,6 +1,6 @@
 {
   "name": "@aryacode/dsh-aryacode-polish",
-  "version": "0.107.4",
+  "version": "0.107.5",
   "description": "AryaCode Polish: one install for the small things that make AryaCode feel finished. One Plugins row, one switch per quality-of-life feature.",
   "keywords": [
     "dsh",
@@ -65,9 +65,9 @@
     "@deepseek-ai/dsh-compaction": "^0.2.1-rc.3 || ^0.2.2-alpha.2",
     "@deepseek-ai/dsh-compaction-basic": "^0.2.1-rc.3 || ^0.2.2-alpha.2",
     "@deepseek-ai/dsh-llm": "^0.2.1-rc.3 || ^0.2.2-alpha.2",
+    "@deepseek-ai/dsh-mcp-client": "^0.2.1-rc.3 || ^0.2.2-alpha.2",
     "@deepseek-ai/dsh-session": "^0.2.1-rc.3 || ^0.2.2-alpha.2",
     "@deepseek-ai/dsh-util-values": "^0.2.1-rc.3 || ^0.2.2-alpha.2",
-    "@deepseek-ai/dsh-mcp-client": "^0.2.1-rc.3 || ^0.2.2-alpha.2",
     "@deepseek-ai/dsh-web": "^0.2.1-rc.3 || ^0.2.2-alpha.2"
   },
   "devDependencies": {

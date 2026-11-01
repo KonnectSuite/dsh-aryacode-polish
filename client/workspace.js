@@ -10,7 +10,8 @@
  *    slots service instead and render them ourselves, reproducing the two props the
  *    renderer would have synthesised - `t` (bound to the occupant's own namespace)
  *    and `useMenuOpenState` (the row's open-state pair, through the owner's declared
- *    hook factory).
+ *    hook factory). Because the tree owns that pair, a shipped row's `setOpen(false)`
+ *    closes the tree's menu - see `shippedMenuOpenState`.
  *
  * 2. The stock browser has to come back the moment the switch goes off, so the seat
  *    is added and disposed with the switch rather than always registered.
@@ -173,9 +174,31 @@ export function menuRuntime(ctx, slots, standard) {
   }
 }
 
+/**
+ * The open-state pair handed to a shipped occupant.
+ *
+ * The Host contract is that rows render only while the menu is open and dismiss
+ * that menu by calling `setOpen(false)` after acting (see the slot's
+ * `useMenuOpenState` documentation). The tree owns the menu, so the pair it
+ * hands out answers `open` with the truth - these rows render only inside an
+ * open menu - and routes the dismissal to the tree's own close. A local state
+ * of our own would swallow `setOpen(false)` and leave the menu floating over a
+ * tree that had already reflowed beneath it.
+ *
+ * @param onClose - closes the tree's row menu.
+ * @returns the `MenuOpenState` pair for the slot's hook context.
+ */
+export function shippedMenuOpenState(onClose) {
+  const setOpen = (open) => {
+    // Rows only ever ask to close; opening stays the tree's decision.
+    if (open === false && typeof onClose === 'function') onClose()
+  }
+  return [true, setOpen]
+}
+
 /** One shipped occupant, mounted per row so it keeps its own state across renders. */
-function ShippedMenuRow({ entry, session, runtime, workspacesSnapshot }) {
-  const menuOpenState = React.useState([false, () => {}])
+function ShippedMenuRow({ entry, session, runtime, workspacesSnapshot, onClose }) {
+  const menuOpenState = React.useMemo(() => shippedMenuOpenState(onClose), [onClose])
   const useMenuOpenState = React.useMemo(
     () => runtime.bindHook(menuOpenState),
     [runtime, menuOpenState],
@@ -3756,6 +3779,7 @@ export function BetterWorkspace(props) {
         React.createElement(ShippedMenuRow, {
           entry,
           runtime,
+          onClose: closeMenu,
           workspacesSnapshot: workspaceState,
           session: { sessionId: menu.row.id, displayTitle: menu.row.displayTitle, session: menu.row },
         }))),
