@@ -2638,15 +2638,6 @@ export function BetterWorkspace(props) {
     }
   }, [sessionList.length])
 
-  const subagents = React.useMemo(() => {
-    const found = subagentIds(sessionList)
-    linked.forEach((id) => found.add(id))
-    return found
-  }, [sessionList, linked])
-  const visibleSessions = React.useMemo(
-    () => (showSubagents ? sessionList : sessionList.filter((row) => row && !subagents.has(row.id))),
-    [sessionList, showSubagents, subagents],
-  )
   // The trash: the host half owns the filesystem, so the tree asks the route and
   // renders what it answers. It only ever offers the row inside the Archived
   // section, and the host re-checks the archive on every request.
@@ -2655,6 +2646,27 @@ export function BetterWorkspace(props) {
   const [trashBytes, setTrashBytes] = React.useState(0)
   const [trashOpen, setTrashOpen] = React.useState(false)
   const [trashEmpty, setTrashEmpty] = React.useState(false)
+  // The trash manifest stores the bare uuid; a Session row carries the
+  // `session-` prefix. Compare the slug on both sides, or nothing ever matches.
+  const trashedIds = React.useMemo(
+    () => new Set((Array.isArray(trash) ? trash : []).map(item => String(item.id).replace(/^session-/, '')).filter(Boolean)),
+    [trash],
+  )
+  const subagents = React.useMemo(() => {
+    const found = subagentIds(sessionList)
+    linked.forEach((id) => found.add(id))
+    return found
+  }, [sessionList, linked])
+  const visibleSessions = React.useMemo(
+    // The Host has no verb that forgets a Session: a folder moved by the trash
+    // stays in `session.list` until the app restarts, so re-pulling the list is
+    // not enough to make the row leave the tree. The trash manifest is the record
+    // of what moved, so the tree hides exactly what it holds; restoring drops the
+    // id from the manifest and the row comes back with the same list.
+    () => (showSubagents ? sessionList : sessionList.filter((row) => row && !subagents.has(row.id)))
+      .filter((row) => row && !trashedIds.has(String(row.id).replace(/^session-/, ''))),
+    [sessionList, showSubagents, subagents, trashedIds],
+  )
   const refreshTrash = React.useCallback(async () => {
     if (!trashOn) {
       setTrash((prev) => (prev.length === 0 ? prev : []))

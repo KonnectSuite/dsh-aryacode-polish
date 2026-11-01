@@ -736,8 +736,11 @@ test('the trash row, the trash card and the undo are all in the tree', () => {
   // away and not sit there until the app restarts.
   assert.ok(workspaceSource.includes("typeof list.refresh === 'function'"), 'the seat must offer the session-list refresh')
   assert.ok(workspaceSource.includes('await services.refreshSessions()'), 'every trash action must re-pull the session list')
+  // The Host has no verb that forgets a Session, so a re-pull alone cannot make a
+  // trashed row leave: the tree also hides exactly what the trash manifest holds.
+  assert.ok(workspaceSource.includes("trashedIds.has(String(row.id).replace(/^session-/, ''))"), 'the tree must hide the sessions the trash holds, comparing the bare uuid the manifest stores')
   // And the same hooks reach the emitted bundle.
-  for (const marker of ['data-polish-trash-card', 'data-polish-trash-restore', '"key": "sessionTrash"', 'typeof list.refresh']) {
+  for (const marker of ['data-polish-trash-card', 'data-polish-trash-restore', '"key": "sessionTrash"', 'typeof list.refresh', 'trashedIds.has']) {
     assert.ok(bundle.includes(marker), 'the bundle should carry ' + marker)
   }
 })

@@ -1,3 +1,15 @@
+## [0.108.4]
+
+### Fixed
+
+- The trash manifest stores the bare uuid while a Session row carries the `session-` prefix, so 0.108.3's filter compared two spellings and hid nothing. Both sides are compared as the bare uuid now, which is what makes the three rows already in the trash leave the tree.
+
+## [0.108.3]
+
+### Fixed
+
+- A trashed Session now leaves the tree. 0.108.1 re-pulled the Session list after a trash action, but the Host has no verb that forgets a Session: a folder the trash moved stays in `session.list` until the app restarts, so the re-pull returned the row again. The tree now hides exactly the ids the trash manifest holds (and shows one again as soon as a restore drops it), which is the record of what actually moved. The re-pull stays, because it is what makes a restored or newly created Session appear.
+
 ## [0.108.2]
 
 ### Added

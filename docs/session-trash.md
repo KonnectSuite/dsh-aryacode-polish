@@ -43,6 +43,11 @@ action asks the sessions service for its own `refresh()` before updating the car
 the trashed row leaves the tree, and a restored row comes back, at once rather
 than at the next restart.
 
+The Host has no verb that forgets a Session, so a moved folder stays in
+`session.list` until the app restarts — re-pulling the list is necessary but not
+sufficient. The tree therefore hides exactly the ids the trash manifest holds, and
+shows one again the moment a restore drops it from that manifest.
+
 The **Archived** header menu gains **Trash · N sessions**, opening a card that
 lists each trashed Session with its title, how long ago it went, and the bytes it
 takes. From there:
