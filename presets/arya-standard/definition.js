@@ -26,7 +26,7 @@
  * @module dsh-aryacode-polish-arya-standard-definition
  */
 import { adaptPrompt } from './adapt.js'
-import { codexBasePrompt, nativePrompt, planModeSection } from './files.js'
+import { codexBasePrompt, nativePrompt, planModeSection, skillsDirectory } from './files.js'
 import { engineConfig, policyConfig, readSettings } from './settings.js'
 
 /** The preset id sessions record in their header. */
@@ -87,6 +87,19 @@ export function buildDefinition(settings = readSettings()) {
       { id: 'tool-jobs', name: '@deepseek-ai/dsh-tool-jobs' },
       { id: 'skill-filesystem', name: '@deepseek-ai/dsh-skill-filesystem' },
       { id: 'tool-skill', name: '@deepseek-ai/dsh-tool-skill' },
+      {
+        // The review lenses ship inside this package. A second provider scans only
+        // that directory, so the project and user roots keep coming from the
+        // shipped provider above it and nothing is scanned twice.
+        id: 'arya-review-skills',
+        name: '@deepseek-ai/dsh-skill-filesystem',
+        config: {
+          providerName: 'arya-review',
+          includeDefaultRoots: false,
+          watch: false,
+          customSkillDirs: [skillsDirectory()],
+        },
+      },
       { id: 'command-goal', name: '@deepseek-ai/dsh-command-goal' },
       { id: 'tool-goal', name: '@deepseek-ai/dsh-tool-goal' },
       {

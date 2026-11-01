@@ -1,3 +1,18 @@
+## [0.113.0]
+
+### Added
+
+- **Review lenses** — three skills shipped in this package and mounted by every Arya preset through a second `dsh-skill-filesystem` provider over `skills/` (`providerName: arya-review`, `includeDefaultRoots: false`, `watch: false`):
+  - `review` is a router: ask security or bugs, then run exactly one of them;
+  - `review-security` and `review-bugs` are self-contained lenses that return findings first, each with `path:line`, the trigger, the effect and the smallest fix, plus an explicit "not examined" list;
+  - both surfaces stay open (`disable-model-invocation: false`), because "review this" arrives in prose far more often than as a command.
+  See [Review lenses](docs/review-lenses.md).
+
+### Notes
+
+- The pattern is adapted from the installed Cursor skills (router + one lens each, with an in-place fallback when a subagent is unavailable); Cursor is proprietary, so no text was vendored — the prose is written here.
+- The lenses are prompt-only: no scanners, no commits blocked, and no delegation (the Arya presets carry no subagent group, so they always review in place).
+
 ## [0.112.1]
 
 ### Fixed

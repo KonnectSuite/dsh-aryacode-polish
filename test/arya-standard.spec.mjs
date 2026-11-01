@@ -86,6 +86,7 @@ test('the toolset is the shipped standard toolset minus delegation and schedulin
     'tool-jobs',
     'skill-filesystem',
     'tool-skill',
+    'arya-review-skills',
     'command-goal',
     'tool-goal',
     'planning',

@@ -17,6 +17,7 @@
  * @module dsh-aryacode-polish-arya-standard-files
  */
 import { readFileSync } from 'node:fs'
+import { fileURLToPath } from 'node:url'
 
 /** The files this module is allowed to read, mapped to their shipped names. */
 const FILES = new Map([
@@ -85,4 +86,16 @@ export function nativePrompt() {
  */
 export function planModeSection() {
   return read('planMode').trim()
+}
+
+/**
+ * The directory holding this bundle's own skills.
+ *
+ * The presets mount a second `dsh-skill-filesystem` provider over this directory
+ * only (`includeDefaultRoots: false`), so the review lenses reach the catalog
+ * without scanning the project and user roots a second time.
+ * @returns {string} the absolute skills directory.
+ */
+export function skillsDirectory() {
+  return fileURLToPath(new URL('../../skills', import.meta.url))
 }
