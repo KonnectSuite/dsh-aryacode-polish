@@ -13,22 +13,24 @@ and how to release. `README.md` is the user-facing story and lists every switch;
   the tree, icon filter and footer all render. `dsh.engines.dsh` still declares
   `^0.2.1-rc.3`, which excludes a 0.2.2 prerelease; widen it next release.
 - Repo: `C:\Users\KNPhu\.arya\github\KonnectSuite\dsh-aryacode-polish` —
-  **public**, `main`, clean. HEAD `ab60f86` (the panel-capture fix), on top of
+  **public**, `main`, clean. HEAD `b3deaca` (the session trash), on top of
+  `303e96e` (the row menu closes when a shipped row acts) and `ab60f86` (the
+  panel-capture fix), on top of
   `a889d23` (0.98.0 docs), `bc71c4a` ("feat(workspace): a spinner while working,
   a green dot when done, the folder emoji"), `6bc2faf` (footer status line),
   `3160def` (glyph colour, icon filter, row menu that keeps its slot) and
   `55e5969`.
-- Package: `@aryacode/dsh-aryacode-polish`. Current version **0.106.1**
+- Package: `@aryacode/dsh-aryacode-polish`. Current version **0.108.0**
   (0.103.0 the Compaction dashboard, 0.101.0 the Arya Standard preset, 0.104.2 the
-  preset's engine fix, 0.105.x the MCP servers page).
-- Distribution: npm `latest` = 0.103.7 (published 2026-10-31T13:0xZ, tarball
-  sha256 `3a7d4735b603713ffc0120ca20378b3404497e1e84c822e4b3775900e5c643af`) **and** the
+  preset's engine fix, 0.105.x the MCP servers page, 0.108.0 the session trash).
+- Distribution: npm `latest` = 0.108.0 (published 2026-11-01T01:49Z, tarball
+  sha256 `7f910abffc990475020fede2f92831f1a15c6d4543b801a6800bb34c5aa5634a`) **and** the
   Arya Plugin Market (`KonnectSuite/dsh-arya-market`, branch `catalog`, entry
   `arya: true`, tarball on `registry.npmjs.org`). A market install lands as a
   digest-named tarball under `<profile>/.dsh-market/releases/`, adds itself to
   `dsh.profile.bundles`, and its surfaces mount after a restart. The published
   `lib/client.js` is byte-identical to the verified repo build
-  (c38bd43606762113da68256db6840db96479f5af76119ad43df812426d2e1fea).
+  (dae5cfc100f622bd8d1ad779520171e0ef2675a2abd8690c061cc108e16a3375).
 - **Not preseeded into the AryaCode installer**, by the user's decision: the
   installer ships the market, the better sidebar and the engineering bundle;
   polish and local-llm are market-only, so users install and update them from the
