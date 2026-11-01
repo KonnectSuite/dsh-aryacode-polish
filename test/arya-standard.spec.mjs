@@ -103,6 +103,18 @@ test('a settings override reaches the engine row', () => {
   assert.equal(engine.config.auto, false)
 })
 
+test('the persona keeps the harness capabilities first-class', () => {
+  const persona = rowOf('persona')
+  const text = persona.config.prefix
+  const native = text.indexOf('## Harness capabilities')
+  assert.ok(native > 0, 'the persona needs the harness-capabilities section')
+  assert.ok(native > text.indexOf('Final answer structure'), 'the section belongs after the Codex text')
+  for (const name of ['ask_user_question', 'todo_write', 'exit_plan_mode', 'create_goal', 'update_goal', 'present', 'skill', 'web_search', 'web_fetch']) {
+    assert.ok(text.includes(name), 'the persona must name ' + name)
+  }
+  assert.ok(text.includes('never as a question left in prose'), 'asking belongs through the tool')
+})
+
 test('the persona carries the adapted Codex prompt and leaves the runtime context on', () => {
   const persona = rowOf('persona')
   assert.equal(persona.config.complete, false)

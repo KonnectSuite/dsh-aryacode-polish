@@ -24,7 +24,7 @@
  * @module dsh-aryacode-polish-arya-standard-definition
  */
 import { adaptPrompt } from './adapt.js'
-import { codexBasePrompt, planModeSection } from './files.js'
+import { codexBasePrompt, nativePrompt, planModeSection } from './files.js'
 import { engineConfig, readSettings } from './settings.js'
 
 /** The preset id sessions record in their header. */
@@ -65,7 +65,7 @@ export function buildDefinition(settings = readSettings()) {
         id: 'persona',
         name: '@deepseek-ai/dsh-persona',
         config: {
-          prefix: adaptPrompt(codexBasePrompt()),
+          prefix: adaptPrompt(codexBasePrompt()) + '\n\n' + nativePrompt(),
           complete: false,
           includeRuntimeContext: true,
         },

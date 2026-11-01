@@ -1,3 +1,10 @@
+## [0.108.2]
+
+### Added
+
+- **Native capabilities in the Arya Standard persona.** Codex's prompt talks about its own planner and patch tool, so the model had `ask_user_question`, `todo_write`, `exit_plan_mode`, the goal tools, `present`, `skill` and the web tools in its catalog but no instruction to use them. `presets/arya-standard/native.md` is appended to the adapted Codex prompt with one line per tool: ask through the tool rather than in prose, keep the todo list current, submit plans through `exit_plan_mode`, declare deliverables with `present`, load a matching skill, cite web sources.
+- The spec fails if that section disappears, moves before the Codex text, or stops naming one of those tools.
+- Verified in the app on a local model: sk_user_question rendered a paged question card and the turn resumed on the answer; /plan enabled plan mode, the model explored read-only, asked three questions through the tool, and submitted exit_plan_mode, which produced the plan review card.
 ## [0.108.1]
 
 ### Fixed

@@ -59,6 +59,48 @@ and nothing else. The consequences are deliberate:
 - the auxiliary request is still replayed over the shadowed span, so it is a warm
   prefix rather than a cold one.
 
+## Native capabilities
+
+The persona is Codex's prompt, adapted, followed by one short section that names the
+harness's own tools. Codex's text talks about its planner, its patch tool and its
+CLI; without that section the model has `ask_user_question` and `exit_plan_mode` in
+its catalog but no instruction to reach for them, which showed up as questions asked
+in prose and plans that never reached the approval card.
+
+The section (`presets/arya-standard/native.md`) tells the model, in one line each:
+
+| Tool | What the persona says |
+|---|---|
+| `ask_user_question` | ask through the tool, never as prose at the end of a turn; batch independent questions, use `options` when the choices can be enumerated, and treat a skip as "continue" |
+| `todo_write` | the plan list for multi-step work, one item `in_progress`, not while plan mode is active |
+| `exit_plan_mode` | in plan mode, submit the plan through the tool rather than asking to proceed |
+| `create_goal` / `get_goal` / `update_goal` | long-running objectives the user resumes later |
+| `present` | declare finished files as deliverables |
+| `skill` | load a matching skill before acting |
+| `web_search` / `web_fetch` | current information, with cited URLs |
+
+It is appended after the adapted Codex prompt, so Codex's working style is intact
+and the harness mechanics override only where the two conflict. `test/arya-standard.spec.mjs`
+fails if the section disappears, moves before the Codex text, or stops naming one of
+those tools.
+
+### Verified in the app
+
+A plan-mode session on Arya Standard (0.108.2) at the local model: `/plan`
+turned plan mode on, the model explored read-only, then asked through the tool:
+
+![The ask_user_question card in plan mode](arya/plan-question.png)
+
+Three questions, one page at a time, each with options and a recommended answer.
+After the answers it submitted the plan through `exit_plan_mode`, which produced
+the review card with **Request changes** / **Approve**:
+
+![The plan review card produced by exit_plan_mode](arya/plan-review.png)
+
+The earlier session ("Ask Me A Question") had the same behaviour outside plan
+mode: a question card appeared in the transcript and the turn resumed on the
+answer.
+
 ## What Codex does that this cannot
 
 Codex's loop is a turn machine: it samples, runs the tool calls, and decides

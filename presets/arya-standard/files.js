@@ -24,6 +24,7 @@ const FILES = new Map([
   ['checkpoint', 'checkpoint-prompt.md'],
   ['prefix', 'summary-prefix.md'],
   ['planMode', 'plan-mode.md'],
+  ['native', 'native.md'],
 ])
 
 /** @type {Map<string, string>} */
@@ -66,6 +67,16 @@ export function codexCheckpointPrompt() {
  */
 export function codexSummaryPrefix() {
   return read('prefix').trim()
+}
+
+/**
+ * The harness-capability section appended to the adapted Codex prompt: it names the
+ * native tools the model should reach for (asking, todos, plan mode, goals,
+ * deliverables, skills, web) where Codex's text names its own equivalents.
+ * @returns {string} a non-empty section body.
+ */
+export function nativePrompt() {
+  return read('native').trim()
 }
 
 /**
