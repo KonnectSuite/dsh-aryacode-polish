@@ -1,3 +1,18 @@
+## [0.115.0] - 2026-11-02
+
+### Added
+
+- **MCP servers in the left sidebar, with a switch that actually switches.** A new **MCP** row (`sidebar.panellist`, order 11) opens a panel that lists every server the profile mounts and turns each one off for the next turn, without a restart:
+  - this plugin's own store keeps its existing `toggle` (the bridge fiber is unmounted);
+  - the profile's own rows — `comfy` through the in-box bridge, `dsh-computer-use-win` through its adapter — are switched through `pluginManager.setPluginEnabled`, which saves the choice to the profile patch *and* reconciles the running profile, the same call the Plugins page makes.
+  Adapter rows are matched by their row id rather than by module name, so `include:mcp-dsh-computer-use-win` is listed; a row whose server name is internal to its package takes the one `mcp__…__` namespace nothing else claims, so it appears under the name the model actually sees (`wincu`, 25 tools) instead of its package name.
+- **Two host route actions** on `api/polish.mcp`: `profileList` and `profileToggle`. Reads are the plugin inventory's own; writes go through the plugin manager, so a build without one says so instead of pretending the row was switched.
+
+### Notes
+
+- The panel is a shortcut, not a second implementation: the Settings section still edits and removes servers, and the Plugins page still owns bundles.
+- A switch that could only be saved for the next start reports `restart-required` rather than claiming it applied.
+
 ## [0.114.0] - 2026-11-01
 
 - **The Arya Automation Engineer preset moved to `@aryacode/dsh-engineering`.** The persona is an automation-engineering contract about that bundle's tools, and the ledger records what those tools read, checked, wrote and verified, so the preset ships there now. `presets/arya-automation` and its test are gone from this bundle, the `aryaAutomation` feature entry left the registry, and the remaining preset test no longer asserts it.
