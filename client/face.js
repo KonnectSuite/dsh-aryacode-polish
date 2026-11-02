@@ -2341,6 +2341,20 @@ return {
       label: () => 'MCP servers',
       inject: () => ({}),
     }, McpServersPage))
+    // The same servers as a sidebar panel, because a model's tool list is decided
+    // per turn: switching one off is a navigation-time action, not a settings
+    // errand. The entry and its main panel share one id, so the row selects it.
+    ctx.slots.inject('main', () => ctx.slots.register({
+      name: 'main',
+      key: 'mcp-servers',
+      inject: () => ({}),
+    }, McpSidebarPanel))
+    ctx.slots.inject('sidebar.panellist', () => ctx.slots.register({
+      name: 'sidebar.panellist',
+      id: 'mcp-servers',
+      order: 11,
+      label: () => 'MCP',
+    }, McpSidebarIcon))
     ctx.slots.inject('conversation.view', () => ctx.slots.register({
       name: 'conversation.view',
       id: 'arya-standard-compaction',

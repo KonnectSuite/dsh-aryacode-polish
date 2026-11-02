@@ -105,6 +105,10 @@ export function createHandler(manager, deps = {}) {
           return await manager.remove(String(body.id ?? ''))
         case 'toggle':
           return await manager.toggle(String(body.id ?? ''), body.enabled === true)
+        case 'profileList':
+          return await manager.listProfileServers()
+        case 'profileToggle':
+          return await manager.setProfileEnabled(String(body.entryId ?? ''), body.enabled === true)
         case 'restart':
           return await manager.restart(String(body.id ?? ''))
         case 'test':

@@ -55,6 +55,156 @@ export function discoveredServers(ctx) {
   return found
 }
 
+/** The module name every in-box MCP bridge row carries. */
+export const MCP_BRIDGE_MODULE = '@deepseek-ai/dsh-mcp-client'
+
+/**
+ * Whether a profile row mounts an MCP server rather than an ordinary plugin.
+ *
+ * Two shapes exist in a real profile: the in-box bridge named by module
+ * (`comfy` here) and an adapter package whose row id says so
+ * (`mcp-dsh-computer-use-win`, which mounts the Windows computer-use server
+ * through the same bridge). Both are switchable through the plugin manager;
+ * anything else is left alone, because disabling an unrelated plugin from an
+ * MCP list would be a surprise.
+ *
+ * @param {{ entryId?: string, moduleName?: string }} row one inventory row.
+ * @returns {boolean} true when the row is an MCP server.
+ */
+export function isMcpProfileRow(row) {
+  const id = typeof row?.entryId === 'string' ? row.entryId : ''
+  // The inventory names an entry by its include parent (`include:mcp-comfy`), so
+  // the row's own id is the part after the last colon.
+  const local = id.includes(':') ? id.slice(id.lastIndexOf(':') + 1) : id
+  const module = typeof row?.moduleName === 'string' ? row.moduleName : ''
+  const bridge = module === MCP_BRIDGE_MODULE || /(^|\/)dsh-mcp-client$/.test(module)
+  return bridge || /^mcp[-_:]/i.test(local)
+}
+
+/**
+ * The profile's own MCP rows, with their live switch state.
+ *
+ * These are not this manager's servers: another patch layer mounted them, so
+ * `toggle()` cannot reach them. They are switched through `pluginManager`,
+ * which persists the choice and applies it to the running Host — the same
+ * mechanism the Plugins page uses, without a restart.
+ *
+ * @param {object} ctx the host context.
+ * @returns {Promise<object>} `{ ok, supported, servers }`, or `{ ok: false, error }`.
+ */
+export async function profileServers(ctx) {
+  const manager = typeof ctx?.get === 'function' ? ctx.get('pluginManager') : undefined
+  if (manager === undefined || typeof manager.listPlugins !== 'function') {
+    return { ok: false, supported: false, error: 'This build has no plugin manager, so profile MCP rows cannot be switched here.', servers: [] }
+  }
+  let rows
+  try {
+    rows = await manager.listPlugins()
+  } catch (error) {
+    return { ok: false, supported: true, error: messageOf(error), servers: [] }
+  }
+  const entries = new Map()
+  try {
+    for (const entry of ctx.loader.entries()) {
+      // The loader keys an entry either by its composed id (`include:mcp-comfy`)
+      // or by the row id it was declared with; accept both so a config lookup
+      // does not depend on which one this build reports.
+      if (typeof entry.id === 'string' && entry.id !== '') entries.set(entry.id, entry)
+      const declaredId = entry.options?.id
+      if (typeof declaredId === 'string' && declaredId !== '') entries.set(declaredId, entry)
+    }
+  } catch {
+    // The loader is not reachable from every context; names then come from the row id.
+  }
+  const servers = []
+  const declaredIds = new Set()
+  for (const row of rows) {
+    if (!isMcpProfileRow(row)) continue
+    const entry = entries.get(row.entryId)
+    const config = entry?.options?.config
+    const declared = typeof config?.serverName === 'string' ? config.serverName : ''
+    const rowId = String(row.entryId).includes(':') ? String(row.entryId).slice(String(row.entryId).lastIndexOf(':') + 1) : String(row.entryId)
+    const serverName = declared !== '' ? declared : rowId.replace(/^mcp[-_:]/i, '')
+    const title = typeof row.meta?.title === 'string' && row.meta.title !== '' ? row.meta.title : ''
+    const tools = declared !== '' ? toolsFor(ctx, declared) : []
+    if (declared !== '') declaredIds.add('profile:' + String(row.entryId))
+    servers.push({
+      id: 'profile:' + String(row.entryId),
+      entryId: row.entryId,
+      serverName,
+      label: title !== '' ? title : serverName,
+      moduleName: row.moduleName,
+      transport: 'profile',
+      summary: row.moduleName,
+      enabled: row.enabled === true,
+      status: row.enabled === true ? String(row.fiberPhase ?? 'ready') : 'disabled',
+      readOnlyReason: typeof row.readOnlyReason === 'string' ? row.readOnlyReason : '',
+      error: typeof row.diagnostic === 'string' ? row.diagnostic : '',
+      tools: [],
+      toolCount: tools.length,
+      builtin: false,
+      origin: 'profile',
+    })
+  }
+  return { ok: true, supported: true, servers: adoptLooseNames(ctx, servers, declaredIds) }
+}
+
+/**
+ * Give an unnamed adapter row the one server namespace nothing else claims.
+ *
+ * The Windows computer-use row mounts the in-box bridge through its own package,
+ * so its `serverName` is internal to that package: the row says `dsh-computer-
+ * use-win`, while the tools it registers are `mcp__wincu__*`. When exactly one
+ * row went unnamed and exactly one namespace went unclaimed, the pairing is not
+ * a guess; with any ambiguity the row keeps its module name and no tool count.
+ *
+ * @param {object} ctx the host context.
+ * @param {object[]} servers the rows built so far.
+ * @param {Set<string>} declaredIds ids of rows that carried a `serverName`.
+ * @returns {object[]} the same rows, possibly renamed.
+ */
+function adoptLooseNames(ctx, servers, declaredIds) {
+  const claimed = new Set(servers.filter(server => declaredIds.has(server.id)).map(server => server.serverName))
+  const loose = servers.filter(server => !declaredIds.has(server.id))
+  const unclaimed = [...discoveredServers(ctx).keys()].filter(name => !claimed.has(name))
+  if (loose.length !== 1 || unclaimed.length !== 1) return servers
+  const adopted = loose[0]
+  adopted.serverName = unclaimed[0]
+  adopted.label = unclaimed[0]
+  adopted.toolCount = toolsFor(ctx, adopted.serverName).length
+  return servers
+}
+
+/**
+ * Switch one profile MCP row, persisted and applied to the running Host.
+ *
+ * @param {object} ctx the host context.
+ * @param {string} entryId the row's loader entry id.
+ * @param {boolean} enabled the wanted state.
+ * @returns {Promise<object>} `{ ok, changed, application, restartReason, error }`.
+ */
+export async function setProfileServer(ctx, entryId, enabled) {
+  const manager = typeof ctx?.get === 'function' ? ctx.get('pluginManager') : undefined
+  if (manager === undefined || typeof manager.setPluginEnabled !== 'function') {
+    return { ok: false, error: 'This build has no plugin manager, so profile MCP rows cannot be switched here.' }
+  }
+  if (typeof entryId !== 'string' || entryId === '') return { ok: false, error: 'No such server.' }
+  try {
+    const result = await manager.setPluginEnabled(entryId, enabled === true)
+    if (result?.error !== undefined) {
+      return { ok: false, error: String(result.error?.code ?? 'The switch failed.'), detail: result.error }
+    }
+    return {
+      ok: true,
+      changed: result?.changed === true,
+      application: String(result?.application ?? 'applied'),
+      restartReason: typeof result?.restartReason === 'string' ? result.restartReason : '',
+    }
+  } catch (error) {
+    return { ok: false, error: messageOf(error) }
+  }
+}
+
 /**
  * Create the manager.
  *
@@ -310,6 +460,17 @@ export function createMcpManager(options) {
       if (outcome.error !== undefined) return { ok: false, ms: Date.now() - started, error: messageOf(outcome.error) }
       return { ok: true, ms: Date.now() - started, tools, toolCount: tools.length }
     },
+
+    /** The profile's own MCP rows, which this manager did not mount. */
+    listProfileServers: () => profileServers(ctx),
+
+    /**
+     * Switch one of those rows through the plugin manager.
+     * @param {string} entryId the row's loader entry id.
+     * @param {boolean} enabled the wanted state.
+     * @returns {Promise<object>} the outcome.
+     */
+    setProfileEnabled: (entryId, enabled) => setProfileServer(ctx, entryId, enabled),
 
     /** The browser view. */
     snapshot,
