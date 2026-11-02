@@ -76,8 +76,8 @@ test('the preset mounts a second skill provider over only this directory', () =>
 
 test('every preset derived from Arya Standard carries the lenses', async () => {
   const { buildDefinition: qwen } = await import('../presets/arya-qwen/definition.js')
-  const { buildDefinition: automation } = await import('../presets/arya-automation/definition.js')
-  for (const definition of [buildDefinition(), qwen(), automation()]) {
+  // Arya Automation Engineer moved to @aryacode/dsh-engineering, where its own test now checks this.
+  for (const definition of [buildDefinition(), qwen()]) {
     assert.ok(
       definition.plugins.some((plugin) => plugin.id === 'arya-review-skills'),
       `${definition.id} is missing the review skill provider`,

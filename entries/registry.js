@@ -27,7 +27,6 @@ import { mountMcpManager } from './mcp.js'
 import { mountAryaSearch } from './web-search.js'
 import { mountAryaStandard } from '../presets/arya-standard/plugin.js'
 import { mountAryaQwen } from '../presets/arya-qwen/plugin.js'
-import { mountAryaAutomation } from '../presets/arya-automation/plugin.js'
 import { readSettings } from '../presets/arya-standard/settings.js'
 import { mountCost } from './cost.js'
 import { mountFolders } from './folders.js'
@@ -114,14 +113,6 @@ export const features = [
     description: 'Add the Arya Qwen agent preset: Qwen Code’s prompt and its state_snapshot checkpoint compaction, on Arya Standard’s tool list.',
     defaultOn: true,
     mount: mountAryaQwen,
-    config: rowConfig => readSettings(rowConfig),
-  },
-  {
-    id: 'aryaAutomation',
-    label: 'Arya Automation Engineer preset',
-    description: 'Add the Arya Automation Engineer preset and its Engineering tab: the five-step loop as a persona, engineering-tuned compaction, and a ledger of what was read, checked, written and verified.',
-    defaultOn: true,
-    mount: mountAryaAutomation,
     config: rowConfig => readSettings(rowConfig),
   },
   {
