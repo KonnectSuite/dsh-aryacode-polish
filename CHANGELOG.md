@@ -1,8 +1,12 @@
+## [Unreleased]
+
+- **The Arya Automation Engineer preset moved to `@aryacode/dsh-engineering`.** The persona is an automation-engineering contract about that bundle's tools, and the ledger records what those tools read, checked, wrote and verified, so the preset ships there now. `presets/arya-automation` and its test are gone from this bundle, the `aryaAutomation` feature entry left the registry, and the remaining preset test no longer asserts it.
+
 ## [0.113.0]
 
 ### Added
 
-- **Review lenses** — three skills shipped in this package and mounted by every Arya preset through a second `dsh-skill-filesystem` provider over `skills/` (`providerName: arya-review`, `includeDefaultRoots: false`, `watch: false`):
+- **Review lenses** ï¿½ three skills shipped in this package and mounted by every Arya preset through a second `dsh-skill-filesystem` provider over `skills/` (`providerName: arya-review`, `includeDefaultRoots: false`, `watch: false`):
   - `review` is a router: ask security or bugs, then run exactly one of them;
   - `review-security` and `review-bugs` are self-contained lenses that return findings first, each with `path:line`, the trigger, the effect and the smallest fix, plus an explicit "not examined" list;
   - both surfaces stay open (`disable-model-invocation: false`), because "review this" arrives in prose far more often than as a command.
@@ -10,7 +14,7 @@
 
 ### Notes
 
-- The pattern is adapted from the installed Cursor skills (router + one lens each, with an in-place fallback when a subagent is unavailable); Cursor is proprietary, so no text was vendored — the prose is written here.
+- The pattern is adapted from the installed Cursor skills (router + one lens each, with an in-place fallback when a subagent is unavailable); Cursor is proprietary, so no text was vendored ï¿½ the prose is written here.
 - The lenses are prompt-only: no scanners, no commits blocked, and no delegation (the Arya presets carry no subagent group, so they always review in place).
 
 ## [0.112.1]
@@ -43,7 +47,7 @@
 ### Verified
 
 - A real Arya Qwen turn in the 0.111.0 dev build: the preset mounted (`agent-preset/selected: arya-qwen`), the shell tool ran, the reply was `arya-qwen-ok` in 3 s.
-- A real `/compact` in that session committed a `compaction/summary` whose body starts with `<state_snapshot>`, carries 8 of the 9 sections, and has no `<analysis>` block — the scratchpad strip works. The ninth (`next_step`) is what the truncation above ate, and what this release stops shipping.
+- A real `/compact` in that session committed a `compaction/summary` whose body starts with `<state_snapshot>`, carries 8 of the 9 sections, and has no `<analysis>` block ï¿½ the scratchpad strip works. The ninth (`next_step`) is what the truncation above ate, and what this release stops shipping.
 
 ## [0.111.0]
 
@@ -71,7 +75,7 @@
 
 ### Added
 
-- **Pre-warm compaction.** A second, earlier level on the idle transition: at 70% of the window (configurable, 0 disables) the fold is paid while the user is still reading, so the next request starts on a shrunk surface instead of inside the request that needs the room. A pre-warm fold is skipped when it would free less than **Minimum fold** tokens. The 90% post-turn gate stays as the hard fallback, and every checkpoint card now carries a derived trigger badge — `manual`, `pre-warm` or `post-turn`.
+- **Pre-warm compaction.** A second, earlier level on the idle transition: at 70% of the window (configurable, 0 disables) the fold is paid while the user is still reading, so the next request starts on a shrunk surface instead of inside the request that needs the room. A pre-warm fold is skipped when it would free less than **Minimum fold** tokens. The 90% post-turn gate stays as the hard fallback, and every checkpoint card now carries a derived trigger badge ï¿½ `manual`, `pre-warm` or `post-turn`.
 - **Budget scope.** `Thread` (default) or `Turn` for the automatic gates. Turn pressure is the surface now minus the surface at the current turn's first step, kept as one number per agent rather than a walk of the session log. The Compaction tab shows the scope and the two levels on its gauge; the engine's own step-pressure check stays thread-scoped and the docs say so.
 - **Cross-session memory** (`memory`). `polish/memory.json` holds up to 200 notes of 500 characters; one system-prompt section (`arya-memory`) renders them from a provider on every assembly, so a new note applies without a restart and an empty store contributes nothing. Notes are quoted and labelled as recalled context, never instructions. **Settings ? Memory** lists, filters, adds and forgets them through `POST api/polish.memory`. See [Memory](docs/memory.md).
 - **Lifecycle hooks** (`hooks`). `polish/hooks.json` holds rules for `turn/stopping`, `agent/error`, `compaction/summary` and `compaction/end`; each rule runs one `exec` action without a shell, with the payload in `POLISH_HOOK_PAYLOAD` and a 10 s default timeout. Dispatch is observational: a hook cannot veto a tool call or block a turn. **Settings ? Hooks** names the file, validates it with per-rule errors, and lists the last 50 dispatches. See [Hooks](docs/hooks.md).
@@ -91,7 +95,7 @@
 
 ### Fixed
 
-- **The span budget counted the system prompt.** `input.messages` is the replayed prefix — the fixed system prompt plus the span being replaced — while the base engine prices only the shadowed content. Summing every message inflated the budget by the whole prompt (~30k tokens on this session), so the body was never fitted and live `/compact` kept failing with `summary is not smaller than the shadowed content (1781 estimated framed tokens >= 999)`. `estimateSpanTokens` now skips `system` and `developer` messages, and a spec pins that a 40,000-character system prompt does not enlarge the checkpoint.
+- **The span budget counted the system prompt.** `input.messages` is the replayed prefix ï¿½ the fixed system prompt plus the span being replaced ï¿½ while the base engine prices only the shadowed content. Summing every message inflated the budget by the whole prompt (~30k tokens on this session), so the body was never fitted and live `/compact` kept failing with `summary is not smaller than the shadowed content (1781 estimated framed tokens >= 999)`. `estimateSpanTokens` now skips `system` and `developer` messages, and a spec pins that a 40,000-character system prompt does not enlarge the checkpoint.
 
 ## [0.109.2]
 
