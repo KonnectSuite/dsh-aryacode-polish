@@ -39,9 +39,24 @@ function run(command, args) {
   }
 }
 
+/**
+ * npm is a `.cmd` shim on Windows, which `execFileSync` refuses to execute
+ * without a shell; `git` and `node` are real executables and stay shell-free.
+ */
+const NPM = process.platform === 'win32' ? 'npm.cmd' : 'npm'
+
+/** Run npm, through the shim when the platform needs one. */
+function runNpm(args) {
+  try {
+    execFileSync(NPM, args, { cwd: root, stdio: 'inherit', shell: process.platform === 'win32' })
+  } catch {
+    throw new Error(`npm ${args.join(' ')} failed`)
+  }
+}
+
 /** Capture a command's stdout, trimmed. */
-function capture(command, args) {
-  return execFileSync(command, args, { cwd: root, encoding: 'utf8' }).trim()
+function capture(command, args, shell = false) {
+  return execFileSync(command, args, { cwd: root, encoding: 'utf8', shell }).trim()
 }
 
 /** Parse the arguments this script accepts; unknown flags are an error, not a silent no-op. */
@@ -80,7 +95,7 @@ function preflight() {
   const dirty = capture('git', ['status', '--porcelain'])
   if (dirty !== '') throw new Error(`working tree is not clean:\n${dirty}`)
   try {
-    capture('npm', ['whoami'])
+    capture(NPM, ['whoami'], process.platform === 'win32')
   } catch {
     throw new Error('npm is not authenticated (`npm whoami` failed)')
   }
@@ -157,7 +172,7 @@ run('git', ['commit', '-m', title])
 run('git', ['push', 'origin', 'main'])
 log('committed and pushed')
 
-run('npm', ['publish', '--access', 'public'])
+runNpm(['publish', '--access', 'public'])
 
 const visible = await waitForRegistry(version)
 if (!visible) {
