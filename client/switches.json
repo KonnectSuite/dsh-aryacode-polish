@@ -68,12 +68,6 @@
       "defaultOn": true
     },
     {
-      "key": "aryaAutomation",
-      "label": "Arya Automation Engineer preset",
-      "description": "Add the Arya Automation Engineer preset and its Engineering tab: the five-step loop as a persona, engineering-tuned compaction, and a ledger of what was read, checked, written and verified.",
-      "defaultOn": true
-    },
-    {
       "key": "memory",
       "label": "Cross-session memory",
       "description": "Keep short notes across sessions. Recalled into the system prompt as quoted context, and managed from Settings → Memory.",

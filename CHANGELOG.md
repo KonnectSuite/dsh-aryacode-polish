@@ -1,4 +1,4 @@
-## [Unreleased]
+## [0.114.0] - 2026-11-01
 
 - **The Arya Automation Engineer preset moved to `@aryacode/dsh-engineering`.** The persona is an automation-engineering contract about that bundle's tools, and the ledger records what those tools read, checked, wrote and verified, so the preset ships there now. `presets/arya-automation` and its test are gone from this bundle, the `aryaAutomation` feature entry left the registry, and the remaining preset test no longer asserts it.
 
