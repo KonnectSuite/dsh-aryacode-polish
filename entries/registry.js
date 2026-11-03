@@ -25,6 +25,7 @@
 
 import { mountMcpManager } from './mcp.js'
 import { mountAryaSearch } from './web-search.js'
+import { mountPreview } from './preview.js'
 import { mountAryaStandard } from '../presets/arya-standard/plugin.js'
 import { mountAryaQwen } from '../presets/arya-qwen/plugin.js'
 import { mountAryaClaude } from '../presets/arya-claude/plugin.js'
@@ -97,6 +98,13 @@ export const features = [
     label: 'Right-panel screenshot',
     description: 'Copy the open right panel into the chat as an image, and onto the clipboard.',
     defaultOn: true,
+  },
+  {
+    id: 'inlinePreviews',
+    label: 'Inline previews in the chat',
+    description: 'Render the HTML, SVG and image files a turn wrote, under its message, in a sandboxed frame.',
+    defaultOn: true,
+    mount: mountPreview,
   },
   {
     id: 'aryaStandard',

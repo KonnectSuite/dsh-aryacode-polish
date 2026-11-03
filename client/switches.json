@@ -38,6 +38,12 @@
       "defaultOn": true
     },
     {
+      "key": "inlinePreviews",
+      "label": "Inline previews in the chat",
+      "description": "Render the HTML, SVG and image files a turn wrote, under its message, in a sandboxed frame.",
+      "defaultOn": true
+    },
+    {
       "key": "betterWorkspace",
       "label": "Better workspace",
       "description": "Replace the sidebar workspace list with our own tree: workspaces with their sessions, a right-click menu on a workspace (open, copy path, remove), and the shipped session menu inside it.",

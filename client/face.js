@@ -2307,6 +2307,16 @@ return {
         },
       }),
     }, PanelShotContext))
+    // The Turn tail is a list seat the Shell renders under a completed assistant
+    // message, before the action row; `ui-deliverables`, `ui-plan` and
+    // `ui-schedule` already contribute cards there. The card draws the files the
+    // Turn wrote in `inlinePreviews` (client/preview.js) and returns null for a
+    // Turn with nothing it can draw, so an ordinary conversation is unchanged.
+    ctx.slots.inject('conversation.chat.turnTail', () => ctx.slots.register({
+      name: 'conversation.chat.turnTail',
+      id: 'polish-inline-preview',
+      inject: () => ({ configForms }),
+    }, InlinePreviewTail))
     // The account Remote namespace is optional: a Shell with no account still gets
     // the Configure page and the cost pill, and only loses the balance line.
     ctx.inject(['remote', 'remote.account'], (accountCtx) => {

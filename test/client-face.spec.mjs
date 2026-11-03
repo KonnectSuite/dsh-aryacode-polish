@@ -17,6 +17,7 @@ const root = new URL('../', import.meta.url)
 const read = path => readFileSync(new URL(path, root), 'utf8')
 const workspaceSource = read('client/workspace.js')
 const faceSource = read('client/face.js')
+const previewSource = read('client/preview.js')
 const manifest = JSON.parse(read('package.json'))
 const declaration = JSON.parse(read('client/switches.json'))
 const bundle = read('lib/client.js')
@@ -384,6 +385,35 @@ test('the foot stacks instead of competing for the row', () => {
   assert.ok(faceSource.includes("}, money + ' left')"), 'the balance line spells out the amount')
   assert.ok(faceSource.includes("title: 'Remaining account balance'"), 'the tooltip still names the balance')
   for (const marker of ['footerStack', 'claimFooterRow', 'flexDirection', 'FOOT_LABEL']) {
+    assert.ok(bundle.includes(marker), 'the bundle should carry ' + marker)
+  }
+})
+
+test('inline previews ride the turn tail the Shell already renders', () => {
+  // `conversation.chat.turnTail` is a LIST seat: ui-deliverables, ui-plan and
+  // ui-schedule already contribute cards there, so this is an addition. A keyed
+  // `tool.call.toolview` occupant would have replaced the shipped write/edit row
+  // — its diff, output and state — which is the fork this bundle avoids.
+  for (const marker of [
+    "ctx.slots.inject('conversation.chat.turnTail'",
+    "id: 'polish-inline-preview'",
+  ]) {
+    assert.ok(faceSource.includes(marker), 'the face should carry ' + marker)
+  }
+  assert.ok(!faceSource.includes("'tool.call.toolview'"), 'the card must not replace the shipped tool rows')
+  for (const marker of [
+    "'data-polish-preview-frame'",
+    "sandbox: 'allow-scripts'",
+    'previewDocument(',
+    'Content-Security-Policy',
+    "default-src 'none'",
+    "'data-polish-preview-open'",
+  ]) {
+    assert.ok(previewSource.includes(marker), 'the card should carry ' + marker)
+  }
+  assert.ok(!previewSource.includes('allow-same-origin'), 'a framed document never gets same-origin')
+  assert.ok(!previewSource.includes('srcdoc='), 'the frame is fed srcDoc, never a URL it could navigate')
+  for (const marker of ['polish-inline-preview', 'data-polish-preview-frame', 'inlinePreviews']) {
     assert.ok(bundle.includes(marker), 'the bundle should carry ' + marker)
   }
 })

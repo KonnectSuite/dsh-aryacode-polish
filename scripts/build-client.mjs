@@ -35,6 +35,7 @@ const hooks = readFileSync(new URL('client/hooks.js', root), 'utf8')
 const engineering = readFileSync(new URL('client/engineering.js', root), 'utf8')
 const mcp = readFileSync(new URL('client/mcp.js', root), 'utf8')
 const aryasearch = readFileSync(new URL('client/aryasearch.js', root), 'utf8')
+const preview = readFileSync(new URL('client/preview.js', root), 'utf8')
 const face = readFileSync(new URL('client/face.js', root), 'utf8')
 /*
  * html2canvas is the one third-party script the face needs: the right panel can
@@ -102,6 +103,8 @@ ${indent(engineering.trimEnd())}
 ${indent(mcp.trimEnd())}
 
 ${indent(aryasearch.trimEnd())}
+
+${indent(preview.trimEnd().replace(/^export /gm, ''))}
 
 ${indent(face.trimEnd())}
   },
