@@ -27,6 +27,7 @@ import { mountMcpManager } from './mcp.js'
 import { mountAryaSearch } from './web-search.js'
 import { mountAryaStandard } from '../presets/arya-standard/plugin.js'
 import { mountAryaQwen } from '../presets/arya-qwen/plugin.js'
+import { mountAryaClaude } from '../presets/arya-claude/plugin.js'
 import { readSettings } from '../presets/arya-standard/settings.js'
 import { mountCost } from './cost.js'
 import { mountFolders } from './folders.js'
@@ -113,6 +114,14 @@ export const features = [
     description: 'Add the Arya Qwen agent preset: Qwen Code’s prompt and its state_snapshot checkpoint compaction, on Arya Standard’s tool list.',
     defaultOn: true,
     mount: mountAryaQwen,
+    config: rowConfig => readSettings(rowConfig),
+  },
+  {
+    id: 'aryaClaude',
+    label: 'Arya Claude preset',
+    description: 'Add the Arya Claude agent preset: Claude Code-style checkpoint compaction, tool-result microcompact, a summarizer failure breaker, and subagent fan-out.',
+    defaultOn: true,
+    mount: mountAryaClaude,
     config: rowConfig => readSettings(rowConfig),
   },
   {

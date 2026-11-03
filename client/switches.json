@@ -68,6 +68,12 @@
       "defaultOn": true
     },
     {
+      "key": "aryaClaude",
+      "label": "Arya Claude preset",
+      "description": "Add the Arya Claude agent preset: Claude Code-style checkpoint compaction, tool-result microcompact, a summarizer failure breaker, and subagent fan-out.",
+      "defaultOn": true
+    },
+    {
       "key": "memory",
       "label": "Cross-session memory",
       "description": "Keep short notes across sessions. Recalled into the system prompt as quoted context, and managed from Settings → Memory.",

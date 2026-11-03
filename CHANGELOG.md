@@ -1,3 +1,64 @@
+## [0.116.0] - 2026-11-03
+
+### Added
+
+- **Arya Claude**, a third agent preset shaped after Claude Code. Reverse-engineering
+  the shipped Claude Code 2.1.317 build (a Bun bytecode executable with 2,688
+  embedded JS modules) showed that its compression is two-level and its loop is
+  cache-aware, and that four of those behaviours fit this harness's preset seams:
+  - **The checkpoint shape.** An `<analysis>` drafting pass is stripped before
+    commit, then a nine-section `<summary>` — Primary Request/Intent, Key Technical
+    Concepts, Files and Code Sections, Errors and Fixes, Problem Solving, **All User
+    Messages**, Pending Tasks, Current Work, Optional Next Step — with an explicit
+    rule that only real user-role turns count as user messages. Framed by a
+    continuation prefix and a resume trailer, and followed by a `## Files recently
+    read` section listing up to five files the replaced span touched.
+  - **The window arithmetic.** `compaction-basic`'s trigger is
+    `min(window × ratio, window − reserved − headroom)`; the preset pins
+    `thresholdRatio: 0.99` and `headroomTokens: 13000`, which reproduces Claude
+    Code's `window − output − 13k` trigger, and drops Arya Standard's extra post-turn
+    and pre-warm triggers because Claude compacts at the step boundary.
+  - **Microcompact.** A new `toolResultPruner` (`arya-claude-microcompact`) trims
+    oversized results and then clears the bodies of tool results older than the most
+    recent 12 when the pass frees at least 20,000 tokens. The base engine re-measures
+    after a prune, so a pass that frees enough skips the summarization entirely —
+    Claude Code's cheap compression level, on this harness's own seam. Rich results
+    (images, files) are never cleared, and every replacement carries the replay-safe
+    `compaction/prune` shadow-price pair.
+  - **A summarizer circuit breaker.** Three consecutive automatic-compaction
+    failures stop further automatic attempts for the session, as Claude Code does;
+    manual `/compact` and provider overflow recovery stay available.
+  - The preset also carries the shipped `standard` preset's delegation group back
+    (Claude Code fans out to subagents) and `tool-schedule`, which Arya Standard
+    deliberately omits.
+  - Claude Code's prompt text is proprietary, so nothing is vendored: the persona
+    and checkpoint prose are authored for this bundle, and `adapt.js` validates the
+    sections and tool names that must survive. See [Arya Claude](docs/arya-claude.md).
+- The shared compaction kit (`presets/arya-standard/compaction.js`) grew four
+  backward-compatible options the Claude kit needed: `envelope` (unwrap a tagged
+  reply), `extraSections` (sections derived from the replaced span), `hookPrefix`
+  (namespace the observation waterfalls per preset) and `label` (the preset's name
+  in thrown messages). Every option defaults to the old behaviour, so the Codex and
+  Qwen kits are unchanged.
+- `test/arya-claude.spec.mjs` and `test/arya-claude-compaction.spec.mjs` pin the
+  derived row list, the delegation group, the authored prose and its validator, the
+  policy defaults and clamping, the pinned engine config inside the closed key set,
+  the exported subpaths, the microcompact planner, the breaker state machine, and a
+  stub-host summarization run (instruction, frame, analysis strip, envelope unwrap,
+  recent files, small-span refusal, waterfall namespace).
+
+### Notes
+
+- The preset shares Arya Standard's `aryaStandardOptions` settings group and its
+  Compaction tab, exactly like Arya Qwen: turning the Arya Standard switch off leaves
+  the tab without a projection, while the preset rows keep working.
+- Verified in a development Host: the picker listed Arya Claude, a session recorded
+  `agent-preset/selected: arya-claude`, `/compact` committed a real
+  `compaction/start` → `compaction/summary` → `compaction/end` with the authored
+  frame and 1,447 shadowed tokens, the Compaction tab rendered the checkpoint, and a
+  follow-up turn completed after the fold. Microcompact and the circuit breaker need
+  real pressure/failures to fire and stay unit-tested.
+
 ## [0.115.1] - 2026-11-03
 
 ### Fixed

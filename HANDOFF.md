@@ -54,6 +54,8 @@ and how to release. `README.md` is the user-facing story and lists every switch;
 | `betterWorkspace` | Replaces the sidebar workspace list with our tree: folders, pins, day grouping, find, sort, read state, money, bulk actions, keyboard, subagent hiding. **The big one.** | `docs/better-workspace.md` (46 KB, the real spec) |
 | `panelScreenshot` | Camera button in the right panel: copies the open tab to the clipboard and attaches it to the message. | `docs/panel-screenshot.md` |
 | `aryaStandard` | An **Arya Standard** agent preset: Codex checkpoint compaction over the unchanged `compaction-basic` transaction, a Settings page for its knobs, and a **Compaction** conversation dashboard (trajectory, cache strip, tiles, checkpoints, log, settings). | `docs/arya-standard.md`, `presets/arya-standard/` |
+| `aryaQwen` | An **Arya Qwen** agent preset: Qwen Code's prompt and `<state_snapshot>` checkpoint on Arya Standard's tool list; shares the settings group and the Compaction tab. | `docs/arya-qwen.md`, `presets/arya-qwen/` |
+| `aryaClaude` | An **Arya Claude** agent preset: authored nine-section checkpoint with an `<analysis>` scratchpad and `<summary>` envelope, Claude Code's `window − output − 13k` trigger, a microcompact tool-result pruner that can skip the fold, a three-strike summarizer breaker, and the delegation + schedule rows Arya Standard omits. Verified live in a dev Host (`/compact` committed; follow-up turn ran). | `docs/arya-claude.md`, `presets/arya-claude/` |
 
 Parked, by the user's decision: right-click spelling corrections — it needs a
 shell change no plugin can reach (`docs/parked-spellcheck.md`).

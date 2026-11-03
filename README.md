@@ -41,6 +41,7 @@ Configure page automatically.
 | **Better workspace** (`betterWorkspace`) | On | Replaces the sidebar workspace list with our own tree: workspaces with their sessions, a right-click menu on a workspace (open, copy path, remove), and the shipped session menu inside it. See [Better workspace](docs/better-workspace.md). |
 | **Arya Standard preset** (`aryaStandard`) | On | Adds an **Arya Standard** agent preset that compacts the way Codex does, plus a Settings page for its knobs and a **Compaction** tab with the context trajectory, cache-hit strip, checkpoint cards, log and settings. The presets also mount a second skill provider over `skills/`: a review router and its security and bug lenses, available from "review this" or by name. See [Arya Standard](docs/arya-standard.md), [Review lenses](docs/review-lenses.md) and [The presets compared](docs/preset-comparison.md). |
 | **Arya Qwen preset** (`aryaQwen`) | On | Adds an **Arya Qwen** agent preset: Qwen Code's system prompt and its `state_snapshot` compaction (analysis scratchpad stripped, resume trailer appended once), on Arya Standard's tool list. Shares the compaction policy and the Compaction tab with Arya Standard. See [Arya Qwen](docs/arya-qwen.md). |
+| **Arya Claude preset** (`aryaClaude`) | On | Adds an **Arya Claude** agent preset: Claude Code's checkpoint shape (an `<analysis>` scratchpad, then a nine-section `<summary>` with the user's own words in it), Claude Code's window arithmetic (usable window minus 13k), a model-free microcompact that clears old tool results before paying for a summary, a three-strike summarizer circuit breaker, and the subagent fan-out Arya Standard omits. See [Arya Claude](docs/arya-claude.md). |
 | **Arya Automation Engineer preset** | moved | No longer ships here: the preset now lives in `@aryacode/dsh-engineering` and is documented in that repository. Install that bundle to get it. (was: and an **Engineering** tab. The preset carries the five-step engineering contract (read before writing, act in a copy, verify with the vendor engine, name the human steps) and engineering-tuned compaction; the tab folds a session's tool calls into those five steps. See [Arya Automation Engineer](docs/arya-automation-engineer.md). |
 | **Cross-session memory** (`memory`) | On | Keeps short notes across sessions in `polish/memory.json` and quotes them into the system prompt as recalled context, never as instructions. **Settings → Memory** adds, filters and forgets them. See [Memory](docs/memory.md). |
 | **Lifecycle hooks** (`hooks`) | On | Runs a command when a turn stops, a session errors, or a checkpoint lands. Rules live in `polish/hooks.json`; dispatch is observational with a bounded in-memory log at **Settings → Hooks**. See [Hooks](docs/hooks.md). |
@@ -176,6 +177,43 @@ differ:
 
 See [Arya Qwen](docs/arya-qwen.md), and [The presets compared](docs/preset-comparison.md)
 for the measured three-way comparison against the shipped `standard` preset.
+
+### Arya Claude
+
+The third preset (`presets/arya-claude/`) is the Claude Code-shaped one. Its row
+list is derived from Arya Standard's, so plan mode, todos, skills, goals and the
+file tools are the same; the differences are the four things Claude Code actually
+does differently:
+
+- the persona is authored prose in Claude Code's idiom (concise agentic behaviour,
+  read before editing, verify before claiming, ask through the tool when the
+  decision belongs to the user). Claude Code's own prompt text is proprietary, so
+  nothing is vendored: the structure is followed, the words are this bundle's;
+- the checkpoint is authored in Claude Code's shape: an `<analysis>` scratchpad
+  (stripped before commit), then a nine-section `<summary>` — request, concepts,
+  files and code, errors and fixes, problem solving, **all user messages** (with a
+  rule that only real user-role turns count), pending tasks, current work, next
+  step quoted from the user — framed by a continuation prefix and a resume trailer;
+  the replaced span's recently touched files are listed after the body;
+- the engine pins Claude Code's window arithmetic (`thresholdRatio: 0.99`,
+  `headroomTokens: 13000`, which is `min(window × ratio, window − reserved − 13k)` in
+  the base engine) and no longer mounts Arya Standard's post-turn/pre-warm triggers:
+  Claude compacts at the step boundary before the request that needs the room;
+- old tool results are **cleared** (microcompact: keep the most recent 12, clear
+  older ones when the pass frees at least 20k tokens) before a summarization call is
+  paid for. Because the base engine re-measures after a prune and skips the fold
+  when the context fits again, a successful microcompact avoids the summary
+  entirely. Three consecutive automatic-compaction failures open a session-scoped
+  circuit breaker; manual `/compact` and overflow recovery stay available.
+
+It also carries the shipped `standard` preset's **delegation** group (the
+`subagent` / `subagent_fork` / workflow tools) and `tool-schedule`: Claude Code
+fans out to subagents and schedules work, which is exactly why Arya Standard's
+"one agent, one conversation" rule does not apply to it.
+
+See [Arya Claude](docs/arya-claude.md) for the window arithmetic, the microcompact
+and breaker thresholds, what is deliberately not implemented, and how to tune it
+from the shared `aryaStandardOptions` group.
 
 ### Arya Automation Engineer
 

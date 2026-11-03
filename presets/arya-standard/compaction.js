@@ -325,22 +325,38 @@ function isWindowOverflow(error, code) {
  *   deepFreeze: <T>(value: T) => T,
  *   checkpointPrompt: string,
  *   summaryPrefix: string,
+ *   summarySuffix?: string,
+ *   stripAnalysis?: boolean,
+ *   envelope?: RegExp,
+ *   extraSections?: (info: { messages: ReadonlyArray<unknown>, spanTokens: number, policy: object, agent: object }) => ReadonlyArray<string>,
+ *   checkpointMarker?: string,
+ *   minBodyTokens?: number,
+ *   hookPrefix?: string,
+ *   label?: string,
  *   contextWindowExceededCode?: string,
  * }} kit the dependencies this subclass needs.
  * @returns {Function} the engine class the preset row mounts.
  */
 export function createAryaStandardCompaction(Base, kit) {
-  if (typeof Base !== 'function') throw new Error('arya-standard compaction: a base engine class is required')
+  const label = typeof kit?.label === 'string' && kit.label.length > 0 ? kit.label : 'arya-standard'
+  if (typeof Base !== 'function') throw new Error(`${label} compaction: a base engine class is required`)
   if (typeof kit?.checkpointPrompt !== 'string' || kit.checkpointPrompt.trim().length === 0) {
-    throw new Error('arya-standard compaction: the checkpoint prompt is missing')
+    throw new Error(`${label} compaction: the checkpoint prompt is missing`)
   }
   // A kit frames its checkpoints either before the body (Codex's handoff prefix)
   // or after it (Qwen Code's resume trailer), or both; one of them must be there.
   const framePrefix = typeof kit?.summaryPrefix === 'string' ? kit.summaryPrefix : ''
   const frameSuffix = typeof kit?.summarySuffix === 'string' ? kit.summarySuffix : ''
   if (framePrefix.trim().length === 0 && frameSuffix.trim().length === 0) {
-    throw new Error('arya-standard compaction: the summary frame is missing')
+    throw new Error(`${label} compaction: the summary frame is missing`)
   }
+  // Waterfall names are namespaced per preset, so a listener written for one
+  // preset never observes another preset's summarization request.
+  const hookPrefix = typeof kit?.hookPrefix === 'string' && kit.hookPrefix.length > 0 ? kit.hookPrefix : 'arya-standard'
+  // An envelope turns a reply that wraps its answer in tags into the body alone;
+  // Claude Code asks for a `<summary>` envelope after a drafting `<analysis>`.
+  const envelope = kit?.envelope instanceof RegExp ? kit.envelope : undefined
+  const extraSections = typeof kit?.extraSections === 'function' ? kit.extraSections : undefined
 
   return class AryaStandardCompaction extends Base {
     /**
@@ -366,7 +382,7 @@ export function createAryaStandardCompaction(Base, kit) {
       let request
 
       for (let attempt = 0; ; attempt += 1) {
-        await notifyWaterfall(this.ctx, 'arya-standard/compaction/pre', {
+        await notifyWaterfall(this.ctx, `${hookPrefix}/compaction/pre`, {
           session: agent.session,
           agent,
           messages,
@@ -410,29 +426,51 @@ export function createAryaStandardCompaction(Base, kit) {
         const stripped = body.replace(/<analysis>[\s\S]*?<\/analysis>/gi, '').trim()
         if (stripped.length > 0) body = stripped
       }
+      // A kit may also wrap its answer in an envelope. Extract the envelope's
+      // inner text; a reply without the envelope is tolerated verbatim so one
+      // stray tag does not throw away a usable checkpoint.
+      if (envelope !== undefined) {
+        const found = envelope.exec(body)
+        if (found !== null && typeof found[1] === 'string' && found[1].trim().length > 0) body = found[1].trim()
+      }
       if (body.length === 0) throw new Error('summarization produced no text summary content')
 
       const prefix = framePrefix
       const suffix = frameSuffix
       const spanTokens = estimateSpanTokens(messages)
+      // A kit may add sections it can derive from the replaced span itself (a
+      // harness has facts the summarizer prompt cannot know). The extra text is
+      // fitted inside the same budget as the body: the base engine's shrink guard
+      // prices the whole framed checkpoint against the span.
+      const extras = extraSections === undefined
+        ? []
+        : extraSections({ messages, spanTokens, policy, agent })
+      const extraText = (Array.isArray(extras) ? extras : [])
+        .filter((section) => typeof section === 'string' && section.trim().length > 0)
+        .join('\n\n')
       // The base engine prices the whole framed checkpoint against the span it
       // replaces and refuses anything that does not shrink it. Reserve the frame
       // and the handoff prefix, then fit the body into what is left: a summary the
       // provider wrote too long for a small span must be cut, not committed.
       const frameTokens = estimateTokens([prefix, suffix].filter((part) => part.length > 0).join('\n\n'))
       const room = Math.max(0, Math.floor(spanTokens * SHRINK_SAFETY) - FRAME_RESERVE_TOKENS - frameTokens)
-      // A structured checkpoint (Qwen Code's XML envelope) cannot be cut at an
-      // arbitrary point: truncating it drops the sections at the end, which is
-      // where `next_step` lives. When the span is too small to hold the envelope,
-      // commit nothing rather than a mutilated one; the session simply keeps its
-      // history, and a manual /compact reports why.
+      // A structured checkpoint (Qwen Code's XML envelope) or a structured
+      // Claude-shaped one cannot be cut at an arbitrary point: truncating it drops
+      // the sections at the end, which is where `next_step` lives. When the span is
+      // too small to hold the envelope, commit nothing rather than a mutilated one;
+      // the session keeps its history, and a manual /compact reports why.
       const minimum = Number.isFinite(kit.minBodyTokens) && kit.minBodyTokens > 0 ? kit.minBodyTokens : 0
       if (room < minimum) {
-        throw new Error(`arya-standard compaction: the replaced span is too small for a checkpoint (${spanTokens} estimated tokens, ${room} available)`)
+        throw new Error(`${label} compaction: the replaced span is too small for a checkpoint (${spanTokens} estimated tokens, ${room} available)`)
       }
-      const fitted = estimateTokens(body) > room ? truncateToTokens(body, room).trimEnd() : body
+      const extraTokens = estimateTokens(extraText)
+      const bodyRoom = Math.max(0, room - extraTokens)
+      const fittedBody = estimateTokens(body) > bodyRoom ? truncateToTokens(body, bodyRoom).trimEnd() : body
+      const fitted = extraText.length > 0
+        ? (fittedBody.length > 0 ? `${fittedBody}\n\n${extraText}` : extraText)
+        : fittedBody
       if (fitted.length === 0) {
-        throw new Error(`arya-standard compaction: the replaced span is too small for a checkpoint (${spanTokens} estimated tokens)`)
+        throw new Error(`${label} compaction: the replaced span is too small for a checkpoint (${spanTokens} estimated tokens)`)
       }
       const framed = [prefix, fitted, suffix].filter((part) => part.length > 0).join('\n\n')
       const summary = [{ type: 'text', text: framed }]
@@ -447,7 +485,7 @@ export function createAryaStandardCompaction(Base, kit) {
       const retained = retainedUserMessages(messages, budget, marker)
       if (retained.text.length > 0) summary.push({ type: 'text', text: retained.text })
 
-      await notifyWaterfall(this.ctx, 'arya-standard/compaction/post', {
+      await notifyWaterfall(this.ctx, `${hookPrefix}/compaction/post`, {
         session: agent.session,
         agent,
         summaryTokens: estimateTokens(framed),

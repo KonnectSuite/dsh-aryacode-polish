@@ -36,23 +36,26 @@ sessions only.
 
 ## 2. Side by side
 
-| | **Standard** (shipped) | **Arya Standard** | **Arya Qwen** | **Arya Automation Engineer** |
-|---|---|---|---|---|
-| Persona source | one-line harness default | Codex base instructions, adapted | Qwen Code instructions, adapted | written for this preset from `dsh-engineering`'s loop |
-| System prompt | 5,695 chars | 11,637 chars | 12,109 chars (persona alone) | **5,106 chars** (persona alone) |
-| Tools | 145 | **133** | **133** (same rows) | **133** (same rows) |
-| Tool-schema chars | 123,050 | **105,913** | **105,913** | **105,913** |
-| Delegation / schedules / plugin manager tools | present | absent | absent | absent |
-| Compaction engine | `compaction-basic` | our subclass, Codex kit | our subclass, Qwen kit | our subclass, **Codex kit** |
-| Checkpoint prompt | base's 8 sections | Codex `CONTEXT CHECKPOINT COMPACTION` (425 chars) | Qwen Code compression prompt (3,583 chars) | Codex (425 chars) |
-| Frame | base preamble | 399-char handoff **prefix** | 168-char resume **suffix** | 399-char handoff **prefix** |
-| User messages kept verbatim | — | up to 20k tokens | none (summarizer reproduces them) | **12k tokens** |
-| Triggers | pre-step pressure only | pre-warm 70 %, post-turn 90 %, absolute limit | identical to Arya Standard | **pre-warm 65 %, post-turn 85 %**, absolute limit |
-| `<analysis>` scratchpad | n/a | n/a | stripped before commit | n/a |
-| Minimum body | — | none (end-truncation) | **800 tokens**, else the fold is refused | none (end-truncation) |
-| Tool-result pruner | 8,192 / 4,096 / 1,024 | same | same | **16,384 / 8,192 / 2,048** |
-| Policy service | — | `aryaStandardPolicy` | `aryaQwenPolicy` | `aryaStandardPolicy` (own realm) |
-| Policy knobs | — | shared settings group | shared settings group | engineering defaults, shared group |
+| | **Standard** (shipped) | **Arya Standard** | **Arya Qwen** | **Arya Automation Engineer** | **Arya Claude** |
+|---|---|---|---|---|---|
+| Persona source | one-line harness default | Codex base instructions, adapted | Qwen Code instructions, adapted | written for this preset from `dsh-engineering`'s loop | authored prose in Claude Code's idiom |
+| System prompt | 5,695 chars | 11,637 chars | 12,109 chars (persona alone) | **5,106 chars** (persona alone) | **7,272 chars** (persona + capabilities) |
+| Tools | 145 | **133** | **133** (same rows) | **133** (same rows) | **133 + delegation + schedule** |
+| Tool-schema chars | 123,050 | **105,913** | **105,913** | **105,913** | larger (delegation, workflow and schedule tools are back) |
+| Delegation / schedules / plugin manager tools | present | absent | absent | absent | **delegation + schedule**; plugin manager absent |
+| Compaction engine | `compaction-basic` | our subclass, Codex kit | our subclass, Qwen kit | our subclass, **Codex kit** | our subclass, **Claude kit** |
+| Checkpoint prompt | base's 8 sections | Codex `CONTEXT CHECKPOINT COMPACTION` (425 chars) | Qwen Code compression prompt (3,583 chars) | Codex (425 chars) | authored nine-section instruction (3,378 chars), `<analysis>` then `<summary>` |
+| Frame | base preamble | 399-char handoff **prefix** | 168-char resume **suffix** | 399-char handoff **prefix** | 239-char continuation **prefix** + 204-char resume **suffix** |
+| User messages kept verbatim | — | up to 20k tokens | none (summarizer reproduces them) | **12k tokens** | none (checkpoint section 6 reproduces them) |
+| Triggers | pre-step pressure only | pre-warm 70 %, post-turn 90 %, absolute limit | identical to Arya Standard | **pre-warm 65 %, post-turn 85 %**, absolute limit | pre-step pressure only, at `window − output − 13k` (`thresholdRatio` 0.99) |
+| `<analysis>` scratchpad | n/a | n/a | stripped before commit | n/a | stripped before commit |
+| Minimum body | — | none (end-truncation) | **800 tokens**, else the fold is refused | none (end-truncation) | **600 tokens**, else the fold is refused |
+| Tool-result pruner | 8,192 / 4,096 / 1,024 | same | same | **16,384 / 8,192 / 2,048** | 8,192 / 4,096 / 1,024 **plus microcompact** |
+| Microcompact (clear old tool results) | — | — | — | — | **keep the most recent 12, clear when the pass frees ≥ 20,000 tokens** |
+| Recently read files in the checkpoint | — | — | — | — | **up to 5 paths, newest first** |
+| Summarizer failure breaker | — | — | — | — | **3 consecutive automatic failures, session-scoped; manual `/compact` and overflow recovery stay available** |
+| Policy service | — | `aryaStandardPolicy` | `aryaQwenPolicy` | `aryaStandardPolicy` (own realm) | `aryaClaudePolicy` |
+| Policy knobs | — | shared settings group | shared settings group | engineering defaults, shared group | shared settings group; the window arithmetic and Claude pipeline defaults are pinned |
 
 Rows are **derived**, not copied. `presets/arya-qwen/definition.js` builds Arya
 Standard's definition and rewrites the persona, the two compaction rows and the
@@ -220,10 +223,11 @@ found a client bundle that did not parse; 0.112.1 fixed it and added a
 
 | If you… | Use |
 |---|---|
-| need subagents, scheduled jobs, or in-chat plugin management | **Standard** |
+| need subagents, scheduled jobs, or in-chat plugin management | **Standard**, or **Arya Claude** for subagents and scheduling with the Claude loop |
 | want Codex's working style and checkpoints, on any model | **Arya Standard** |
 | run Qwen models and want their prompt's structure and its XML checkpoint | **Arya Qwen** |
-| work in Studio 5000, FactoryTalk View ME, MotionWorks or Optix | **Arya Automation Engineer** |
+| want Claude Code's checkpoint shape, window arithmetic and two-level compression | **Arya Claude** |
+| work in Studio 5000, FactoryTalk View ME, MotionWorks or Optix | **Arya Automation Engineer** (ships in `@aryacode/dsh-engineering`) |
 | are unsure | **Arya Standard** — it is the default, and it is the one with a measured token win |
 
 Presets are per session, so this is a per-task choice, not a global setting. Memory
