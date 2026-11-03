@@ -16,6 +16,7 @@ import { features } from '../entries/registry.js'
 const root = new URL('../', import.meta.url)
 const read = path => readFileSync(new URL(path, root), 'utf8')
 const workspaceSource = read('client/workspace.js')
+const faceSource = read('client/face.js')
 const manifest = JSON.parse(read('package.json'))
 const declaration = JSON.parse(read('client/switches.json'))
 const bundle = read('lib/client.js')
@@ -354,6 +355,37 @@ test('the balance line registers only where the account namespace exists', () =>
     !bundle.includes("whenAccess('account/watch'"),
     'the balance read must not wait for a grant a plugin is not given',
   )
+})
+
+test('the foot stacks instead of competing for the row', () => {
+  // `sidebar.footer.action` is one flex ROW shared with every installed plugin, so
+  // a crowded foot is a width contest: our status text once crushed a
+  // remote-access plugin's button down to `Rem…`. Polish turns the row into a
+  // column while its entries are mounted — one line each — and restores it when
+  // the last one goes.
+  for (const marker of [
+    'const footerStack = { claims: 0, restore: undefined }',
+    "rowStyle.flexDirection = 'column'",
+    "rowStyle.alignItems = 'stretch'",
+    "display === 'contents'",
+    'const FOOT_ENTRY = {',
+    "width: '100%'",
+    'const FOOT_LABEL = {',
+  ]) {
+    assert.ok(faceSource.includes(marker), 'the face should carry ' + marker)
+  }
+  // Either entry alone is enough to stack the foot, and two of them release it once.
+  assert.equal(
+    (faceSource.match(/claimFooterRow\(root\.current\)/g) || []).length,
+    2,
+    'both footer seats claim the stack',
+  )
+  // A line of its own has room for the word, so the amount says what it is again.
+  assert.ok(faceSource.includes("}, money + ' left')"), 'the balance line spells out the amount')
+  assert.ok(faceSource.includes("title: 'Remaining account balance'"), 'the tooltip still names the balance')
+  for (const marker of ['footerStack', 'claimFooterRow', 'flexDirection', 'FOOT_LABEL']) {
+    assert.ok(bundle.includes(marker), 'the bundle should carry ' + marker)
+  }
 })
 
 test('the switch list and the feature registry agree', () => {

@@ -57,11 +57,16 @@ The session belongs to the GitHub CLI, and both directions stay inside the app:
   second confirming click, then re-reads the session. "not logged in" counts as
   success, because that is the state the click asked for.
 - **Where you see it** is the sidebar foot: `GitHub · <login>`,
-  `GitHub · signed out`, or `GitHub · no CLI` (the CLI is not installed at all)
-  holds the left edge of the status line, and the balance (`$4.08 left`) takes
-  the right one, so the foot reads as one row instead of two
-  fragments. The dialog repeats it, and the footer row re-reads on window focus so
-  a `gh auth login` run in a terminal shows up without a restart.
+  `GitHub · signed out`, or `GitHub · no CLI` (the CLI is not installed at all) on
+  one line, and the remaining balance (`$4.08 left`) on the next. That row belongs
+  to no single plugin — `sidebar.footer.action` is the shell's own flex row and
+  every installed plugin adds an entry to it — so polish stacks the row into a
+  column while its entries are mounted (a refcount in `claimFooterRow`, restored
+  when the last one goes). One line per entry means a plugin added later gets its
+  own line instead of a fight over width: side by side, our status text and the
+  balance squeezed a remote-access plugin's button down to `Rem…`. The dialog
+  repeats the state, and the footer re-reads on window focus so a `gh auth login`
+  run in a terminal shows up without a restart.
 
 Nothing about this stores a credential of its own: the code is a one-time device
 code, and the token never leaves the CLI's own credential store.

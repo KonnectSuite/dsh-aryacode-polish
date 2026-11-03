@@ -24,3 +24,12 @@ this repo. `docs/releasing.md` is the full runbook.
 7. **Release with the script**, `node scripts/release.mjs --minor --note …`,
    so the order bump → changelog → build → test → commit → push → publish →
    poll is never partly remembered.
+8. **The sidebar foot is shared, so polish stacks it.** `sidebar.footer.action` is
+   one flex row owned by the shell; every installed plugin's entry is a sibling in
+   it, and a new plugin must not have to guess how much room we left it. Polish
+   turns that row into a column while its entries are mounted (`claimFooterRow` in
+   `client/face.js`, refcounted, restored when the last one goes), so each entry
+   gets a line. A horizontal foot meant a width contest, and our status text
+   crushed a remote-access plugin's button to `Rem…`. `test/client-face.spec.mjs`
+   pins the stack.
+
