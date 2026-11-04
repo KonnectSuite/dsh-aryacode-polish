@@ -160,9 +160,17 @@ const PREVIEW_ACTION = {
 const PREVIEW_FRAME = {
   display: 'block',
   width: '100%',
-  height: '220px',
+  height: '280px',
   border: '0',
   background: '#ffffff',
+}
+
+/** The small "live" note beside the name: what the card is, and what it folded in. */
+const PREVIEW_META = {
+  flex: '0 0 auto',
+  color: 'var(--dsw-alias-label-tertiary, #7a7f85)',
+  fontSize: '11px',
+  whiteSpace: 'nowrap',
 }
 
 const PREVIEW_NOTE = {
@@ -206,6 +214,10 @@ async function previewCall(path) {
 function InlinePreviewCard(props) {
   const path = props.path
   const [read, setRead] = React.useState({ status: 'loading' })
+  // The frame is a live render, not a picture: a canvas animation, a hover state
+  // and a click all work inside it. A taller card is the difference between "a
+  // thumbnail" and "the thing", so a card can be expanded without leaving the chat.
+  const [zoomed, setZoomed] = React.useState(false)
   React.useEffect(() => {
     let live = true
     setRead({ status: 'loading' })
@@ -216,6 +228,7 @@ function InlinePreviewCard(props) {
     return () => { live = false }
   }, [path])
   const name = previewName(path)
+  const framed = read.status === 'ready' && read.value.kind !== 'image'
   const body = read.status === 'failed'
     ? React.createElement('p', { style: PREVIEW_NOTE }, 'This file could not be previewed: ' + read.error)
     : read.status === 'loading'
@@ -224,18 +237,30 @@ function InlinePreviewCard(props) {
         ? React.createElement('img', {
           src: read.value.dataUrl,
           alt: name,
-          style: { display: 'block', maxWidth: '100%', maxHeight: '220px', margin: '0 auto' },
+          style: { display: 'block', maxWidth: '100%', maxHeight: zoomed ? '60vh' : '280px', margin: '0 auto' },
         })
         : React.createElement('iframe', {
           srcDoc: previewDocument(read.value.text),
           sandbox: 'allow-scripts',
           title: name,
           'data-polish-preview-frame': read.value.kind,
-          style: PREVIEW_FRAME,
+          style: { ...PREVIEW_FRAME, height: zoomed ? 'min(60vh, 520px)' : '280px' },
         })
   return React.createElement('div', { 'data-polish-preview': name, style: PREVIEW_CARD },
     React.createElement('div', { style: PREVIEW_HEAD },
       React.createElement('span', { style: PREVIEW_NAME, title: path }, name),
+      read.status === 'ready' && read.value.inlinedAssets > 0
+        ? React.createElement('span', { style: PREVIEW_META, title: 'Styles, scripts and images beside the file were folded into it so it can run here' },
+          'live · ' + String(read.value.inlinedAssets) + ' file' + (read.value.inlinedAssets === 1 ? '' : 's') + ' folded')
+        : React.createElement('span', { style: PREVIEW_META }, 'live'),
+      framed
+        ? React.createElement('button', {
+          type: 'button',
+          'data-polish-preview-zoom': zoomed ? 'collapse' : 'expand',
+          style: PREVIEW_ACTION,
+          onClick: () => setZoomed(current => !current),
+        }, zoomed ? 'Collapse' : 'Expand')
+        : null,
       React.createElement('button', {
         type: 'button',
         'data-polish-preview-open': name,

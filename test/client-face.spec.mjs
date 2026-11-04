@@ -451,6 +451,9 @@ test('inline previews ride the turn tail the Shell already renders', () => {
     'Content-Security-Policy',
     "default-src 'none'",
     "'data-polish-preview-open'",
+    "'data-polish-preview-zoom'",
+    "height: '280px'",
+    "'live · '",
   ]) {
     assert.ok(previewSource.includes(marker), 'the card should carry ' + marker)
   }
