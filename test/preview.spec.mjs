@@ -8,7 +8,7 @@
  */
 
 import assert from 'node:assert/strict'
-import { mkdtempSync, rmSync, writeFileSync } from 'node:fs'
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { test } from 'node:test'
@@ -17,7 +17,7 @@ import {
   PREVIEW_LIMIT, PREVIEW_POLICY, previewDocument, previewKindOf, previewName, previewPaths,
 } from '../client/preview.js'
 import {
-  PREVIEW_MAX_IMAGE_BYTES, PREVIEW_MAX_MARKUP_BYTES, handlePreview, previewKindOf as hostKindOf, readPreview,
+  PREVIEW_MAX_IMAGE_BYTES, PREVIEW_MAX_MARKUP_BYTES, handlePreview, inlineAssets, previewKindOf as hostKindOf, readPreview, resolveAsset,
 } from '../entries/preview.js'
 
 const names = ['cat.html', 'cat.HTM', 'drawing.svg', 'shot.png', 'shot.jpeg', 'shot.gif', 'shot.webp']
@@ -117,4 +117,52 @@ test('the Host reads a small file and refuses everything else by name', async ()
 test('the size caps are finite', () => {
   assert.ok(Number.isFinite(PREVIEW_MAX_MARKUP_BYTES) && PREVIEW_MAX_MARKUP_BYTES > 0)
   assert.ok(Number.isFinite(PREVIEW_MAX_IMAGE_BYTES) && PREVIEW_MAX_IMAGE_BYTES > PREVIEW_MAX_MARKUP_BYTES)
+})
+
+test('a document that links its own siblings is folded into one frame', async () => {
+  // The reported turn wrote index.html + style.css + script.js; a srcdoc frame has
+  // no base URL, so the page arrived blank. The Host now folds those in.
+  const dir = mkdtempSync(join(tmpdir(), 'polish-inline-'))
+  try {
+    writeFileSync(join(dir, 'style.css'), 'body { color: #123456; }', 'utf8')
+    writeFileSync(join(dir, 'app.js'), 'window.polishTest = 1;', 'utf8')
+    writeFileSync(join(dir, 'dot.svg'), '<svg xmlns="http://www.w3.org/2000/svg" width="2" height="2"></svg>', 'utf8')
+    const source = '<!doctype html><html><head><link rel="stylesheet" href="style.css"></head>'
+      + '<body><img src="dot.svg"><script src="app.js"></script></body></html>'
+
+    const framed = await inlineAssets(source, dir)
+    assert.equal(framed.inlined, 3, 'the stylesheet, the script and the image are folded in')
+    assert.ok(framed.text.includes('<style data-polish-inlined>body { color: #123456; }</style>'), 'the sheet becomes a style block')
+    assert.ok(framed.text.includes('<script data-polish-inlined>window.polishTest = 1;</script>'), 'the script becomes inline')
+    assert.match(framed.text, /src="data:image\/svg\+xml;base64,/, 'the image becomes a data URL')
+    assert.equal(framed.text.includes('href="style.css"'), false, 'no relative reference is left to fail')
+    assert.equal(framed.text.includes('src="app.js"'), false, 'no relative script is left to fail')
+
+    // And the route reports that it did it, so a blank frame can be told apart.
+    writeFileSync(join(dir, 'index.html'), framed.text, 'utf8')
+    const read = await readPreview(join(dir, 'index.html'))
+    assert.equal(read.kind, 'markup')
+  } finally {
+    rmSync(dir, { recursive: true, force: true })
+  }
+})
+
+test('a sibling outside the folder, or above the cap, is left exactly as written', async () => {
+  const parent = mkdtempSync(join(tmpdir(), 'polish-inline-parent-'))
+  const dir = join(parent, 'doc')
+  try {
+    mkdirSync(dir)
+    writeFileSync(join(parent, 'secret.css'), 'body { color: red; }', 'utf8')
+    writeFileSync(join(dir, 'huge.css'), 'x'.repeat(2048), 'utf8')
+    const source = '<link rel="stylesheet" href="../secret.css"><link rel="stylesheet" href="huge.css">'
+    const framed = await inlineAssets(source, dir, { maxAssetBytes: 1024 })
+    assert.equal(framed.inlined, 0, 'neither reference is folded in')
+    assert.equal(framed.text, source, 'the document is untouched')
+
+    assert.equal(resolveAsset('../secret.css', dir), undefined, 'a parent path is refused')
+    assert.equal(resolveAsset('style.css', dir), join(dir, 'style.css'), 'a sibling resolves')
+    assert.equal(resolveAsset('https://example.com/x.css', dir), undefined, 'an absolute URL is refused')
+  } finally {
+    rmSync(parent, { recursive: true, force: true })
+  }
 })

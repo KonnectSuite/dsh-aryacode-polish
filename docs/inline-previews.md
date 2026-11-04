@@ -31,6 +31,27 @@ Everything else is refused by both halves: the card never asks, and the Host
 route rejects the extension even if it is asked. `.js` is deliberately not
 previewed in the chat, even though it is text.
 
+### Sibling files are folded in
+
+A `srcdoc` frame has no base URL, so a document that says
+`<link href="style.css">` and `<script src="script.js">` renders **blank** — the
+first shipped version did exactly that on a three-file turn. The Host therefore
+folds a document's own siblings into it before the frame sees it:
+
+- a stylesheet link becomes a `<style data-polish-inlined>` block;
+- a script tag becomes inline script (a `type="module"` script keeps its type);
+- an `img` source becomes a data URL.
+
+Only a **relative** reference is followed, only inside the document's own folder,
+and only `.css`, `.js`, `.mjs`, `.svg`, `.png`, `.jpg`, `.jpeg`, `.gif`, `.webp`
+— 512 KB each, 2 MB in total, at most 24 references. A blocked reference (a parent
+path, an absolute URL, a missing file, too large) is left exactly as written, so a
+partial page still renders rather than the whole preview failing.
+
+What it still cannot do: a CSS `url()` reference inside a linked sheet, an
+`import` from one script to another file, `<source srcset>`, and anything that
+needs a real origin (a Worker, `fetch` to a sibling). Those are panel jobs.
+
 ## Which files
 
 The paths come from the Shell's own `deliverables` turn data — the same value the

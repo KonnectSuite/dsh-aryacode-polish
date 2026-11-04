@@ -10,7 +10,7 @@
  * registered `connection.fetch` path answering JSON.
  */
 import { promises as fs } from 'node:fs'
-import { basename, extname, isAbsolute, resolve } from 'node:path'
+import { basename, dirname, extname, isAbsolute, resolve, sep } from 'node:path'
 import { json } from './github.js'
 
 /** Absolute path the Host registers; the browser uses {@link PREVIEW_ROUTE}. */
@@ -36,6 +36,141 @@ export const PREVIEW_MAX_MARKUP_BYTES = 512 * 1024
 
 /** An image is the whole content of the card, so it gets a larger ceiling and a stricter one than "whatever the disk has". */
 export const PREVIEW_MAX_IMAGE_BYTES = 8 * 1024 * 1024
+
+/**
+ * One sibling file may be folded into the framed document, but not to the point
+ * where the card is reading a second project: 512 KB each, 2 MB in total.
+ */
+export const PREVIEW_MAX_ASSET_BYTES = 512 * 1024
+export const PREVIEW_MAX_INLINED_BYTES = 2 * 1024 * 1024
+export const PREVIEW_MAX_ASSETS = 24
+
+/**
+ * What a framed document may pull from beside itself.
+ *
+ * A document that links `style.css` and `script.js` renders nothing inside a
+ * `srcdoc` frame — there is no base URL to resolve them against, and the frame's
+ * policy refuses network reads — so the Host folds them in. Anything not listed
+ * here is left exactly as the author wrote it.
+ */
+const ASSET_RENDERING = {
+  '.css': 'style',
+  '.js': 'script',
+  '.mjs': 'script',
+  '.svg': 'image',
+  '.png': 'image',
+  '.jpg': 'image',
+  '.jpeg': 'image',
+  '.gif': 'image',
+  '.webp': 'image',
+}
+
+/** The reference forms this route will not follow. */
+function relativeReference(reference) {
+  const text = typeof reference === 'string' ? reference.trim() : ''
+  if (text === '' || text.startsWith('#') || text.startsWith('/') || text.startsWith('\\')) return undefined
+  if (/^[a-z][a-z0-9+.-]*:/i.test(text)) return undefined
+  return text
+}
+
+/**
+ * Resolve one relative reference inside the document's own folder.
+ * @param reference - the value written in the document.
+ * @param baseDir - the folder the document lives in.
+ * @returns absolute path inside that folder, or undefined when it escapes it.
+ */
+export function resolveAsset(reference, baseDir) {
+  const relative = relativeReference(reference)
+  if (relative === undefined) return undefined
+  // The document's folder arrives in whatever form the caller had; normalising it
+  // is what makes the prefix test below reliable on a Windows path.
+  const base = resolve(baseDir)
+  const path = resolve(base, relative)
+  const prefix = base.endsWith(sep) ? base : base + sep
+  return path.startsWith(prefix) ? path : undefined
+}
+
+/**
+ * Fold a document's relative styles, scripts and images into itself.
+ *
+ * A block that cannot be read — a missing file, a size above the cap, an
+ * extension this route does not carry — is left exactly as written, so a partial
+ * page still renders instead of the whole preview failing.
+ *
+ * @param source - the document text.
+ * @param baseDir - the folder it sits in.
+ * @param options - injected reader and caps, for the tests.
+ * @returns the rewritten document and how many references were folded in.
+ */
+export async function inlineAssets(source, baseDir, options = {}) {
+  const read = options.readFile ?? fs.readFile
+  const stat = options.stat ?? fs.stat
+  const maxBytes = options.maxAssetBytes ?? PREVIEW_MAX_ASSET_BYTES
+  const maxTotal = options.maxInlinedBytes ?? PREVIEW_MAX_INLINED_BYTES
+  const maxAssets = options.maxAssets ?? PREVIEW_MAX_ASSETS
+  const html = typeof source === 'string' ? source : ''
+
+  const references = []
+  const note = reference => {
+    if (references.length >= maxAssets) return
+    if (!references.includes(reference)) references.push(reference)
+  }
+  for (const match of html.matchAll(/<link\b[^>]*\bhref=["']([^"']+)["'][^>]*>/gi)) {
+    if (/rel=["']?stylesheet/i.test(match[0])) note(match[1])
+  }
+  for (const match of html.matchAll(/<script\b[^>]*\bsrc=["']([^"']+)["'][^>]*>/gi)) note(match[1])
+  for (const match of html.matchAll(/<img\b[^>]*\bsrc=["']([^"']+)["'][^>]*>/gi)) note(match[1])
+
+  const folded = new Map()
+  let total = 0
+  for (const reference of references) {
+    const path = resolveAsset(reference, baseDir)
+    if (path === undefined) continue
+    const extension = extname(path).toLowerCase()
+    const rendering = ASSET_RENDERING[extension]
+    if (rendering === undefined) continue
+    try {
+      const info = await stat(path)
+      if (info.isFile() === false || info.size > maxBytes || total + info.size > maxTotal) continue
+      const bytes = await read(path)
+      total += bytes.byteLength
+      if (rendering === 'style' || rendering === 'script') {
+        folded.set(reference, { rendering, raw: bytes.toString('utf8') })
+      } else {
+        const type = extension === '.svg' ? 'image/svg+xml' : IMAGE_TYPES[extension]
+        folded.set(reference, { rendering, raw: 'data:' + type + ';base64,' + bytes.toString('base64') })
+      }
+    } catch {
+      // A reference this Host cannot read stays as the author wrote it.
+    }
+  }
+
+  if (folded.size === 0) return { text: html, inlined: 0 }
+
+  let text = html.replace(/<link\b[^>]*>/gi, tag => {
+    if (/rel=["']?stylesheet/i.test(tag) === false) return tag
+    const href = /\bhref=["']([^"']+)["']/i.exec(tag)?.[1]
+    const replacement = href === undefined ? undefined : folded.get(href)
+    return replacement === undefined ? tag : '<style data-polish-inlined>' + replacement.raw + '</style>'
+  })
+  text = text.replace(/<script\b[^>]*\bsrc=["']([^"']+)["'][^>]*>\s*<\/script>/gi, (tag, reference) => {
+    const replacement = folded.get(reference)
+    if (replacement === undefined) return tag
+    // A module script keeps its type; an ordinary one is already the default.
+    const open = /type=["']module["']/i.test(tag)
+      ? '<script type="module" data-polish-inlined>'
+      : '<script data-polish-inlined>'
+    return open + replacement.raw + '</script>'
+  })
+  text = text.replace(/<img\b[^>]*>/gi, tag => {
+    const src = /\bsrc=["']([^"']+)["']/i.exec(tag)?.[1]
+    const replacement = src === undefined ? undefined : folded.get(src)
+    return replacement === undefined || replacement.rendering !== 'image'
+      ? tag
+      : tag.replace(/\bsrc=["'][^"']+["']/i, 'src="' + replacement.raw + '"')
+  })
+  return { text, inlined: folded.size }
+}
 
 /**
  * What this route will do with one path.
@@ -68,7 +203,9 @@ export async function readPreview(input) {
   if (info.size > limit) throw new Error(`this file is larger than ${Math.floor(limit / 1024)} KB`)
   const name = basename(path)
   if (kind === 'markup') {
-    return { kind, name, bytes: info.size, text: await fs.readFile(path, 'utf8') }
+    const source = await fs.readFile(path, 'utf8')
+    const framed = await inlineAssets(source, dirname(path))
+    return { kind, name, bytes: info.size, text: framed.text, inlinedAssets: framed.inlined }
   }
   const type = IMAGE_TYPES[extname(path).toLowerCase()]
   const bytes = await fs.readFile(path)
