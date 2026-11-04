@@ -11,6 +11,8 @@ import {
   cancelLogin,
   cloneDestination,
   cloneRepo,
+  fetchProfile,
+  forgetAvatars,
   ghPresent,
   ghToken,
   handleRequest,
@@ -18,8 +20,10 @@ import {
   json,
   loginStatus,
   listAccounts,
+  MAX_AVATAR_BYTES,
   parseDeviceCode,
   parseDeviceUrl,
+  readAvatar,
   scrubToken,
   signOut,
   signOutAll,
@@ -98,6 +102,83 @@ test('status tells a missing CLI apart from a signed-out one', async () => {
   assert.equal(missing.ok, true)
   assert.equal(missing.value.installed, false)
   assert.match(missing.value.reason, /not installed/)
+})
+
+test('the profile picture never leaves the Host as a URL to fetch', async () => {
+  forgetAvatars()
+  // One response for the identity, one for the bytes; nothing else is requested.
+  const calls = []
+  const fetchImpl = async (url, options) => {
+    calls.push(String(url))
+    if (String(url) === 'https://api.github.com/user') {
+      return {
+        ok: true,
+        status: 200,
+        json: async () => ({ login: 'acme', avatar_url: 'https://avatars.githubusercontent.com/u/42' }),
+      }
+    }
+    assert.equal(String(url), 'https://avatars.githubusercontent.com/u/42')
+    assert.equal(options.headers.accept, 'image/*', 'the picture is asked for as an image')
+    return {
+      ok: true,
+      status: 200,
+      headers: { get: () => 'image/png; charset=binary' },
+      arrayBuffer: async () => new Uint8Array([137, 80, 78, 71]).buffer,
+    }
+  }
+  const profile = await fetchProfile('gho', fetchImpl)
+  assert.deepEqual(profile, { login: 'acme', avatarUrl: 'https://avatars.githubusercontent.com/u/42' })
+
+  const first = await readAvatar('gho', 'acme', { fetchImpl })
+  assert.match(first.dataUrl, /^data:image\/png;base64,/, 'the browser receives a data URL')
+  assert.equal(first.cached, false)
+  const again = await readAvatar('gho', 'acme', { fetchImpl })
+  assert.equal(again.cached, true, 'the second read is served from the Host cache')
+  assert.equal(calls.filter(url => url.startsWith('https://avatars')).length, 1, 'the picture is downloaded once')
+})
+
+test('a profile picture on another host, or too large, is refused', async () => {
+  forgetAvatars()
+  const elsewhere = async url => {
+    if (String(url) === 'https://api.github.com/user') {
+      return { ok: true, status: 200, json: async () => ({ login: 'acme', avatar_url: 'https://evil.example/a.png' }) }
+    }
+    throw new Error('the picture URL must never be requested')
+  }
+  await assert.rejects(readAvatar('gho', 'acme', { fetchImpl: elsewhere }), /host this Host does not read/)
+
+  const huge = async url => {
+    if (String(url) === 'https://api.github.com/user') {
+      return {
+        ok: true,
+        status: 200,
+        json: async () => ({ login: 'acme', avatar_url: 'https://avatars.githubusercontent.com/u/42' }),
+      }
+    }
+    return {
+      ok: true,
+      status: 200,
+      headers: { get: () => 'image/png' },
+      arrayBuffer: async () => new ArrayBuffer(MAX_AVATAR_BYTES + 1),
+    }
+  }
+  await assert.rejects(readAvatar('gho', 'acme', { fetchImpl: huge }), /larger than 256 KB/)
+})
+
+test('the avatar action answers with the picture, not a URL', async () => {
+  forgetAvatars()
+  const answer = await handleRequest({ action: 'avatar' }, {
+    token: async () => 'gho',
+    login: async () => 'acme',
+    avatar: async (token, login) => {
+      assert.equal(token, 'gho')
+      assert.equal(login, 'acme')
+      return { dataUrl: 'data:image/png;base64,AAAA', cached: false }
+    },
+  })
+  assert.equal(answer.ok, true)
+  assert.equal(answer.value.login, 'acme')
+  assert.equal(answer.value.dataUrl, 'data:image/png;base64,AAAA')
 })
 
 test('repos are marked when their clone already exists under the root', async () => {

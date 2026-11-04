@@ -14,11 +14,40 @@ const bundle = read('../lib/client.js')
 const source = read('../client/mcp.js')
 const switches = JSON.parse(read('../client/switches.json'))
 
-test('the page is a settings section with its own id and order', () => {
-  assert.ok(bundle.includes("name: 'settings.section'"))
-  assert.ok(bundle.includes("id: 'mcp-servers'"))
-  assert.ok(bundle.includes("label: () => 'MCP servers'"))
-  assert.ok(bundle.includes('McpServersPage'))
+test('the page is the sidebar panel, not a Settings section', () => {
+  assert.ok(bundle.includes("key: 'mcp-servers'"), 'the sidebar main seat must carry the id')
+  assert.ok(bundle.includes("name: 'sidebar.panellist'"), 'the sidebar row selects the page')
+  assert.ok(bundle.includes('McpServersPage'), 'the page component is in the bundle')
+  // The Settings copy is gone: no settings.section registration names MCP any more.
+  assert.equal(
+    /name: 'settings\.section',[\s\S]{0,240}?id: 'mcp-servers'/.test(bundle),
+    false,
+    'MCP must not be a Settings section',
+  )
+  assert.equal(bundle.includes("label: () => 'MCP servers'"), false, 'the Settings nav label is gone')
+})
+
+test('the manager lists the profile rows the plugin layer mounts', () => {
+  for (const marker of [
+    "action: 'profileList'",
+    "action: 'profileToggle'",
+    "'From plugins'",
+    'McpSidebarRow',
+  ]) {
+    assert.ok(bundle.includes(marker), 'the page should carry ' + marker)
+  }
+})
+
+test('every server wears a mark from the bundled sprite', () => {
+  const icons = read('../client/mcp-icons.js')
+  assert.ok(icons.includes('Simple Icons'), 'the licence note ships with the sprite')
+  assert.ok(icons.includes("'github': { viewBox:"), 'the sprite carries the GitHub mark')
+  assert.ok(icons.includes('export function mcpIconName'), 'a name mapping exists')
+  for (const marker of ['MCP_ICON_SVG', 'data-polish-mcp-icon', 'McpIconTile', 'mcpIconName(']) {
+    assert.ok(bundle.includes(marker), 'the bundle should carry ' + marker)
+  }
+  // A fallback glyph, so an unknown server is never given someone else's logo.
+  assert.ok(icons.includes("return 'mcp'"), 'unknown servers fall back to the generic mark')
 })
 
 test('the page talks to one host route', () => {

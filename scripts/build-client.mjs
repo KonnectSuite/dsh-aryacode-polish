@@ -34,6 +34,7 @@ const memory = readFileSync(new URL('client/memory.js', root), 'utf8')
 const hooks = readFileSync(new URL('client/hooks.js', root), 'utf8')
 const engineering = readFileSync(new URL('client/engineering.js', root), 'utf8')
 const mcp = readFileSync(new URL('client/mcp.js', root), 'utf8')
+const mcpIcons = readFileSync(new URL('client/mcp-icons.js', root), 'utf8')
 const aryasearch = readFileSync(new URL('client/aryasearch.js', root), 'utf8')
 const preview = readFileSync(new URL('client/preview.js', root), 'utf8')
 const face = readFileSync(new URL('client/face.js', root), 'utf8')
@@ -99,6 +100,8 @@ ${indent(memory.trimEnd())}
 ${indent(hooks.trimEnd())}
 
 ${indent(engineering.trimEnd())}
+
+${indent(mcpIcons.trimEnd().replace(/^export /gm, ''))}
 
 ${indent(mcp.trimEnd())}
 

@@ -46,22 +46,23 @@ Configure page automatically.
 | **Arya Automation Engineer preset** | moved | No longer ships here: the preset now lives in `@aryacode/dsh-engineering` and is documented in that repository. Install that bundle to get it. (was: and an **Engineering** tab. The preset carries the five-step engineering contract (read before writing, act in a copy, verify with the vendor engine, name the human steps) and engineering-tuned compaction; the tab folds a session's tool calls into those five steps. See [Arya Automation Engineer](docs/arya-automation-engineer.md). |
 | **Cross-session memory** (`memory`) | On | Keeps short notes across sessions in `polish/memory.json` and quotes them into the system prompt as recalled context, never as instructions. **Settings → Memory** adds, filters and forgets them. See [Memory](docs/memory.md). |
 | **Lifecycle hooks** (`hooks`) | On | Runs a command when a turn stops, a session errors, or a checkpoint lands. Rules live in `polish/hooks.json`; dispatch is observational with a bounded in-memory log at **Settings → Hooks**. See [Hooks](docs/hooks.md). |
-| **MCP servers** (`mcpManager`) | On | Adds **Settings → MCP servers**: a live list of Model Context Protocol servers with health, tools, a bundled catalog, GitHub search, a paste importer and a manual form. Servers mount through the harness's own `dsh-mcp-client`, so their tools appear as `mcp__name__tool`. See [MCP servers](docs/mcp-servers.md). |
+| **MCP servers** (`mcpManager`) | On | Adds **MCP** to the sidebar: the whole Model Context Protocol manager — a live list with health, tools and icons, a detail view, a bundled catalog, GitHub search, a paste importer and a manual form. Servers mount through the harness's own `dsh-mcp-client`, so their tools appear as `mcp__name__tool`. See [MCP servers](docs/mcp-servers.md). |
 | **AryaSearch provider** (`aryaSearch`) | On | Adds **Plugins -> AryaSearch**: registers your own SearXNG instance as a `ctx.web` search provider and, in Automatic mode, pins `web.searchProvider` to it while DeepSeek has no API key - so the built-in `web_search` tool keeps being offered on a local model. See [AryaSearch](docs/aryasearch.md). |
 
 ### MCP servers
 
-**Settings → MCP servers** is a working manager, not a read-only list: it adds,
+**MCP** in the sidebar is a working manager, not a read-only list: it adds,
 tests, edits, disables and removes Model Context Protocol servers without a
-restart, and shows the state of each one plus the tools it contributes.
+restart, and shows the state of each one, the tools it contributes and its mark.
+Servers another patch layer mounts (a plugin's own server) are listed beside it
+and switched the same way.
 
 ![The MCP servers page](docs/mcp/mcp-01-overview.png)
 
-**Quick start.** Settings (the account row in the sidebar foot) → **MCP servers**
-→ **+ Add server** → pick the catalog entry named *Memory* → tick the box that
-lets the command run → **Test** (it reports `Connected in 7.3s - 9 tools
-discovered.`) → **Add server**. The next chat turn can call
-`mcp__memory__create_entities`.
+**Quick start.** Sidebar → **MCP** → **Add server** → pick the catalog entry
+named *Memory* → tick the box that lets the command run → **Test** (it reports
+`Connected in 7.3s - 9 tools discovered.`) → **Add server**. The next chat turn
+can call `mcp__memory__create_entities`.
 
 ![The catalog tab](docs/mcp/mcp-02-catalog.png)
 

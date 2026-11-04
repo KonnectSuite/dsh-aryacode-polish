@@ -411,12 +411,85 @@ export async function signOutAll(logins, run = runCommand) {
  * @returns the login name.
  */
 export async function fetchLogin(token, fetchImpl = fetch) {
+  const profile = await fetchProfile(token, fetchImpl)
+  return profile.login
+}
+
+/**
+ * The signed-in account's identity: login and profile picture URL.
+ *
+ * One request to `/user` answers both; the picture is only a URL here, because
+ * the webview must not be the thing that talks to a third-party host.
+ *
+ * @param token - GitHub access token.
+ * @param fetchImpl - HTTP implementation.
+ * @returns the login and its avatar URL (empty when GitHub omits one).
+ */
+export async function fetchProfile(token, fetchImpl = fetch) {
   const response = await fetchImpl('https://api.github.com/user', { headers: githubHeaders(token) })
   if (!response.ok) throw new Error(`GitHub sign-in check failed (${String(response.status)})`)
   const body = await response.json()
   const login = body?.login
   if (typeof login !== 'string' || login === '') throw new Error('GitHub did not return a login')
-  return login
+  const avatarUrl = typeof body?.avatar_url === 'string' ? body.avatar_url : ''
+  return { login, avatarUrl }
+}
+
+/** The largest profile picture this route will hand the browser, as a data URL. */
+export const MAX_AVATAR_BYTES = 256 * 1024
+
+/** How long one login's picture is reused before the Host asks again. */
+const AVATAR_TTL_MS = 24 * 60 * 60 * 1000
+
+/** Pictures already read, keyed by login. Bounded by the small number of accounts. */
+const avatarCache = new Map()
+
+/** Drop cached pictures; the tests use this to keep runs independent. */
+export function forgetAvatars() {
+  avatarCache.clear()
+}
+
+/**
+ * Read one profile picture as a data URL the webview can render offline.
+ *
+ * The URL must be GitHub's avatar host and https: the client hands this route a
+ * login, never a URL, but the redirect target comes from GitHub's own answer, so
+ * a host that ever changed it still cannot make this route fetch elsewhere.
+ *
+ * @param token - GitHub access token.
+ * @param login - signed-in login, used as the cache key.
+ * @param options - injected HTTP implementation, clock and size cap.
+ * @returns `{ dataUrl, cached }`, or throws with the reason.
+ */
+export async function readAvatar(token, login, options = {}) {
+  const now = options.now ?? Date.now()
+  const fetchImpl = options.fetchImpl ?? fetch
+  const cached = avatarCache.get(login)
+  if (cached !== undefined && now - cached.at < AVATAR_TTL_MS) {
+    return { dataUrl: cached.dataUrl, cached: true }
+  }
+  const profile = await fetchProfile(token, fetchImpl)
+  const url = profile.avatarUrl
+  if (url === '') throw new Error('GitHub did not return a profile picture for this account')
+  let target
+  try {
+    target = new URL(url)
+  } catch {
+    throw new Error('GitHub returned a profile picture URL this Host cannot read')
+  }
+  if (target.protocol !== 'https:' || target.hostname !== 'avatars.githubusercontent.com') {
+    throw new Error('GitHub returned a profile picture on a host this Host does not read')
+  }
+  const response = await fetchImpl(target.href, { headers: { accept: 'image/*' } })
+  if (!response.ok) throw new Error(`GitHub refused the profile picture (${String(response.status)})`)
+  const limit = options.maxBytes ?? MAX_AVATAR_BYTES
+  const bytes = Buffer.from(await response.arrayBuffer())
+  if (bytes.byteLength > limit) throw new Error('the profile picture is larger than 256 KB')
+  const type = (response.headers.get('content-type') ?? '').split(';')[0].trim()
+  if (type.startsWith('image/') === false) throw new Error('GitHub answered with something that is not an image')
+  const dataUrl = `data:${type};base64,${bytes.toString('base64')}`
+  avatarCache.set(login, { dataUrl, at: now })
+  return { dataUrl, cached: false }
 }
 
 /**
@@ -583,8 +656,16 @@ export async function handleRequest(body, deps = {}) {
         },
       }
     }
-    const login = await (deps.login ?? fetchLogin)(token)
-    return { ok: true, value: { signedIn: true, installed: true, login, accounts, root: cloneRoot(deps.home), reason: '' } }
+    let login
+    let avatarUrl = ''
+    if (typeof deps.profile === 'function') {
+      const profile = await deps.profile(token)
+      login = profile.login
+      avatarUrl = profile.avatarUrl
+    } else {
+      login = await (deps.login ?? fetchLogin)(token)
+    }
+    return { ok: true, value: { signedIn: true, installed: true, login, avatarUrl, accounts, root: cloneRoot(deps.home), reason: '' } }
   }
   if (token === undefined) {
     return { ok: false, error: 'Sign in to GitHub first: use Sign in here, run `gh auth login` in a terminal, or install the GitHub CLI from this dialog.' }
@@ -598,6 +679,11 @@ export async function handleRequest(body, deps = {}) {
     const after = await (deps.token ?? ghToken)().catch(() => undefined)
     const remaining = after === undefined ? '' : await (deps.login ?? fetchLogin)(after).catch(() => '')
     return { ok: true, value: { login, remaining } }
+  }
+  if (action === 'avatar') {
+    const login = await (deps.login ?? fetchLogin)(token)
+    const avatar = await (deps.avatar ?? readAvatar)(token, login)
+    return { ok: true, value: { login, dataUrl: avatar.dataUrl } }
   }
   if (action === 'repos') {
     const repos = await (deps.repos ?? fetchRepos)(token)

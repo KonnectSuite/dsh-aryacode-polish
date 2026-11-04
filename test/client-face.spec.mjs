@@ -362,8 +362,7 @@ test('the foot stacks instead of competing for the row', () => {
   // `sidebar.footer.action` is one flex ROW shared with every installed plugin, so
   // a crowded foot is a width contest: our status text once crushed a
   // remote-access plugin's button down to `Rem…`. Polish turns the row into a
-  // column while its entries are mounted — one line each — and restores it when
-  // the last one goes.
+  // column while its entry is mounted and restores it when it goes.
   for (const marker of [
     'const footerStack = { claims: 0, restore: undefined }',
     "rowStyle.flexDirection = 'column'",
@@ -371,20 +370,64 @@ test('the foot stacks instead of competing for the row', () => {
     "display === 'contents'",
     'const FOOT_ENTRY = {',
     "width: '100%'",
-    'const FOOT_LABEL = {',
   ]) {
     assert.ok(faceSource.includes(marker), 'the face should carry ' + marker)
   }
-  // Either entry alone is enough to stack the foot, and two of them release it once.
   assert.equal(
     (faceSource.match(/claimFooterRow\(root\.current\)/g) || []).length,
-    2,
-    'both footer seats claim the stack',
+    1,
+    'the GitHub identity is the one footer seat',
   )
-  // A line of its own has room for the word, so the amount says what it is again.
-  assert.ok(faceSource.includes("}, money + ' left')"), 'the balance line spells out the amount')
-  assert.ok(faceSource.includes("title: 'Remaining account balance'"), 'the tooltip still names the balance')
-  for (const marker of ['footerStack', 'claimFooterRow', 'flexDirection', 'FOOT_LABEL']) {
+  for (const marker of ['footerStack', 'claimFooterRow', 'flexDirection']) {
+    assert.ok(bundle.includes(marker), 'the bundle should carry ' + marker)
+  }
+})
+
+test('the GitHub row is an identity peer of the account row, with its picture', () => {
+  // Same metrics as `ui-settings-account`'s trigger: 44px row, 24px picture,
+  // 14px label. The picture comes from the Host as a data URL, so the webview
+  // never asks a third-party host for it.
+  for (const marker of [
+    'const IDENTITY_ROW = {',
+    "height: '44px'",
+    "width: '24px'",
+    "fontSize: '14px'",
+    "'data-polish-github-avatar': 'photo'",
+    "githubCall('avatar')",
+  ]) {
+    assert.ok(faceSource.includes(marker), 'the face should carry ' + marker)
+  }
+  assert.ok(!faceSource.includes("`GitHub · ${String(current.login)}`"), 'the signed-in label is the login, like the account row')
+  for (const marker of ['data-polish-github-avatar', "githubCall('avatar')"]) {
+    assert.ok(bundle.includes(marker), 'the bundle should carry ' + marker)
+  }
+  const githubHost = read('entries/github.js')
+  for (const marker of ["action === 'avatar'", 'readAvatar', 'avatars.githubusercontent.com', 'MAX_AVATAR_BYTES']) {
+    assert.ok(githubHost.includes(marker), 'the GitHub host half should carry ' + marker)
+  }
+})
+
+test('the balance sits at the right end of the DeepSeek row', () => {
+  // The row is the Shell's and offers no seat, so the pill is portalled into the
+  // settings row itself — located by the Shell's own `data-slot`, never by a
+  // CSS-module class name.
+  for (const marker of [
+    'function accountRow()',
+    '[data-slot="sidebar.settings"]',
+    "'data-polish-balance-slot'",
+    "title: 'DeepSeek API balance'",
+    "'data-polish-balance': 'ready'",
+  ]) {
+    assert.ok(faceSource.includes(marker), 'the face should carry ' + marker)
+  }
+  assert.equal(
+    /name: 'sidebar\.footer\.action',[\s\S]{0,240}?id: 'polish-balance'/.test(faceSource),
+    false,
+    'the balance no longer takes a footer line',
+  )
+  assert.ok(faceSource.includes("name: 'shell.overlay'"), 'the pill rides the frame overlay')
+  assert.equal(/\.[A-Za-z]+Row|triggerRow/.test(faceSource), false, 'the row is found structurally, not by class name')
+  for (const marker of ['data-polish-balance-slot', 'DeepSeek API balance', 'sidebar.settings']) {
     assert.ok(bundle.includes(marker), 'the bundle should carry ' + marker)
   }
 })

@@ -582,23 +582,99 @@ const FOOT_LABEL = {
   whiteSpace: 'nowrap',
 }
 
+/**
+ * The account row's metrics, copied from `ui-settings-account`'s trigger: a
+ * 44 px row, a 24 px picture and a 14 px label. Our identity row is read directly
+ * above the DeepSeek row, so it has to be the same size, weight and font as that
+ * row or the foot reads as two unrelated things.
+ */
+const IDENTITY_ROW = {
+  display: 'flex',
+  alignItems: 'center',
+  gap: '8px',
+  boxSizing: 'border-box',
+  width: '100%',
+  height: '44px',
+  padding: '6px',
+  border: 'none',
+  borderRadius: 'var(--dsw-radius-md, 8px)',
+  background: 'transparent',
+  color: 'var(--dsw-alias-label-primary, #1f2328)',
+  font: 'inherit',
+  fontSize: '14px',
+  lineHeight: '20px',
+  textAlign: 'left',
+  cursor: 'pointer',
+}
+
+/** The 24 px round picture the account row wears. */
+const IDENTITY_AVATAR = {
+  flex: 'none',
+  width: '24px',
+  height: '24px',
+  borderRadius: '50%',
+  objectFit: 'cover',
+  display: 'block',
+}
+
+/** What stands in for the picture: the login's initial, on the shell's skeleton surface. */
+const IDENTITY_AVATAR_FALLBACK = {
+  ...IDENTITY_AVATAR,
+  display: 'flex',
+  alignItems: 'center',
+  justifyContent: 'center',
+  background: 'var(--dsw-alias-bg-skeleton, rgba(0,0,0,0.06))',
+  color: 'var(--dsw-alias-label-tertiary, #7a7f85)',
+  fontSize: '11px',
+  fontWeight: '600',
+  lineHeight: '1',
+}
+
+/** The name that follows the picture, truncated like the account row's own label. */
+const IDENTITY_LABEL = {
+  flex: '1 1 auto',
+  minWidth: 0,
+  overflow: 'hidden',
+  textOverflow: 'ellipsis',
+  whiteSpace: 'nowrap',
+}
+
 
 /**
- * The remaining-balance line in the sidebar foot.
+ * The DeepSeek account row, as the Shell renders it.
  *
- * It renders nothing at all when the switch is off, the account exposes no
- * wallet, or the read was refused — an empty line is better than a line that
- * claims a number the Host did not give us.
+ * `settings.launcher` is a single seat already occupied by the account menu, so
+ * there is no slot to put the amount in. The row itself is reachable without a
+ * CSS-module class: the settings seat wrapper is the Shell's own `data-slot`
+ * attribute, and its first element child is that row.
  *
- * @param props - the slot's `wide` flag, our lazy `configForms`, and the balance reader.
- * @returns the balance line, or null.
+ * @returns the row element, or null when the Shell has not rendered it.
  */
-function BalanceLine(props) {
+function accountRow() {
+  if (typeof document === 'undefined') return null
+  const seat = document.querySelector('[data-slot="sidebar.settings"]')
+  const row = seat === null ? null : seat.firstElementChild
+  return row instanceof HTMLElement ? row : null
+}
+
+/**
+ * The remaining balance, beside the account it belongs to.
+ *
+ * It renders nothing when the switch is off, the Host exposes no wallet, the read
+ * was refused, or the account row cannot be found — an empty pill is better than a
+ * number the Host did not give us, and a missing row must not fall back to a second
+ * copy in the foot. The pill is portalled into the row and re-attached if React
+ * re-renders it away; when the sidebar is collapsed the row is too narrow to hold
+ * it, so it stays out of the way.
+ *
+ * @param props - our lazy `configForms` and the balance reader.
+ * @returns the portalled pill, or null.
+ */
+function BalancePill(props) {
   const enabled = useSwitch(props.configForms, 'accountBalance', true)
   const [wallet, setWallet] = React.useState(undefined)
-  const root = React.useRef(null)
+  const [host, setHost] = React.useState(null)
   const read = props.loadBalance
-  React.useEffect(() => claimFooterRow(root.current), [])
   React.useEffect(() => {
     if (!enabled || typeof read !== 'function') return undefined
     let live = true
@@ -641,34 +717,72 @@ function BalanceLine(props) {
       if (typeof window !== 'undefined') window.removeEventListener('focus', onFocus)
     }
   }, [enabled, read])
-  if (!enabled) return null
-  // The wrapper stays in the DOM even when there is no number to show, so a
-  // reader (and the verification script) can tell "registered but empty" from
-  // "not registered at all". An empty flex line costs the layout nothing.
-  if (wallet === undefined) {
-    return React.createElement('div', { ref: root, 'data-polish-balance': 'empty', style: { display: 'none' } })
-  }
+  React.useEffect(() => {
+    if (!enabled || typeof document === 'undefined') {
+      setHost(null)
+      return undefined
+    }
+    const slot = document.createElement('span')
+    slot.setAttribute('data-polish-balance-slot', '')
+    slot.style.cssText = 'display:flex;align-items:center;flex:none;margin-left:4px'
+    let frame = 0
+    const settle = () => {
+      frame = 0
+      const row = accountRow()
+      // 160px is the narrowest wide row that can hold the account name and an
+      // amount; the 36px rail is deliberately excluded.
+      if (row === null || row.getBoundingClientRect().width < 160) {
+        if (slot.parentElement !== null) slot.remove()
+        setHost(current => (current === null ? current : null))
+        return
+      }
+      if (slot.parentElement !== row) {
+        row.appendChild(slot)
+        setHost(slot)
+      }
+    }
+    const schedule = () => {
+      if (frame !== 0) return
+      frame = typeof window === 'undefined' ? 0 : window.requestAnimationFrame(settle)
+      if (frame === 0) settle()
+    }
+    settle()
+    // The settings area is the only subtree that can replace the row; body-level
+    // child changes catch a whole sidebar remount without watching every chat token.
+    const area = document.querySelector('[data-slot="sidebar.settings"]')?.parentElement ?? document.body
+    const observer = new MutationObserver(schedule)
+    observer.observe(area, { childList: true, subtree: true })
+    observer.observe(document.body, { childList: true })
+    window.addEventListener('resize', schedule)
+    return () => {
+      if (frame !== 0) window.cancelAnimationFrame(frame)
+      observer.disconnect()
+      window.removeEventListener('resize', schedule)
+      slot.remove()
+      setHost(null)
+    }
+  }, [enabled])
+  if (!enabled || host === null || wallet === undefined) return null
   const money = formatBalance(wallet)
-  // "left" is the one word that makes a bare amount mean something, and the stacked
-  // foot has a whole line for it: the word no longer competes with a neighbour's
-  // button for the row's width.
-  return React.createElement('div', {
-    ref: root,
-    title: 'Remaining account balance',
-    'data-polish-balance': 'ready',
-    style: {
-      display: 'flex',
-      alignItems: 'center',
-      // The line sits under the GitHub status and carries the same 12px tertiary
-      // weight, so the foot reads as one status column.
-      padding: '2px 8px',
-      fontSize: '12px',
-      lineHeight: '18px',
-      ...FOOT_ENTRY,
-      color: 'var(--dsw-alias-label-tertiary, inherit)',
-      fontVariantNumeric: 'tabular-nums',
-    },
-  }, money + ' left')
+  return ReactDOM.createPortal(
+    React.createElement('span', {
+      title: 'DeepSeek API balance',
+      'aria-label': money + ' of DeepSeek API credit remaining',
+      'data-polish-balance': 'ready',
+      style: {
+        display: 'inline-flex',
+        alignItems: 'center',
+        flex: 'none',
+        padding: '2px 6px',
+        borderRadius: 'var(--dsw-radius-sm, 6px)',
+        color: 'var(--dsw-alias-label-tertiary, #7a7f85)',
+        fontSize: '12px',
+        lineHeight: '18px',
+        whiteSpace: 'nowrap',
+        fontVariantNumeric: 'tabular-nums',
+      },
+    }, money),
+    host)
 }
 
 /**
@@ -1340,10 +1454,13 @@ const FOOT_ROW_STYLE = {
 }
 
 /**
- * The footer status line: which GitHub session the "+" menu will clone with.
+ * The identity row: which GitHub account the "+" menu will clone with.
  *
- * It reads the same `status` action the dialog does, so it costs one request
- * when the Shell loads and one whenever the window regains focus.
+ * It is a peer of the account row above it, not a footnote — 24 px picture, 14 px
+ * label, 44 px row, the account row's own metrics (`ui-settings-account`), so two
+ * identities in the foot read as one column. It reads the same `status` action the
+ * dialog does, and asks the Host for the picture as a data URL so the webview never
+ * talks to a third-party host.
  *
  * @param props - our lazy `configForms`.
  * @returns the row, or null when the feature is switched off.
@@ -1354,6 +1471,7 @@ function GithubStatus(props) {
   // in this line immediately instead of waiting for the next window focus.
   const shared = React.useSyncExternalStore(githubStatusStore.subscribe, githubStatusStore.get)
   const [status, setStatus] = React.useState(undefined)
+  const [avatar, setAvatar] = React.useState('')
   const root = React.useRef(null)
   React.useEffect(() => claimFooterRow(root.current), [])
   React.useEffect(() => {
@@ -1377,35 +1495,71 @@ function GithubStatus(props) {
       window.removeEventListener('focus', onFocus)
     }
   }, [enabled])
-  if (!enabled) return null
   const current = shared === undefined ? status : shared
   const signedIn = current !== undefined && current.signedIn === true
+  const login = signedIn ? String(current.login ?? '') : ''
+  // One picture request per account; a refusal costs the picture, not the row.
+  React.useEffect(() => {
+    if (!enabled || !signedIn) {
+      setAvatar('')
+      return undefined
+    }
+    let live = true
+    Promise.resolve()
+      .then(() => githubCall('avatar'))
+      .then(answer => { if (live && typeof answer?.dataUrl === 'string') setAvatar(answer.dataUrl) })
+      .catch(() => { if (live) setAvatar('') })
+    return () => { live = false }
+  }, [enabled, signedIn, login])
+  if (!enabled) return null
   const cliMissing = current !== undefined && current.installed === false
   const label = current === undefined
     ? 'GitHub · checking…'
-    : signedIn ? `GitHub · ${String(current.login)}` : cliMissing ? 'GitHub · no CLI' : 'GitHub · signed out'
+    : signedIn ? login : cliMissing ? 'GitHub · no CLI' : 'GitHub · signed out'
+  const tip = signedIn
+    ? 'Add a workspace from GitHub'
+    : cliMissing
+      ? 'Install the GitHub CLI (winget install GitHub.cli), sign in, then add a repository as a workspace'
+      : 'Sign in with the GitHub CLI (gh auth login), then add a repository as a workspace'
   return React.createElement('div', {
     ref: root,
     style: { ...FOOT_ENTRY, display: 'flex', alignItems: 'center' },
   },
-    React.createElement('button', {
-      type: 'button',
-      'data-polish-github': 'status',
-      'data-polish-github-state': signedIn ? 'in' : current === undefined ? 'checking' : cliMissing ? 'missing' : 'out',
-      title: signedIn
-        ? 'Add a workspace from GitHub'
-        : cliMissing
-          ? 'Install the GitHub CLI (winget install GitHub.cli), sign in, then add a repository as a workspace'
-          : 'Sign in with the GitHub CLI (gh auth login), then add a repository as a workspace',
-      'aria-label': label,
-      onClick: () => githubStore.open(),
-      // The sign-in state is a status line of its own now; the label only truncates
-      // when the sidebar itself is narrower than the text.
-      style: { ...FOOT_ROW_STYLE, flex: '0 1 auto', minWidth: 0 },
-      onMouseEnter: event => { event.currentTarget.style.background = 'var(--dsw-alias-interactive-bg-hover, rgba(0,0,0,0.06))' },
-      onMouseLeave: event => { event.currentTarget.style.background = 'transparent' },
-    },
-    React.createElement('span', { style: FOOT_LABEL }, label)))
+  React.createElement('button', {
+    type: 'button',
+    'data-polish-github': 'status',
+    'data-polish-github-state': signedIn ? 'in' : current === undefined ? 'checking' : cliMissing ? 'missing' : 'out',
+    title: tip,
+    'aria-label': label,
+    onClick: () => githubStore.open(),
+    style: IDENTITY_ROW,
+    onMouseEnter: event => { event.currentTarget.style.background = 'var(--dsw-alias-interactive-bg-hover, rgba(0,0,0,0.06))' },
+    onMouseLeave: event => { event.currentTarget.style.background = 'transparent' },
+  },
+  signedIn && avatar !== ''
+    ? React.createElement('img', {
+      src: avatar,
+      alt: '',
+      'data-polish-github-avatar': 'photo',
+      referrerPolicy: 'no-referrer',
+      style: IDENTITY_AVATAR,
+    })
+    : React.createElement('span', {
+      'data-polish-github-avatar': signedIn ? 'initial' : 'glyph',
+      'aria-hidden': true,
+      style: IDENTITY_AVATAR_FALLBACK,
+    }, signedIn && login !== '' ? login.slice(0, 1).toUpperCase() : PersonGlyph()),
+  React.createElement('span', { style: IDENTITY_LABEL }, label)))
+}
+
+/** The signed-out stand-in: a small person mark, drawn, so it needs no asset. */
+function PersonGlyph() {
+  return React.createElement('svg', {
+    viewBox: '0 0 16 16', width: 14, height: 14, fill: 'none', stroke: 'currentColor',
+    strokeWidth: 1.3, strokeLinecap: 'round', strokeLinejoin: 'round', 'aria-hidden': true,
+  },
+  React.createElement('circle', { cx: 8, cy: 5.4, r: 2.6 }),
+  React.createElement('path', { d: 'M3.4 13.2a4.8 4.8 0 0 1 9.2 0' }))
 }
 
 /** One row of the add-workspace source menu. */
@@ -2318,16 +2472,18 @@ return {
       inject: () => ({ configForms }),
     }, InlinePreviewTail))
     // The account Remote namespace is optional: a Shell with no account still gets
-    // the Configure page and the cost pill, and only loses the balance line.
+    // the Configure page and the cost pill, and only loses the balance.
     ctx.inject(['remote', 'remote.account'], (accountCtx) => {
       const loadBalance = () => readBalance(accountCtx, CLIENT_VERSION)
-      accountCtx.slots.inject('sidebar.footer.action', () => accountCtx.slots.register({
-        name: 'sidebar.footer.action',
+      // The amount belongs beside the DeepSeek identity it describes, so the pill
+      // lives in the frame overlay and portals itself into the account row; a Shell
+      // whose row cannot be found simply shows no amount.
+      accountCtx.slots.inject('shell.overlay', () => accountCtx.slots.register({
+        name: 'shell.overlay',
         id: 'polish-balance',
-        // After the status chip, so the amount lands on the right-hand edge.
-        order: 5,
+        order: 30,
         inject: () => ({ configForms, loadBalance }),
-      }, BalanceLine))
+      }, BalancePill))
     })
     // The Workspace service and the Session Remote are both required for the menu
     // row: it reads the folder from the first and opens it through the second.
@@ -2426,23 +2582,15 @@ return {
       label: () => 'AryaSearch',
       inject: () => ({}),
     }, AryaSearchCard))
-    // The MCP page reads and writes through one host route; like the preset page
-    // it stays registered while the switch is off so its own explanation shows.
-    ctx.slots.inject('settings.section', () => ctx.slots.register({
-      name: 'settings.section',
-      id: 'mcp-servers',
-      order: 50,
-      label: () => 'MCP servers',
-      inject: () => ({}),
-    }, McpServersPage))
-    // The same servers as a sidebar panel, because a model's tool list is decided
-    // per turn: switching one off is a navigation-time action, not a settings
-    // errand. The entry and its main panel share one id, so the row selects it.
+    // MCP lives in the sidebar, not in Settings: a model's tool list is decided
+    // per turn, so adding, editing and switching a server is navigation-time work
+    // rather than an errand into a dialog. The entry and its page share one id, so
+    // the row selects it, and the page is the whole manager — list, detail, catalog.
     ctx.slots.inject('main', () => ctx.slots.register({
       name: 'main',
       key: 'mcp-servers',
       inject: () => ({}),
-    }, McpSidebarPanel))
+    }, McpServersPage))
     ctx.slots.inject('sidebar.panellist', () => ctx.slots.register({
       name: 'sidebar.panellist',
       id: 'mcp-servers',

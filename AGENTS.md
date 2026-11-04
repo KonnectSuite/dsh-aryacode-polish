@@ -32,4 +32,12 @@ this repo. `docs/releasing.md` is the full runbook.
    gets a line. A horizontal foot meant a width contest, and our status text
    crushed a remote-access plugin's button to `Rem…`. `test/client-face.spec.mjs`
    pins the stack.
+9. **Design before you draw.** Every new or edited surface follows `docs/gui.md`:
+   DSH tokens only (never a literal colour), the 8 px spacing grid, the 12/13/14
+   type hierarchy, explicit hover/press/disabled/focus-visible states, empty,
+   loading and error states for every list, and keyboard reachability. Management
+   surfaces (the MCP page, the settings pages) follow AryaInfer's density;
+   sidebar chrome copies the Shell's own row metrics — the GitHub row is
+   44 px / 24 px picture / 14 px label because `ui-settings-account` is, not
+   because it looked nice. Verify with a rendered screenshot before shipping.
 

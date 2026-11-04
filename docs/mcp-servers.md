@@ -1,8 +1,9 @@
 # MCP servers
 
-Settings -> **MCP servers** manages the Model Context Protocol servers AryaCode
+**MCP** in the sidebar manages the Model Context Protocol servers AryaCode
 connects to. It is the `mcpManager` feature of this bundle, on by default, and it
-is the only place a server needs to be added: no YAML, no restart.
+is the only place a server needs to be added: no YAML, no restart. The page also
+lists servers another patch layer mounts, with the same switch.
 
 ![The MCP servers page](mcp/mcp-01-overview.png)
 
@@ -12,9 +13,8 @@ the buttons under it act on the live fiber.
 
 ## Quick start
 
-1. **Open the page.** Settings (the account row in the sidebar foot) -> **MCP
-   servers**.
-2. **Pick a server.** Press **+ Add server** and choose a tab: the bundled
+1. **Open the page.** The **MCP** row in the sidebar.
+2. **Pick a server.** Press **Add server** and choose a tab: the bundled
    catalog, a GitHub search, a paste box, or the manual form.
 3. **Test, then Add.** The form's **Test** button mounts the draft in a throwaway
    fiber and reports how many tools arrived. **Add server** saves the entry and

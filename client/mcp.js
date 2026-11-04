@@ -233,6 +233,24 @@ function McpMapEditor(props) {
 }
 
 /** One server card. */
+/** A server's mark on a small tile: the same 28px shape the catalog and the list wear. */
+function McpIconTile(props) {
+  const size = typeof props?.size === 'number' ? props.size : 28
+  return mcpEl('span', {
+    style: {
+      width: String(size) + 'px',
+      height: String(size) + 'px',
+      flex: 'none',
+      display: 'grid',
+      placeItems: 'center',
+      borderRadius: '8px',
+      color: MCP_THEME.text,
+      background: mcpTint(MCP_THEME.brand, 8),
+      border: '1px solid ' + mcpTint(MCP_THEME.brand, 20),
+    },
+  }, McpIcon({ name: props.name, size: Math.round(size * 0.58) }))
+}
+
 function McpCard(props) {
   const server = props.server
   const external = server.status === 'external'
@@ -248,11 +266,13 @@ function McpCard(props) {
     },
   },
   mcpEl('div', { style: { display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '10px' } },
-    mcpEl('div', { style: { minWidth: 0 } },
-      mcpEl('div', { style: { display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' } },
-        mcpEl('strong', { style: { fontSize: '14px', color: MCP_THEME.text, letterSpacing: '-0.01em' } }, server.label || server.serverName),
-        McpChip(server.transport === 'streamable-http' ? MCP_THEME.brand : MCP_THEME.muted, server.transport === 'streamable-http' ? 'http' : server.transport === 'external' ? 'plugin' : 'stdio')),
-      mcpEl('div', { style: { ...MCP_MUTED, fontSize: '11px', fontFamily: MCP_FONT_MONO, marginTop: '3px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' } }, server.summary || server.serverName)),
+    mcpEl('div', { style: { display: 'flex', alignItems: 'flex-start', gap: '10px', minWidth: 0 } },
+      McpIconTile({ name: mcpIconName(undefined, server.label || server.serverName) }),
+      mcpEl('div', { style: { minWidth: 0 } },
+        mcpEl('div', { style: { display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' } },
+          mcpEl('strong', { style: { fontSize: '14px', color: MCP_THEME.text, letterSpacing: '-0.01em' } }, server.label || server.serverName),
+          McpChip(server.transport === 'streamable-http' ? MCP_THEME.brand : MCP_THEME.muted, server.transport === 'streamable-http' ? 'http' : server.transport === 'external' ? 'plugin' : 'stdio')),
+        mcpEl('div', { style: { ...MCP_MUTED, fontSize: '11px', fontFamily: MCP_FONT_MONO, marginTop: '3px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' } }, server.summary || server.serverName))),
     McpStatus({ status: server.status })),
   server.error === '' || server.error === undefined ? null : mcpEl('div', {
     style: { fontSize: '11.5px', color: MCP_THEME.bad, background: mcpTint(MCP_THEME.bad, 8), border: '1px solid ' + mcpTint(MCP_THEME.bad, 25), borderRadius: '8px', padding: '7px 9px', wordBreak: 'break-word' },
@@ -387,6 +407,7 @@ function McpSheet(props) {
             style: { ...MCP_CARD, textAlign: 'left', cursor: 'pointer', display: 'flex', flexDirection: 'column', gap: '6px' },
           },
           mcpEl('div', { style: { display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' } },
+            McpIconTile({ name: mcpIconName(entry.id, entry.name), size: 24 }),
             mcpEl('strong', { style: { fontSize: '13px', color: MCP_THEME.text } }, entry.name),
             McpChip(MCP_THEME.muted, entry.transport === 'streamable-http' ? 'http' : 'stdio')),
           mcpEl('span', { style: { ...MCP_MUTED, fontSize: '11.5px' } }, entry.description),
@@ -726,6 +747,11 @@ function McpServersPage(props) {
   const [toast, setToast] = React.useState('')
   const [confirming, setConfirming] = React.useState(null)
   const [exported, setExported] = React.useState('')
+  // Rows another patch layer inserted (`comfy`, the computer-use server) are
+  // mounted by the profile, not by this store, so they are listed and switched
+  // through the plugin manager instead.
+  const [profile, setProfile] = React.useState({ servers: [] })
+  const [busyProfile, setBusyProfile] = React.useState('')
 
   const notify = message => {
     setToast(message)
@@ -733,7 +759,8 @@ function McpServersPage(props) {
   }
 
   const load = React.useCallback(async () => {
-    const answer = await mcpPost({ action: 'list' })
+    const [answer, profileAnswer] = await Promise.all([mcpPost({ action: 'list' }), mcpPost({ action: 'profileList' })])
+    setProfile({ servers: Array.isArray(profileAnswer.servers) ? profileAnswer.servers : [] })
     if (answer.ok === false) {
       setError(answer.error ?? 'The host did not answer.')
       setLoading(false)
@@ -774,6 +801,20 @@ function McpServersPage(props) {
     if (message !== undefined) notify(message)
     await load()
     return answer
+  }
+
+  const toggleProfile = async server => {
+    const label = server.label || server.serverName
+    setBusyProfile(server.entryId)
+    const answer = await mcpPost({ action: 'profileToggle', entryId: server.entryId, enabled: server.enabled !== true })
+    setBusyProfile('')
+    if (answer.ok === false) {
+      notify(String(answer.error ?? 'The switch failed.'))
+      return
+    }
+    notify('Turned ' + (server.enabled === true ? 'off ' : 'on ') + label
+      + (answer.application === 'restart-required' ? ' — needs a restart' : '') + '.')
+    await load()
   }
 
   const servers = data?.servers ?? []
@@ -838,7 +879,15 @@ function McpServersPage(props) {
     category: 'custom',
   })
 
-  return mcpEl('div', { style: { padding: '4px 2px 24px', maxWidth: '1080px' } },
+  return mcpEl('div', {
+    style: {
+      boxSizing: 'border-box',
+      height: '100%',
+      overflowY: 'auto',
+      padding: 'calc(var(--dsh-frame-top-clearance, 48px) + 14px) 16px 28px',
+      maxWidth: '820px',
+    },
+  },
     mcpEl('div', { style: { display: 'flex', flexDirection: 'column', gap: '10px', marginBottom: '4px' } },
       mcpEl('div', { style: { minWidth: 0 } },
         mcpEl('div', { style: MCP_EYEBROW }, 'AryaCode'),
@@ -866,6 +915,18 @@ function McpServersPage(props) {
     data?.bridge === false ? mcpEl('div', {
       style: { ...MCP_CARD, marginTop: '12px', borderColor: mcpTint(MCP_THEME.warn, 40) },
     }, mcpEl('div', { style: MCP_EYEBROW }, 'Bridge unavailable'), mcpEl('p', { style: MCP_MUTED }, data.bridgeError)) : null,
+
+    // Servers another patch layer mounts are part of the same picture: same page,
+    // same switch, different owner (the plugin manager persists those choices).
+    profile.servers.length === 0 ? null : mcpEl('section', { style: { marginTop: '16px' } },
+      mcpEl('div', { style: MCP_EYEBROW }, 'From plugins'),
+      mcpEl('div', { style: { display: 'flex', flexDirection: 'column', gap: '8px' } },
+        profile.servers.map(server => mcpEl(McpSidebarRow, {
+          key: server.entryId,
+          server,
+          busy: busyProfile === server.entryId,
+          onToggle: () => void toggleProfile(server),
+        })))),
 
     exported === '' ? null : mcpEl('div', { style: { ...MCP_CARD, margin: '2px 0 12px' } },
       mcpEl('div', { style: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px', marginBottom: '8px' } },
@@ -1058,13 +1119,15 @@ function McpSidebarRow(props) {
       background: MCP_THEME.surface,
     },
   },
-  mcpEl('div', { style: { minWidth: 0, flex: '1 1 auto' } },
-    mcpEl('div', { style: { fontSize: '13.5px', fontWeight: 620, color: MCP_THEME.text, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' } },
-      server.label || server.serverName),
-    mcpEl('div', { style: { marginTop: '3px', fontSize: '11px', color: MCP_THEME.muted, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' } },
-      server.origin === 'profile' ? (server.moduleName || 'profile row') : 'managed by Polish',
-      count > 0 ? ' · ' + String(count) + (count === 1 ? ' tool' : ' tools') : '',
-      server.error === undefined || server.error === '' ? '' : ' · ' + server.error)),
+  mcpEl('div', { style: { display: 'flex', alignItems: 'center', gap: '10px', minWidth: 0, flex: '1 1 auto' } },
+    McpIconTile({ name: mcpIconName(undefined, server.label || server.serverName), size: 26 }),
+    mcpEl('div', { style: { minWidth: 0 } },
+      mcpEl('div', { style: { fontSize: '13.5px', fontWeight: 620, color: MCP_THEME.text, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' } },
+        server.label || server.serverName),
+      mcpEl('div', { style: { marginTop: '3px', fontSize: '11px', color: MCP_THEME.muted, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' } },
+        server.origin === 'profile' ? (server.moduleName || 'profile row') : 'managed by Polish',
+        count > 0 ? ' · ' + String(count) + (count === 1 ? ' tool' : ' tools') : '',
+        server.error === undefined || server.error === '' ? '' : ' · ' + server.error))),
   McpSwitch({
     enabled: on,
     busy: props.busy === true,
@@ -1072,87 +1135,4 @@ function McpSidebarRow(props) {
     title: readOnly ? 'This row is managed elsewhere (' + String(server.readOnlyReason) + ').' : on ? 'Turn ' + (server.label || server.serverName) + ' off' : 'Turn ' + (server.label || server.serverName) + ' on',
     onToggle: props.onToggle,
   }))
-}
-
-/**
- * The sidebar panel: every MCP server the profile mounts, with the switch that
- * turns it off for the next turn, without a restart.
- *
- * Two sources answer here. `profileList` reads the rows another patch layer
- * inserted (`comfy`, the computer-use server) and switches them through the
- * plugin manager, which persists the choice and applies it to the running Host.
- * `list` is this plugin's own store, where `toggle` unmounts the bridge fiber.
- *
- * @returns {object} the page.
- */
-function McpSidebarPanel() {
-  const [data, setData] = React.useState({ loading: true, error: '', profile: [], managed: [] })
-  const [busy, setBusy] = React.useState('')
-  const [notice, setNotice] = React.useState('')
-
-  const load = React.useCallback(async () => {
-    const [profile, managed] = await Promise.all([mcpPost({ action: 'profileList' }), mcpPost({ action: 'list' })])
-    const error = profile.ok === false && profile.supported !== false ? String(profile.error ?? '') : managed.ok === false ? String(managed.error ?? '') : ''
-    setData({
-      loading: false,
-      error,
-      profile: Array.isArray(profile.servers) ? profile.servers : [],
-      managed: (Array.isArray(managed.servers) ? managed.servers : []).filter(server => server.builtin !== true),
-    })
-  }, [])
-
-  React.useEffect(() => {
-    void load()
-  }, [load])
-
-  const say = message => {
-    setNotice(message)
-    window.setTimeout(() => setNotice(''), 3200)
-  }
-
-  const act = async (body, label, next) => {
-    setBusy(label)
-    const answer = await mcpPost(body)
-    setBusy('')
-    if (answer.ok === false) {
-      say(String(answer.error ?? 'The switch failed.'))
-      return
-    }
-    say((next ? 'Turned on ' : 'Turned off ') + label + (answer.application === 'restart-required' ? ' — needs a restart' : '') + '.')
-    await load()
-  }
-
-  const rows = [
-    ...data.profile.map(server => ({ server, body: () => ({ action: 'profileToggle', entryId: server.entryId, enabled: server.enabled !== true }) })),
-    ...data.managed.map(server => ({ server, body: () => ({ action: 'toggle', id: server.id, enabled: server.enabled !== true }) })),
-  ]
-
-  const title = mcpEl('div', { style: { padding: '0 0 4px' } },
-    mcpEl('h1', { style: { margin: 0, fontSize: '20px', fontWeight: 680, letterSpacing: '-0.01em', color: MCP_THEME.text } }, 'MCP servers'),
-    mcpEl('p', { style: { ...MCP_MUTED, margin: '6px 0 0', maxWidth: '620px' } },
-      'Each switch mounts or unmounts a server for the next turn. Nothing here changes a Session that is already streaming.'))
-
-  return mcpEl('div', {
-    style: {
-      height: '100%',
-      overflowY: 'auto',
-      padding: 'calc(var(--dsh-frame-top-clearance, 48px) + 18px) 24px 32px',
-      background: 'transparent',
-    },
-  },
-  mcpEl('div', { style: { maxWidth: '760px', margin: '0 auto', display: 'flex', flexDirection: 'column', gap: '14px' } },
-    title,
-    data.error === '' ? null : mcpEl('div', { style: { ...MCP_CARD, borderColor: mcpTint(MCP_THEME.bad, 40), color: MCP_THEME.bad, fontSize: '12.5px' } }, data.error),
-    data.loading ? mcpEl('div', { style: { ...MCP_CARD, opacity: 0.6, height: '80px' } }) : null,
-    !data.loading && rows.length === 0 ? mcpEl('div', { style: MCP_CARD, textAlign: 'center' },
-      mcpEl('p', { style: { ...MCP_MUTED, margin: 0 } }, 'No MCP servers in this profile. Add one under Settings → MCP servers.')) : null,
-    ...rows.map(({ server, body }) => mcpEl(McpSidebarRow, {
-      key: server.id,
-      server,
-      busy: busy === (server.label || server.serverName),
-      onToggle: () => void act(body(), server.label || server.serverName, server.enabled !== true),
-    })),
-    notice === '' ? null : mcpEl('div', {
-      style: { ...MCP_MUTED, fontSize: '12px', padding: '2px 2px 0' },
-    }, notice)))
 }
