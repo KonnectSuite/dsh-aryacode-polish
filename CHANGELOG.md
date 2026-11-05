@@ -1,3 +1,7 @@
+## [0.118.3] - 2026-11-05
+
+- Restore the built-in session actions in the workspace menu
+
 ## [0.118.2] - 2026-11-04
 
 ### Changed
