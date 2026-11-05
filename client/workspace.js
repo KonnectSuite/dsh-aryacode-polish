@@ -219,7 +219,7 @@ function ShippedMenuRow({ entry, session, runtime, workspacesSnapshot, onClose }
  * contributions itself. A Host without the service (or a target with no
  * actions) renders nothing and leaves the legacy entries in charge.
  */
-function BuiltinSessionActions({ ctx, target, onClose }) {
+function BuiltinSessionActions({ ctx, target, onClose, onOpenHost }) {
   const menus = React.useMemo(() => {
     if (!ctx) return undefined
     try {
@@ -236,7 +236,15 @@ function BuiltinSessionActions({ ctx, target, onClose }) {
   React.useEffect(() => () => {
     if (resolution && typeof resolution.dispose === 'function') resolution.dispose()
   }, [resolution])
-  if (!resolution) return null
+  if (!resolution) {
+    if (typeof onOpenHost !== 'function') return null
+    return React.createElement('button', {
+      type: 'button',
+      'data-polish-session-more': target.value.sessionId,
+      style: WS_MENU_ITEM,
+      onClick: () => { onClose(); onOpenHost() },
+    }, 'More session actions…')
+  }
   return React.createElement(BuiltinActionRows, { resolution, onClose })
 }
 
@@ -4080,9 +4088,15 @@ export function BetterWorkspace(props) {
         }, 'Make this folder a workspace')
       })(),
       React.createElement(BuiltinSessionActions, {
-        ctx,
+        ctx: services.pluginCtx || ctx,
         target: { kind: 'session', value: { sessionId: menu.row.id, displayTitle: menu.row.displayTitle } },
         onClose: closeMenu,
+        onOpenHost: () => {
+          try {
+            const open = runtime.injected && runtime.injected.openSessionMenu
+            if (typeof open === 'function') open(menu.row.id, menu.row.displayTitle, { x: menu.anchor.left, y: menu.anchor.top })
+          } catch { /* the tree keeps working when the shared menu is unavailable */ }
+        },
       }),
       entries.map((entry, index) => React.createElement(RowBoundary, { key: (entry.options && entry.options.id) || index },
         React.createElement(ShippedMenuRow, {
@@ -5683,6 +5697,7 @@ export function installWorkspaceSeat(ctx, configForms, extras = {}) {
         (seated) => {
           const services = {
             ctx: seated,
+            pluginCtx: ctx,
             configForms,
             sourceFlow: extras.sourceFlow,
             slots: seated.slots,
