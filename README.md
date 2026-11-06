@@ -42,7 +42,7 @@ Configure page automatically.
 | **Better workspace** (`betterWorkspace`) | On | Replaces the sidebar workspace list with our own tree: workspaces with their sessions, a right-click menu on a workspace (open, copy path, remove), and the shipped session menu inside it. See [Better workspace](docs/better-workspace.md). |
 | **Arya Standard preset** (`aryaStandard`) | On | Adds an **Arya Standard** agent preset that compacts the way Codex does, plus a Settings page for its knobs and a **Compaction** tab with the context trajectory, cache-hit strip, checkpoint cards, log and settings. The presets also mount a second skill provider over `skills/`: a review router and its security and bug lenses, available from "review this" or by name. See [Arya Standard](docs/arya-standard.md), [Review lenses](docs/review-lenses.md) and [The presets compared](docs/preset-comparison.md). |
 | **Arya Qwen preset** (`aryaQwen`) | On | Adds an **Arya Qwen** agent preset: Qwen Code's system prompt and its `state_snapshot` compaction (analysis scratchpad stripped, resume trailer appended once), on Arya Standard's tool list. Shares the compaction policy and the Compaction tab with Arya Standard. See [Arya Qwen](docs/arya-qwen.md). |
-| **Arya Claude preset** (`aryaClaude`) | On | Adds an **Arya Claude** agent preset: Claude Code's checkpoint shape (an `<analysis>` scratchpad, then a nine-section `<summary>` with the user's own words in it), Claude Code's window arithmetic (usable window minus 13k), a model-free microcompact that clears old tool results before paying for a summary, a three-strike summarizer circuit breaker, and the subagent fan-out Arya Standard omits. See [Arya Claude](docs/arya-claude.md). |
+| **Arya Claude preset** (`aryaClaude`) | On | Adds an **Arya Claude** agent preset: Claude Code's checkpoint shape (an `<analysis>` scratchpad, then a nine-section `<summary>` with the user's own words in it), Claude Code's window arithmetic (usable window minus 13k), a model-free microcompact that clears old tool results before paying for a summary, and a three-strike summarizer circuit breaker, on the full DSH tool set. See [Arya Claude](docs/arya-claude.md). |
 | **Arya Automation Engineer preset** | moved | No longer ships here: the preset now lives in `@aryacode/dsh-engineering` and is documented in that repository. Install that bundle to get it. (was: and an **Engineering** tab. The preset carries the five-step engineering contract (read before writing, act in a copy, verify with the vendor engine, name the human steps) and engineering-tuned compaction; the tab folds a session's tool calls into those five steps. See [Arya Automation Engineer](docs/arya-automation-engineer.md). |
 | **Cross-session memory** (`memory`) | On | Keeps short notes across sessions in `polish/memory.json` and quotes them into the system prompt as recalled context, never as instructions. **Settings → Memory** adds, filters and forgets them. See [Memory](docs/memory.md). |
 | **Lifecycle hooks** (`hooks`) | On | Runs a command when a turn stops, a session errors, or a checkpoint lands. Rules live in `polish/hooks.json`; dispatch is observational with a bounded in-memory log at **Settings → Hooks**. See [Hooks](docs/hooks.md). |
@@ -133,7 +133,10 @@ requirement, the bang-redirect behavior and the failure modes.
 
 The preset is declared as data (`presets/arya-standard/definition.js`) and
 registered through the Host's preset registry, so it appears in the session
-picker next to the shipped presets. It differs from `standard` in four ways:
+picker next to the shipped presets. Its tool row list is the shipped `standard`
+set — scheduling, the delegation group and the conditional plugin-manager/market
+rows included — plus this bundle's `arya-review-skills` provider. It differs from
+`standard` in three ways:
 
 - the system prompt is Codex's own instructions, adapted once at registration to
   this harness's tool names (`adapt.js` pins every substitution, and a test
@@ -148,15 +151,26 @@ picker next to the shipped presets. It differs from `standard` in four ways:
 - the **Compaction** tab is a dashboard, not one gauge: the billed trajectory with
   the window, the threshold and a mark per fold; a per-request cache-hit strip;
   stat tiles from the provider's own usage; checkpoint cards and a log including
-  failed attempts, all read from the `aryaStandard` session projection;
-- subagents and scheduled jobs are not part of it. `delegation`,
-  `tool-schedule`, `tool-plugin-manager` and `tool-plugin-market` are dropped on
-  purpose: this preset is one agent doing one conversation.
+  failed attempts, all read from the `aryaStandard` session projection.
+
+The prompt can prefer direct work over delegation, but the harness capability
+stays mounted: parity with the shipped preset is about the tool rows, and only
+the compaction pipeline and the persona differ.
 
 The knobs are one non-volatile group (`aryaStandardOptions`) on this row, so
 editing one re-runs `apply()` and rebuilds the definition — a session created
 afterwards mounts the new numbers, while a running session keeps the ones it
 started with.
+
+Arya Qwen and Arya Claude inherit the check described next. When
+`billion-context` owns the context lane, all three presets register with their
+summarizer row and their `/compact` row disabled, while the policy row, the
+pruner and every tool row stay mounted: one compressor on one history, and
+nothing else changed. An already-armed bili (gate service plus active verdict) is
+honored even when the profile facts name no bili bundle, so a custom preset that
+mounts bili directly stands down too. When bili is absent or its gate is not
+active the check is immediate and the rows are untouched. See
+[billion-context and the Arya presets](docs/billion-context.md).
 
 
 ### Arya Qwen
@@ -208,10 +222,10 @@ does differently:
   entirely. Three consecutive automatic-compaction failures open a session-scoped
   circuit breaker; manual `/compact` and overflow recovery stay available.
 
-It also carries the shipped `standard` preset's **delegation** group (the
-`subagent` / `subagent_fork` / workflow tools) and `tool-schedule`: Claude Code
-fans out to subagents and schedules work, which is exactly why Arya Standard's
-"one agent, one conversation" rule does not apply to it.
+That tool row list is Arya Standard's, so the shipped **delegation** group (the
+`subagent` / `subagent_fork` / workflow tools) and `tool-schedule` are already
+present — this preset inherits them instead of inserting duplicates. Claude Code
+fans out to subagents and schedules work, and the rows are there for it.
 
 See [Arya Claude](docs/arya-claude.md) for the window arithmetic, the microcompact
 and breaker thresholds, what is deliberately not implemented, and how to tune it

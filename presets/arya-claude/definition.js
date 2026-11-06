@@ -3,7 +3,7 @@
  *
  * The row list is **derived from the Arya Standard definition** rather than
  * copied, so the two presets stay in sync everywhere the Claude preset does not
- * differ. It differs in exactly four places, and each one is deliberate:
+ * differ. It differs in exactly three places, and each one is deliberate:
  *
  *   1. `persona` carries this bundle's authored Claude-shaped instructions
  *      (concise agentic behaviour, verification, plan/todo discipline) plus a
@@ -11,11 +11,10 @@
  *   2. The `compaction` group mounts this preset's policy, engine and microcompact
  *      pruner rows, and declares `aryaClaudePolicy` as the service its realm
  *      provides. The manual `/compact` command is unchanged.
- *   3. A `delegation` group is present, with the shipped composition's rows: Claude
- *      Code fans out to subagents, and Arya Standard's "no delegation" rule is not
- *      Claude's. The group is the shipped shape so its isolated `workflowEngine`
- *      realm resolves exactly as it does in the stock `standard` preset.
- *   4. `tool-schedule` is present for the same reason: Claude Code schedules work.
+ *   3. The full shipped tool set is inherited: scheduling, delegation, and the
+ *      conditional Host plugin-manager/market rows are already in the base row
+ *      list. Claude's prompt can prefer direct work, but the harness capability
+ *      is not removed.
  *
  * Everything else — plan mode, todos, skills, goals, the fs/search/bash/ps tools,
  * web, present — is the Arya Standard row list by construction.
@@ -34,7 +33,7 @@ export const ARYA_CLAUDE_PRESET_ID = 'arya-claude'
 export const ARYA_CLAUDE_PRESET_NAME = 'Arya Claude'
 
 /** One line under the name in the picker. */
-export const ARYA_CLAUDE_PRESET_DESCRIPTION = 'Claude Code-style agent behaviour: its checkpoint shape and window arithmetic, tool-result microcompact, a summarizer failure breaker, and the subagent fan-out Arya Standard omits.'
+export const ARYA_CLAUDE_PRESET_DESCRIPTION = 'Claude Code-style agent behaviour: its checkpoint shape and window arithmetic, tool-result microcompact, a summarizer failure breaker, and the full DSH tool set.'
 
 /** Sort position beside the shipped presets and Arya Standard (2) / Arya Qwen (4). */
 export const ARYA_CLAUDE_PRESET_ORDER = 5
@@ -57,53 +56,29 @@ export const ARYA_CLAUDE_PRUNER_ROW_ID = 'arya-claude-microcompact'
 /** The package and subpath the pruner row mounts. */
 export const ARYA_CLAUDE_PRUNER_MODULE = '@aryacode/dsh-aryacode-polish/arya-claude-pruner'
 
-/** The delegation group id, matching the shipped `standard` preset. */
+/** The delegation group id, inherited from the shared base row list. */
 export const ARYA_CLAUDE_DELEGATION_GROUP_ID = 'delegation'
 
-/** The scheduling row id, matching the shipped `standard` preset. */
+/** The scheduling row id, inherited from the shared base row list. */
 export const ARYA_CLAUDE_SCHEDULE_ROW_ID = 'tool-schedule'
-
-/** The shipped `standard` preset's delegation shape. */
-const DELEGATION_ROWS = [
-  { id: 'tool-subagent-control', name: '@deepseek-ai/dsh-tool-subagent-control' },
-  {
-    id: 'tool-subagent',
-    name: '@deepseek-ai/dsh-tool-subagent',
-    config: { provider: 'spawn', toolName: 'subagent', modelSelection: true, modelDiscovery: true },
-  },
-  {
-    id: 'tool-subagent-fork',
-    name: '@deepseek-ai/dsh-tool-subagent',
-    config: { provider: 'fork', toolName: 'subagent_fork' },
-  },
-  { id: 'workflow-ptc', name: '@deepseek-ai/dsh-workflow-ptc', config: { provider: 'spawn' } },
-  { id: 'tool-workflow', name: '@deepseek-ai/dsh-tool-workflow' },
-]
-
-/**
- * Build the delegation group the shipped `standard` preset carries.
- * @returns {object} the group row.
- */
-export function delegationGroup() {
-  return {
-    id: ARYA_CLAUDE_DELEGATION_GROUP_ID,
-    name: 'cordis:group',
-    group: true,
-    isolate: { workflowEngine: true },
-    config: DELEGATION_ROWS.map((row) => ({ ...row, ...(row.config === undefined ? {} : { config: { ...row.config } }) })),
-  }
-}
 
 /**
  * Build the preset definition.
  *
  * @param {{ [key: string]: boolean | number | string }} [settings] validated
  *   settings; defaults are read when omitted.
+ * @param {{ profileContext?: boolean, standDownCompaction?: boolean }} [options]
+ *   host facts available at mount; passed through to the shared base row list.
+ *   `standDownCompaction` also lands on this preset's replacement engine row so
+ *   billion-context and the Claude summarizer never both compress one history;
+ *   the microcompact pruner is not a summarizer and stays mounted.
  * @returns {{ id: string, name: string, description: string, order: number, plugins: object[] }}
  *   a definition `agentPresets.register()` accepts.
  */
-export function buildDefinition(settings = readSettings()) {
-  const base = buildAryaStandardDefinition(settings)
+export function buildDefinition(settings = readSettings(), options = {}) {
+  const base = buildAryaStandardDefinition(settings, options)
+  const safeOptions = options !== null && typeof options === 'object' ? options : {}
+  const stoodDown = safeOptions.standDownCompaction === true ? { disabled: true } : {}
   const plugins = []
   for (const row of base.plugins) {
     if (row.id === 'persona') {
@@ -116,11 +91,6 @@ export function buildDefinition(settings = readSettings()) {
       })
       continue
     }
-    if (row.id === 'tool-jobs') {
-      plugins.push(row)
-      plugins.push({ id: ARYA_CLAUDE_SCHEDULE_ROW_ID, name: '@deepseek-ai/dsh-tool-schedule' })
-      continue
-    }
     if (row.id === 'compaction') {
       plugins.push({
         ...row,
@@ -130,7 +100,7 @@ export function buildDefinition(settings = readSettings()) {
             return { id: ARYA_CLAUDE_POLICY_ROW_ID, name: ARYA_CLAUDE_POLICY_MODULE, config: policyConfig(settings) }
           }
           if (child.id === 'arya-standard-compaction') {
-            return { id: ARYA_CLAUDE_ENGINE_ROW_ID, name: ARYA_CLAUDE_ENGINE_MODULE, config: engineConfig(settings) }
+            return { id: ARYA_CLAUDE_ENGINE_ROW_ID, name: ARYA_CLAUDE_ENGINE_MODULE, config: engineConfig(settings), ...stoodDown }
           }
           if (child.id === 'tool-result-pruner') {
             return { id: ARYA_CLAUDE_PRUNER_ROW_ID, name: ARYA_CLAUDE_PRUNER_MODULE, config: prunerConfig() }
@@ -138,7 +108,6 @@ export function buildDefinition(settings = readSettings()) {
           return child
         }),
       })
-      plugins.push(delegationGroup())
       continue
     }
     plugins.push(row)

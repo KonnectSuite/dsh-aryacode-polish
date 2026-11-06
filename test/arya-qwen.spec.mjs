@@ -35,10 +35,45 @@ test('the preset carries the identity the picker shows', () => {
   assert.ok(Array.isArray(definition.plugins) && definition.plugins.length > 10)
 })
 
-test('the row list is Arya Standard\'s, with only the three intended differences', () => {
+// The authoritative shipped `standard` row ids:
+// `AryaCode/packages/bundle/web-app/presets/standard.patch.yml`. Arya Qwen
+// derives the list from Arya Standard and only changes the persona and the
+// compaction children.
+const PARITY_ROW_IDS = [
+  'persona',
+  'agent-instructions',
+  'time-context',
+  'tool-bash',
+  'tool-pwsh',
+  'tool-fs',
+  'tool-fs-search',
+  'tool-jobs',
+  'tool-schedule',
+  'skill-filesystem',
+  'tool-skill',
+  'arya-review-skills',
+  'command-goal',
+  'tool-goal',
+  'planning',
+  'compaction',
+  'delegation',
+  'tool-ask-user',
+  'tool-todo',
+  'tool-web',
+  'present',
+  'tool-plugin-manager',
+  'tool-plugin-market',
+]
+
+test('the row list is Arya Standard\'s full shipped tool set, with only the three intended differences', () => {
   const qwen = buildDefinition()
   const standard = buildAryaStandard()
+  assert.deepEqual(qwen.plugins.map((row) => row.id), PARITY_ROW_IDS, 'the shipped standard rows, in order')
   assert.deepEqual(qwen.plugins.map((row) => row.id), standard.plugins.map((row) => row.id), 'same rows in the same order')
+  assert.ok(qwen.plugins.some((row) => row.id === 'tool-schedule'))
+  assert.ok(qwen.plugins.some((row) => row.id === 'delegation'))
+  assert.ok(qwen.plugins.some((row) => row.id === 'tool-plugin-manager'))
+  assert.ok(qwen.plugins.some((row) => row.id === 'tool-plugin-market'))
 
   const qwenPersona = qwen.plugins.find((row) => row.id === 'persona')
   const standardPersona = standard.plugins.find((row) => row.id === 'persona')
@@ -46,6 +81,7 @@ test('the row list is Arya Standard\'s, with only the three intended differences
   assert.equal(qwenPersona.config.complete, false)
   assert.equal(qwenPersona.config.includeRuntimeContext, true)
 
+  // Compaction stays this preset's own pipeline; parity is about the tool rows.
   const group = qwen.plugins.find((row) => row.id === 'compaction')
   assert.deepEqual(group.isolate, { compaction: true, toolResultPruner: true, aryaQwenPolicy: true })
   const ids = group.config.map((row) => row.id)
@@ -61,6 +97,43 @@ test('the row list is Arya Standard\'s, with only the three intended differences
   // the pruner and the manual command stay untouched
   assert.ok(ids.includes('command-compact'))
   assert.ok(ids.includes('tool-result-pruner'))
+})
+
+test('the plugin-manager conditional is inherited from Arya Standard', () => {
+  const row = (id, options) => buildDefinition(undefined, options).plugins.find((plugin) => plugin.id === id)
+  assert.equal(row('tool-plugin-manager').disabled, true, 'an absent profileContext disables the manager')
+  assert.equal(row('tool-plugin-manager', { profileContext: true }).disabled, false)
+  assert.equal(row('tool-plugin-market').disabled, true)
+  assert.equal(row('tool-plugin-market', { profileContext: true }).disabled, true)
+})
+
+test('the compaction group stands down for billion-context and keeps the pruner and policy', () => {
+  const groupOf = (options) => buildDefinition(undefined, options).plugins.find((row) => row.id === 'compaction')
+  const rowOfGroup = (group, id) => group.config.find((row) => row.id === id)
+
+  // Without bili nothing changes: no compaction child carries `disabled`.
+  for (const options of [undefined, {}, { standDownCompaction: false }, { profileContext: true }]) {
+    const group = groupOf(options)
+    for (const row of group.config) assert.equal('disabled' in row, false, `${row.id} must stay enabled without bili`)
+    assert.deepEqual(group.config.map((row) => row.id), [
+      ARYA_QWEN_POLICY_ROW_ID,
+      ARYA_QWEN_ENGINE_ROW_ID,
+      'command-compact',
+      'tool-result-pruner',
+    ])
+  }
+
+  // With bili owning the lane the Qwen summarizer and /compact go off; the
+  // policy row and the pruner are not compressors and stay mounted.
+  const group = groupOf({ standDownCompaction: true })
+  assert.equal(rowOfGroup(group, ARYA_QWEN_ENGINE_ROW_ID).disabled, true)
+  assert.equal(rowOfGroup(group, 'command-compact').disabled, true)
+  assert.notEqual(rowOfGroup(group, ARYA_QWEN_POLICY_ROW_ID).disabled, true)
+  assert.notEqual(rowOfGroup(group, 'tool-result-pruner').disabled, true)
+  assert.equal(rowOfGroup(group, ARYA_QWEN_ENGINE_ROW_ID).name, ARYA_QWEN_ENGINE_MODULE)
+  // The replacement row is still the Qwen one, not a disabled Arya Standard row.
+  assert.equal(rowOfGroup(group, ARYA_QWEN_ENGINE_ROW_ID).id, ARYA_QWEN_ENGINE_ROW_ID)
+  assert.deepEqual(group.isolate, { compaction: true, toolResultPruner: true, aryaQwenPolicy: true })
 })
 
 test('the persona is Qwen Code\'s, with no extraction holes', () => {

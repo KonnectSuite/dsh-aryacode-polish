@@ -18,9 +18,9 @@ and a session mounts it like any other: one composition, one row id.
 | When it compacts | step pressure, provider overflow, model switch | the same three, plus a post-turn threshold and an absolute token limit |
 | Checkpoint framing | `<compacted-summary>` tags | the same tags, with Codex's `SUMMARY_PREFIX` handoff sentence inside them |
 | What survives | a priced recent tail of the whole surface | Codex's user-quote section over a verbatim tail, budgeted by `keepUserTokens` and capped at half of what is replaced |
-| Subagents | `delegation` group | not mounted |
-| Scheduled jobs | `tool-schedule` | not mounted |
-| In-app plugin installs | `tool-plugin-manager`, `tool-plugin-market` | not mounted |
+| Subagents | `delegation` group | the same group |
+| Scheduled jobs | `tool-schedule` | the same row |
+| In-app plugin installs | `tool-plugin-manager`, `tool-plugin-market` | the same conditional rows |
 
 Everything else — the file, shell, search, skill, goal, plan, todo, web and
 present tools, the `tool-result-pruner`, `/compact` — is the shipped toolset.
@@ -30,10 +30,11 @@ present tools, the `tool-result-pruner`, `/compact` — is the shipped toolset.
 Both presets mount the same `ReactLoopAgent`; a preset cannot replace the turn
 machine. What differs is observable in a session log:
 
-- **toolset** — an Arya Standard session declares exactly twelve fewer tools than a
-  `standard` session: `interrupt_agent`, `list_agents`, `list_subagent_models`,
-  `plugin_manager`, `schedule_create`, `schedule_delete`, `schedule_list`,
-  `schedule_update`, `send_message`, `subagent`, `subagent_fork`, `workflow`;
+- **toolset** — an Arya Standard session declares the shipped `standard` tool set:
+  the same 22 top-level rows, including `tool-schedule`, the `delegation` group
+  (`subagent`, `subagent_fork`, `workflow`) and the conditional
+  plugin-manager/market rows, plus the bundle's `arya-review-skills` provider, for
+  23 top-level rows in all. That provider adds skills, not tools;
 - **prompt** — Codex's instructions, adapted once at registration;
 - **compaction** — `compaction/summary` written by this bundle's `summarize()` hook
   carries Codex's handoff prefix and the verbatim user section, where `standard`

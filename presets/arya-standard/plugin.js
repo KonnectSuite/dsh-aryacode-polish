@@ -18,6 +18,7 @@
  *
  * @module dsh-aryacode-polish-arya-standard-plugin
  */
+import { resolveStandDown } from '../billion-context.js'
 import { buildDefinition } from './definition.js'
 import { createAryaStandardProjection } from './projection.js'
 import { readSettings } from './settings.js'
@@ -76,11 +77,16 @@ function registerPreset(ctx, definition) {
  * Mount Arya Standard.
  * @param {object} ctx the feature's own cordis context.
  * @param {unknown} [rawConfig] the row configuration read from the `polish` row.
- * @returns {Promise<void>} resolves once the synchronous surfaces are registered.
+ * @returns {Promise<void>} resolves once the preset and the projection are registered.
  */
 export async function mountAryaStandard(ctx, rawConfig) {
   const settings = readSettings(rawConfig)
-  registerPreset(ctx, buildDefinition(settings))
+  const profileContext = service(ctx, 'profileContext')
+  // billion-context may publish its compaction gate a few ticks after the
+  // profile starts, so the definition is built only after that is resolved.
+  // The check is immediate when bili is absent or already armed.
+  const standDownCompaction = await resolveStandDown(ctx, { profileContext })
+  registerPreset(ctx, buildDefinition(settings, { profileContext: profileContext !== undefined, standDownCompaction }))
   const projections = service(ctx, 'sessionProjections')
   if (projections === undefined || typeof projections.register !== 'function') {
     ctx.logger?.info?.('arya-standard: this composition has no session projections')

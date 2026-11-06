@@ -23,6 +23,7 @@ import {
 import { ARYA_STANDARD_FIELDS } from '../presets/arya-standard/fields.js'
 import { codexBasePrompt, planModeSection } from '../presets/arya-standard/files.js'
 import { ARYA_STANDARD_DEFAULTS, engineConfig, isDefaultSettings, policyConfig, readSettings } from '../presets/arya-standard/settings.js'
+import { BILI_GATE_SERVICE, BILI_VERDICT_ACTIVE, BILI_VERDICT_GLOBAL } from '../presets/billion-context.js'
 
 /**
  * The complete configuration key set `compaction-basic` accepts. Anything else on
@@ -74,30 +75,77 @@ test('every row names a module and an id', () => {
   }
 })
 
-test('the toolset is the shipped standard toolset minus delegation and scheduling', () => {
-  assert.deepEqual(definition.plugins.map((row) => row.id), [
-    'persona',
-    'agent-instructions',
-    'time-context',
-    'tool-bash',
-    'tool-pwsh',
-    'tool-fs',
-    'tool-fs-search',
-    'tool-jobs',
-    'skill-filesystem',
-    'tool-skill',
-    'arya-review-skills',
-    'command-goal',
-    'tool-goal',
-    'planning',
-    'compaction',
-    'tool-ask-user',
-    'tool-todo',
-    'tool-web',
-    'present',
+// The authoritative baseline is
+// `AryaCode/packages/bundle/web-app/presets/standard.patch.yml`; that file is in
+// the DSH checkout, not this package, so the expected list is pinned here instead
+// of read at test time. `arya-review-skills` is the one row this package adds.
+const PARITY_ROW_IDS = [
+  'persona',
+  'agent-instructions',
+  'time-context',
+  'tool-bash',
+  'tool-pwsh',
+  'tool-fs',
+  'tool-fs-search',
+  'tool-jobs',
+  'tool-schedule',
+  'skill-filesystem',
+  'tool-skill',
+  'arya-review-skills',
+  'command-goal',
+  'tool-goal',
+  'planning',
+  'compaction',
+  'delegation',
+  'tool-ask-user',
+  'tool-todo',
+  'tool-web',
+  'present',
+  'tool-plugin-manager',
+  'tool-plugin-market',
+]
+
+test('the row list is the shipped standard tool set', () => {
+  assert.deepEqual(definition.plugins.map((row) => row.id), PARITY_ROW_IDS)
+})
+
+test('the scheduling row and the delegation group are the shipped composition', () => {
+  const schedule = rowOf('tool-schedule')
+  assert.equal(schedule.name, '@deepseek-ai/dsh-tool-schedule')
+
+  const group = rowOf('delegation')
+  assert.equal(group.name, 'cordis:group')
+  assert.equal(group.group, true)
+  assert.deepEqual(group.isolate, { workflowEngine: true })
+  assert.deepEqual(group.config.map((row) => row.id), [
+    'tool-subagent-control',
+    'tool-subagent',
+    'tool-subagent-fork',
+    'workflow-ptc',
+    'tool-workflow',
   ])
-  for (const dropped of ['delegation', 'tool-schedule', 'tool-plugin-manager', 'tool-plugin-market']) {
-    assert.equal(rowOf(dropped), undefined, `${dropped} must not be part of the preset`)
+  const spawn = group.config.find((row) => row.id === 'tool-subagent')
+  assert.equal(spawn.name, '@deepseek-ai/dsh-tool-subagent')
+  assert.equal(spawn.config.provider, 'spawn')
+  assert.equal(spawn.config.toolName, 'subagent')
+  const fork = group.config.find((row) => row.id === 'tool-subagent-fork')
+  assert.equal(fork.config.provider, 'fork')
+  assert.equal(fork.config.toolName, 'subagent_fork')
+  assert.equal(group.config.find((row) => row.id === 'workflow-ptc').config.provider, 'spawn')
+  assert.equal(group.config.find((row) => row.id === 'tool-workflow').name, '@deepseek-ai/dsh-tool-workflow')
+})
+
+test('the plugin manager follows the Host profileContext; the market stays off', () => {
+  const row = (id, options) => buildDefinition(ARYA_STANDARD_DEFAULTS, options).plugins.find((plugin) => plugin.id === id)
+
+  // The shipped preset writes `disabled: !!js "!ctx.get('profileContext')"`.
+  assert.equal(row('tool-plugin-manager').disabled, true, 'an absent profileContext disables the manager')
+  assert.equal(row('tool-plugin-manager', { profileContext: false }).disabled, true)
+  assert.equal(row('tool-plugin-manager', { profileContext: true }).disabled, false, 'the Host service enables it')
+  assert.equal(row('tool-plugin-manager').name, '@deepseek-ai/dsh-plugin-manager/tools')
+  for (const options of [undefined, { profileContext: false }, { profileContext: true }]) {
+    assert.equal(row('tool-plugin-market', options).disabled, true, 'the market is opt-in everywhere')
+    assert.equal(row('tool-plugin-market', options).name, '@deepseek-ai/dsh-plugin-market/tools')
   }
 })
 
@@ -126,6 +174,42 @@ test('the compaction group isolates its services and mounts our two rows', () =>
   assert.deepEqual(policy.config, policyConfig(ARYA_STANDARD_DEFAULTS))
   assert.equal(policy.config.keepUserTokens, 20000)
   assert.equal(policy.config.postTurnThresholdPercent, 90)
+})
+
+test('the compaction group stands down for billion-context, but never the pruner or policy', () => {
+  const groupOf = (options) => buildDefinition(ARYA_STANDARD_DEFAULTS, options).plugins.find((row) => row.id === 'compaction')
+  const rowOfGroup = (group, id) => group.config.find((row) => row.id === id)
+
+  // The default shape is untouched: no `disabled` key appears on any compaction child.
+  for (const options of [undefined, {}, { profileContext: true }, { standDownCompaction: false }]) {
+    const group = groupOf(options)
+    for (const row of group.config) {
+      assert.equal('disabled' in row, false, `${row.id} must stay enabled without bili`)
+    }
+    assert.deepEqual(group.config.map((row) => row.id), [
+      ARYA_STANDARD_POLICY_ROW_ID,
+      ARYA_STANDARD_ENGINE_ROW_ID,
+      'command-compact',
+      'tool-result-pruner',
+    ])
+  }
+
+  // With bili owning the lane the summarizer and the manual command it exists
+  // for are off; the policy and the pruner are not compressors and stay.
+  const group = groupOf({ standDownCompaction: true })
+  assert.equal(rowOfGroup(group, ARYA_STANDARD_ENGINE_ROW_ID).disabled, true)
+  assert.equal(rowOfGroup(group, 'command-compact').disabled, true)
+  assert.notEqual(rowOfGroup(group, ARYA_STANDARD_POLICY_ROW_ID).disabled, true, 'the policy row stays mounted')
+  assert.notEqual(rowOfGroup(group, 'tool-result-pruner').disabled, true, 'the pruner is not a summarizer')
+  assert.deepEqual(group.isolate, { compaction: true, toolResultPruner: true, aryaStandardPolicy: true })
+  assert.deepEqual(group.config.map((row) => row.id), [
+    ARYA_STANDARD_POLICY_ROW_ID,
+    ARYA_STANDARD_ENGINE_ROW_ID,
+    'command-compact',
+    'tool-result-pruner',
+  ])
+  // The engine keeps its closed config set; only `disabled` is added.
+  assert.deepEqual(rowOfGroup(group, ARYA_STANDARD_ENGINE_ROW_ID).config, engineConfig(ARYA_STANDARD_DEFAULTS))
 })
 
 test('the engine config never carries a key the base engine rejects', () => {
@@ -279,6 +363,11 @@ test('mounting registers the preset and its projection, and disposes them', asyn
   assert.equal(registered.length, 1)
   assert.equal(registered[0].id, 'arya-standard')
   assert.equal(registered[0].name, 'Arya Standard')
+  assert.equal(
+    registered[0].plugins.find((row) => row.id === 'tool-plugin-manager').disabled,
+    true,
+    'a Host without profileContext mounts the manager disabled',
+  )
   const engine = registered[0].plugins.find((row) => row.id === 'compaction').config
     .find((row) => row.id === ARYA_STANDARD_ENGINE_ROW_ID)
   assert.equal(engine.config.thresholdRatio, 0.75)
@@ -339,6 +428,116 @@ test('mounting registers the preset and its projection, and disposes them', asyn
   assert.equal(view.totals.requests, 2)
   assert.ok(view.cacheHitRatio > 0.89 && view.cacheHitRatio < 0.9, `cache hit ratio ${view.cacheHitRatio}`)
   assert.equal(view.savedTokens, 4000)
+})
+
+test('mounting passes the Host profileContext service to the definition', async () => {
+  const { mountAryaStandard } = await import('../presets/arya-standard/plugin.js')
+  const registered = []
+  const ctx = {
+    get(name) {
+      if (name === 'agentPresets') {
+        return {
+          register: async (definition) => {
+            registered.push(definition)
+            return () => {}
+          },
+        }
+      }
+      if (name === 'profileContext') return {}
+      return undefined
+    },
+    effect: (fn) => {
+      fn()
+      return () => {}
+    },
+    logger: { info() {}, warn() {} },
+  }
+  await mountAryaStandard(ctx, {})
+  assert.equal(registered.length, 1)
+  assert.equal(
+    registered[0].plugins.find((row) => row.id === 'tool-plugin-manager').disabled,
+    false,
+    'the manager mounts where the Host exposes profileContext',
+  )
+})
+
+test('mounting stands the summarizer down when billion-context owns the lane', async () => {
+  const { mountAryaStandard } = await import('../presets/arya-standard/plugin.js')
+  const registered = []
+  const ctx = {
+    get(name) {
+      if (name === 'agentPresets') {
+        return {
+          register: async (definition) => {
+            registered.push(definition)
+            return () => {}
+          },
+        }
+      }
+      if (name === 'sessionProjections') return { register: async () => {} }
+      if (name === 'profileContext') return { startedBundles: ['billion-context'], overlays: [] }
+      if (name === BILI_GATE_SERVICE) return { owner: 'billion-context', issue: '#3354' }
+      return undefined
+    },
+    effect: () => () => {},
+    logger: { info() {}, warn() {} },
+  }
+  globalThis[BILI_VERDICT_GLOBAL] = BILI_VERDICT_ACTIVE
+  try {
+    await mountAryaStandard(ctx, {})
+  } finally {
+    delete globalThis[BILI_VERDICT_GLOBAL]
+  }
+  assert.equal(registered.length, 1)
+  const group = registered[0].plugins.find((row) => row.id === 'compaction')
+  assert.equal(group.config.find((row) => row.id === ARYA_STANDARD_ENGINE_ROW_ID).disabled, true, 'no second summarizer')
+  assert.equal(group.config.find((row) => row.id === 'command-compact').disabled, true, '/compact goes with the engine')
+  assert.notEqual(group.config.find((row) => row.id === ARYA_STANDARD_POLICY_ROW_ID).disabled, true)
+  assert.notEqual(group.config.find((row) => row.id === 'tool-result-pruner').disabled, true)
+  assert.equal(
+    registered[0].plugins.find((row) => row.id === 'tool-plugin-manager').disabled,
+    false,
+    'bili does not change the Host tool rows',
+  )
+})
+
+test('mounting honors an armed bili even when the profile names no bili bundle', async () => {
+  const { mountAryaStandard } = await import('../presets/arya-standard/plugin.js')
+  const registered = []
+  const ctx = {
+    get(name) {
+      if (name === 'agentPresets') {
+        return {
+          register: async (definition) => {
+            registered.push(definition)
+            return () => {}
+          },
+        }
+      }
+      if (name === 'sessionProjections') return { register: async () => {} }
+      // No profileContext at all: a custom preset or a profile-local patch can
+      // mount bili directly, so the armed pair alone must be honored.
+      if (name === BILI_GATE_SERVICE) return { owner: 'billion-context', issue: '#3354' }
+      return undefined
+    },
+    effect: () => () => {},
+    logger: { info() {}, warn() {} },
+  }
+  globalThis[BILI_VERDICT_GLOBAL] = BILI_VERDICT_ACTIVE
+  try {
+    await mountAryaStandard(ctx, {})
+  } finally {
+    delete globalThis[BILI_VERDICT_GLOBAL]
+  }
+  assert.equal(registered.length, 1)
+  const group = registered[0].plugins.find((row) => row.id === 'compaction')
+  assert.equal(group.config.find((row) => row.id === ARYA_STANDARD_ENGINE_ROW_ID).disabled, true)
+  assert.equal(group.config.find((row) => row.id === 'command-compact').disabled, true)
+  assert.equal(
+    registered[0].plugins.find((row) => row.id === 'tool-plugin-manager').disabled,
+    true,
+    'no profileContext still disables the manager, as before',
+  )
 })
 
 test('a composition without the preset registry is not a failure', async () => {

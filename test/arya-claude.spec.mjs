@@ -5,8 +5,9 @@
  *
  * The row-list assertion is the important one: the preset is *derived* from Arya
  * Standard's definition, so a row added there must show up here too, and the
- * Claude-only differences must stay exactly the intended three (persona, the
- * compaction group's rows, and the delegation group plus the scheduling row).
+ * Claude-only differences must stay exactly the intended two (the persona and the
+ * compaction group's children). The tool rows — the tool-schedule row, the
+ * delegation group, the plugin-manager/market rows — are inherited, not inserted.
  */
 import { strict as assert } from 'node:assert'
 import { existsSync } from 'node:fs'
@@ -25,7 +26,6 @@ import {
   ARYA_CLAUDE_PRUNER_ROW_ID,
   ARYA_CLAUDE_SCHEDULE_ROW_ID,
   buildDefinition,
-  delegationGroup,
 } from '../presets/arya-claude/definition.js'
 import {
   FORBIDDEN_TOKENS,
@@ -75,15 +75,39 @@ import {
 } from '../presets/arya-claude/pruner.js'
 import { mountAryaClaude } from '../presets/arya-claude/plugin.js'
 import { buildDefinition as buildAryaStandardDefinition } from '../presets/arya-standard/definition.js'
+import { BILI_GATE_SERVICE, BILI_VERDICT_ACTIVE, BILI_VERDICT_GLOBAL } from '../presets/billion-context.js'
 
 const root = new URL('../', import.meta.url)
 
-/** Insert one value after a given row id. */
-function insertAfter(list, afterId, value) {
-  const index = list.indexOf(afterId)
-  assert.notEqual(index, -1, `missing row ${afterId}`)
-  return [...list.slice(0, index + 1), value, ...list.slice(index + 1)]
-}
+// The authoritative shipped `standard` row ids:
+// `AryaCode/packages/bundle/web-app/presets/standard.patch.yml`. Arya Claude
+// derives this list from Arya Standard, so the preset must not insert or drop a
+// row of its own.
+const PARITY_ROW_IDS = [
+  'persona',
+  'agent-instructions',
+  'time-context',
+  'tool-bash',
+  'tool-pwsh',
+  'tool-fs',
+  'tool-fs-search',
+  'tool-jobs',
+  'tool-schedule',
+  'skill-filesystem',
+  'tool-skill',
+  'arya-review-skills',
+  'command-goal',
+  'tool-goal',
+  'planning',
+  'compaction',
+  'delegation',
+  'tool-ask-user',
+  'tool-todo',
+  'tool-web',
+  'present',
+  'tool-plugin-manager',
+  'tool-plugin-market',
+]
 
 test('the preset carries the identity the picker shows', () => {
   const definition = buildDefinition()
@@ -96,14 +120,20 @@ test('the preset carries the identity the picker shows', () => {
   assert.ok(Array.isArray(definition.plugins) && definition.plugins.length > 10)
 })
 
-test('the row list is Arya Standard\'s plus exactly the Claude-only differences', () => {
+test('the row list is Arya Standard\'s full shipped tool set', () => {
   const claude = buildDefinition()
   const standard = buildAryaStandardDefinition()
-  let expected = [...standard.plugins.map((row) => row.id)]
-  expected = insertAfter(expected, 'tool-jobs', ARYA_CLAUDE_SCHEDULE_ROW_ID)
-  expected = insertAfter(expected, 'compaction', ARYA_CLAUDE_DELEGATION_GROUP_ID)
-  assert.deepEqual(claude.plugins.map((row) => row.id), expected, 'same rows in the same order, plus the two insertions')
+  assert.deepEqual(claude.plugins.map((row) => row.id), PARITY_ROW_IDS, 'the shipped standard rows, in order')
+  assert.deepEqual(
+    claude.plugins.map((row) => row.id),
+    standard.plugins.map((row) => row.id),
+    'same rows in the same order as Arya Standard',
+  )
   assert.equal(claude.plugins.filter((row) => row.id === ARYA_CLAUDE_DELEGATION_GROUP_ID).length, 1)
+  assert.ok(
+    claude.plugins.some((row) => row.id === ARYA_CLAUDE_SCHEDULE_ROW_ID),
+    'the scheduling row is inherited, not inserted a second time',
+  )
 
   const persona = claude.plugins.find((row) => row.id === 'persona')
   const standardPersona = standard.plugins.find((row) => row.id === 'persona')
@@ -111,6 +141,8 @@ test('the row list is Arya Standard\'s plus exactly the Claude-only differences'
   assert.equal(persona.config.complete, false)
   assert.equal(persona.config.includeRuntimeContext, true)
 
+  // Compaction stays this preset's own pipeline: the shared `compaction-basic`
+  // summary is deliberately replaced here (Codex / Qwen / Claude differ by design).
   const group = claude.plugins.find((row) => row.id === 'compaction')
   assert.deepEqual(group.isolate, { compaction: true, toolResultPruner: true, aryaClaudePolicy: true })
   const ids = group.config.map((row) => row.id)
@@ -128,26 +160,65 @@ test('the row list is Arya Standard\'s plus exactly the Claude-only differences'
   assert.deepEqual(rows.get(ARYA_CLAUDE_PRUNER_ROW_ID).config, { ...CLAUDE_PRUNER_CONFIG })
 })
 
-test('the delegation group is the shipped standard composition', () => {
-  const group = delegationGroup()
-  assert.equal(group.id, 'delegation')
-  assert.equal(group.name, 'cordis:group')
-  assert.equal(group.group, true)
-  assert.deepEqual(group.isolate, { workflowEngine: true })
-  assert.deepEqual(group.config.map((row) => row.id), [
+test('the delegation group is inherited from Arya Standard unchanged', () => {
+  const claude = buildDefinition()
+  const standard = buildAryaStandardDefinition()
+  const inherited = claude.plugins.find((row) => row.id === ARYA_CLAUDE_DELEGATION_GROUP_ID)
+  const base = standard.plugins.find((row) => row.id === 'delegation')
+  assert.deepEqual(inherited, base, 'the group is the base row, not a second copy')
+  assert.equal(inherited.name, 'cordis:group')
+  assert.equal(inherited.group, true)
+  assert.deepEqual(inherited.isolate, { workflowEngine: true })
+  assert.deepEqual(inherited.config.map((row) => row.id), [
     'tool-subagent-control',
     'tool-subagent',
     'tool-subagent-fork',
     'workflow-ptc',
     'tool-workflow',
   ])
-  const spawn = group.config.find((row) => row.id === 'tool-subagent')
+  const spawn = inherited.config.find((row) => row.id === 'tool-subagent')
   assert.equal(spawn.name, '@deepseek-ai/dsh-tool-subagent')
   assert.equal(spawn.config.provider, 'spawn')
   assert.equal(spawn.config.toolName, 'subagent')
-  const fork = group.config.find((row) => row.id === 'tool-subagent-fork')
+  const fork = inherited.config.find((row) => row.id === 'tool-subagent-fork')
   assert.equal(fork.config.provider, 'fork')
   assert.equal(fork.config.toolName, 'subagent_fork')
+})
+
+test('the compaction group stands down for billion-context but keeps the microcompact pruner', () => {
+  const groupOf = (options) => buildDefinition(undefined, options).plugins.find((row) => row.id === 'compaction')
+  const rowOfGroup = (group, id) => group.config.find((row) => row.id === id)
+
+  // Without bili nothing changes: no compaction child carries `disabled`.
+  for (const options of [undefined, {}, { standDownCompaction: false }, { profileContext: true }]) {
+    const group = groupOf(options)
+    for (const row of group.config) assert.equal('disabled' in row, false, `${row.id} must stay enabled without bili`)
+    assert.deepEqual(group.config.map((row) => row.id), [
+      ARYA_CLAUDE_POLICY_ROW_ID,
+      ARYA_CLAUDE_ENGINE_ROW_ID,
+      'command-compact',
+      ARYA_CLAUDE_PRUNER_ROW_ID,
+    ])
+  }
+
+  // With bili owning the lane the Claude summarizer and /compact go off. The
+  // microcompact pruner is not a summarizer and stays mounted; the policy row
+  // stays too.
+  const group = groupOf({ standDownCompaction: true })
+  assert.equal(rowOfGroup(group, ARYA_CLAUDE_ENGINE_ROW_ID).disabled, true)
+  assert.equal(rowOfGroup(group, 'command-compact').disabled, true)
+  assert.notEqual(rowOfGroup(group, ARYA_CLAUDE_POLICY_ROW_ID).disabled, true)
+  assert.notEqual(rowOfGroup(group, ARYA_CLAUDE_PRUNER_ROW_ID).disabled, true, 'microcompact is not a summarizer')
+  assert.equal(rowOfGroup(group, ARYA_CLAUDE_PRUNER_ROW_ID).name, ARYA_CLAUDE_PRUNER_MODULE)
+  assert.deepEqual(group.isolate, { compaction: true, toolResultPruner: true, aryaClaudePolicy: true })
+})
+
+test('the plugin-manager conditional is inherited from Arya Standard', () => {
+  const row = (id, options) => buildDefinition(undefined, options).plugins.find((plugin) => plugin.id === id)
+  assert.equal(row('tool-plugin-manager').disabled, true, 'an absent profileContext disables the manager')
+  assert.equal(row('tool-plugin-manager', { profileContext: true }).disabled, false)
+  assert.equal(row('tool-plugin-market').disabled, true)
+  assert.equal(row('tool-plugin-market', { profileContext: true }).disabled, true)
 })
 
 test('the authored prompt passes its own adapter and names only this harness', () => {
@@ -377,6 +448,11 @@ test('mounting registers one definition and tolerates a composition without pres
   await mountAryaClaude(ctx)
   assert.equal(registered.length, 1)
   assert.equal(registered[0].id, ARYA_CLAUDE_PRESET_ID)
+  assert.equal(
+    registered[0].plugins.find((row) => row.id === 'tool-plugin-manager').disabled,
+    true,
+    'a Host without profileContext mounts the manager disabled',
+  )
   let warned = ''
   const bare = {
     get() { return undefined },
@@ -386,4 +462,54 @@ test('mounting registers one definition and tolerates a composition without pres
   await mountAryaClaude(bare)
   assert.match(warned, /no agent preset registry/)
   assert.deepEqual(mountAryaClaude.inject, ['agentPresets'])
+})
+
+test('mounting stands the summarizer down when billion-context owns the lane', async () => {
+  const registered = []
+  const ctx = {
+    get(name) {
+      if (name === 'agentPresets') return { register: async (definition) => { registered.push(definition); return () => {} } }
+      if (name === 'profileContext') return { startedBundles: ['billion-context'], overlays: [] }
+      if (name === BILI_GATE_SERVICE) return { owner: 'billion-context', issue: '#3354' }
+      return undefined
+    },
+    effect(callback) {
+      return callback()
+    },
+    logger: { info() {}, warn() {} },
+  }
+  globalThis[BILI_VERDICT_GLOBAL] = BILI_VERDICT_ACTIVE
+  try {
+    await mountAryaClaude(ctx)
+  } finally {
+    delete globalThis[BILI_VERDICT_GLOBAL]
+  }
+  assert.equal(registered.length, 1)
+  const group = registered[0].plugins.find((row) => row.id === 'compaction')
+  assert.equal(group.config.find((row) => row.id === ARYA_CLAUDE_ENGINE_ROW_ID).disabled, true)
+  assert.equal(group.config.find((row) => row.id === 'command-compact').disabled, true)
+  assert.notEqual(group.config.find((row) => row.id === ARYA_CLAUDE_PRUNER_ROW_ID).disabled, true)
+  assert.notEqual(group.config.find((row) => row.id === ARYA_CLAUDE_POLICY_ROW_ID).disabled, true)
+})
+
+test('mounting passes the Host profileContext service to the definition', async () => {
+  const registered = []
+  const ctx = {
+    get(name) {
+      if (name === 'agentPresets') return { register: async (definition) => { registered.push(definition); return () => {} } }
+      if (name === 'profileContext') return {}
+      return undefined
+    },
+    effect(callback) {
+      return callback()
+    },
+    logger: { info() {}, warn() {} },
+  }
+  await mountAryaClaude(ctx)
+  assert.equal(registered.length, 1)
+  assert.equal(
+    registered[0].plugins.find((row) => row.id === 'tool-plugin-manager').disabled,
+    false,
+    'the manager mounts where the Host exposes profileContext',
+  )
 })

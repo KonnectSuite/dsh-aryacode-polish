@@ -3,6 +3,13 @@
 Run on 2026-10-31 against the dev profile (`%LOCALAPPDATA%\AryaCode-dev\home`), plugin
 0.103.6, local model `local-library/strata:swift-1.5-iq3_xxs` (262,144-token window).
 
+> **Current state.** This report records the 0.103.6 build. Since the full-DSH tool
+> parity change every Arya preset mounts the shipped `standard` tool set, so the
+> twelve-tool reduction and the schema/token measurements in sections 2–3 no longer
+> describe the current preset; they are kept as the evidence they were taken from.
+> The compaction findings (sections 4–11) still apply — each preset keeps its own
+> checkpoint engine and policy.
+
 Method: the session log records each request in full — the assembled system prompt
 (`system/message`), the exact tool list and schemas (`request/header`), every step's
 usage (`assistant/message.data.usage`) and every compaction event. Each claim below
@@ -212,7 +219,7 @@ Run on 2026-11-01 against the same dev profile, plugin 0.111.0, routed model
 | The persona and tools work | one shell call, reply `arya-qwen-ok`, `Completed in 3s`, 69.1k input tokens |
 | The checkpoint is Qwen Code's | `compaction/summary.data.summary[0].text` starts with `<state_snapshot>` and opens `<primary_request_and_intent>` |
 | The scratchpad is stripped | the summary text contains **no** `<analysis>` block |
-| The trailer is appended | the text ends with `Resume the prior task using the summary above. Continue from the last in-flight step; �` |
+| The trailer is appended | the text ends with `Resume the prior task using the summary above. Continue from the last in-flight step; …` |
 | The fold was small | `command/done` = `Compacted 6 history items (~1029 tokens).` |
 
 The same run found a defect: the checkpoint carried **8 of 9 sections**, missing

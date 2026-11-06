@@ -13,6 +13,7 @@
  * @module dsh-aryacode-polish-arya-qwen-plugin
  */
 
+import { resolveStandDown } from '../billion-context.js'
 import { readSettings } from '../arya-standard/settings.js'
 import { buildDefinition } from './definition.js'
 
@@ -46,7 +47,11 @@ export async function mountAryaQwen(ctx, rawConfig) {
   ctx.effect(() => () => {
     if (typeof release === 'function') release()
   })
-  presets.register(buildDefinition(settings)).then(
+  const profileContext = service(ctx, 'profileContext')
+  // See `presets/billion-context.js`: immediate when bili is absent or already
+  // armed, and a bounded wait only when bili is expected but not yet armed.
+  const standDownCompaction = await resolveStandDown(ctx, { profileContext })
+  presets.register(buildDefinition(settings, { profileContext: profileContext !== undefined, standDownCompaction })).then(
     (disposer) => {
       release = disposer
     },

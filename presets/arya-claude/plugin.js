@@ -17,6 +17,7 @@
  *
  * @module dsh-aryacode-polish-arya-claude-plugin
  */
+import { resolveStandDown } from '../billion-context.js'
 import { readSettings } from './settings.js'
 import { buildDefinition } from './definition.js'
 
@@ -77,7 +78,12 @@ function registerPreset(ctx, definition) {
  * @returns {Promise<void>} resolves once the definition is registered.
  */
 export async function mountAryaClaude(ctx, rawConfig) {
-  registerPreset(ctx, buildDefinition(readSettings(rawConfig)))
+  const settings = readSettings(rawConfig)
+  const profileContext = service(ctx, 'profileContext')
+  // See `presets/billion-context.js`: immediate when bili is absent or already
+  // armed, and a bounded wait only when bili is expected but not yet armed.
+  const standDownCompaction = await resolveStandDown(ctx, { profileContext })
+  registerPreset(ctx, buildDefinition(settings, { profileContext: profileContext !== undefined, standDownCompaction }))
 }
 
 /** The mount point a cordis `ctx.plugin()` and the feature registry both accept. */

@@ -15,9 +15,10 @@ machine) and it does not vendor Claude Code's text, which is proprietary.
 - Order in the picker: 5 (after Arya Qwen)
 
 The row list is **derived** from Arya Standard's definition, so plan mode, todos,
-skills, goals, the file tools, the shell tools, web and `present` are the same
-rows. Four differences are deliberate, and the delegation group and scheduling row
-come back from the shipped composition.
+skills, goals, the file tools, the shell tools, web, `present`, the scheduling row
+and the delegation group are the same rows. Only the persona and the compaction
+pipeline differ; the delegation group and the scheduling row are inherited, not
+inserted a second time.
 
 ## 1. The persona
 
@@ -167,15 +168,15 @@ The breaker reports on stderr only with `ARYA_CLAUDE_DEBUG=1`, so a silent
 malfunction is not silent: the log distinguishes "attempted and failed" from
 "skipped because the breaker is open".
 
-## 6. Composition: delegation and scheduling are back
+## 6. Composition: the full DSH tool row set
 
-Arya Standard deliberately mounts no delegation group (`delegation`) and no
-`tool-schedule`, because Codex has neither. Claude Code fans out to subagents
-(`subagent` / `subagent_fork`) and schedules work, so Arya Claude carries **the
-shipped `standard` preset's delegation group verbatim** (its own isolated
-`workflowEngine` realm, the same five rows) and the `tool-schedule` row after
-`tool-jobs`. That is the one place where adopting Claude's shape adds tools rather
-than prompt text.
+The row list is Arya Standard's, and Arya Standard mounts the full shipped
+`standard` tool set: the `delegation` group (its own isolated `workflowEngine`
+realm, the same five rows) and `tool-schedule` are part of the derived list, not
+added here. Claude Code fans out to subagents (`subagent` / `subagent_fork`) and
+schedules work, so this preset has exactly the capability the shipped `standard`
+preset does — no insertion, no duplicate row id. Parity is about the tool rows:
+the compaction pipeline below stays this preset's own.
 
 ## 7. What is deliberately not implemented
 
@@ -216,13 +217,13 @@ shared projection, so the Compaction tab has nothing to draw for any preset
 
 ## 9. Verification
 
-- `test/arya-claude.spec.mjs` — identity, the exact derived row list, the
-  delegation group shape, the authored prompt's anchors and forbidden tokens, the
-  nine-section checkpoint text, the policy defaults and clamping, the pinned engine
-  config (including that every key is inside `compaction-basic`'s closed set), the
-  exported subpaths, recently-read-file extraction, pruner budgets and the
-  microcompact planner, the breaker state machine, and the mount's registration and
-  no-registry tolerance.
+- `test/arya-claude.spec.mjs` — identity, the exact derived row list (the shared
+  23-row parity list), the inherited delegation-group shape, the authored prompt's
+  anchors and forbidden tokens, the nine-section checkpoint text, the policy
+  defaults and clamping, the pinned engine config (including that every key is
+  inside `compaction-basic`'s closed set), the exported subpaths, recently-read-file
+  extraction, pruner budgets and the microcompact planner, the breaker state
+  machine, and the mount's registration and no-registry tolerance.
 - `test/arya-claude-compaction.spec.mjs` — a stub-host summarization run: the
   instruction as the last message, the policy override, the two-sided frame, the
   analysis strip and envelope unwrap, the recently-read-files section, the small-span

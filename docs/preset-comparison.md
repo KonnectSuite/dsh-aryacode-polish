@@ -40,9 +40,9 @@ sessions only.
 |---|---|---|---|---|---|
 | Persona source | one-line harness default | Codex base instructions, adapted | Qwen Code instructions, adapted | written for this preset from `dsh-engineering`'s loop | authored prose in Claude Code's idiom |
 | System prompt | 5,695 chars | 11,637 chars | 12,109 chars (persona alone) | **5,106 chars** (persona alone) | **7,272 chars** (persona + capabilities) |
-| Tools | 145 | **133** | **133** (same rows) | **133** (same rows) | **133 + delegation + schedule** |
-| Tool-schema chars | 123,050 | **105,913** | **105,913** | **105,913** | larger (delegation, workflow and schedule tools are back) |
-| Delegation / schedules / plugin manager tools | present | absent | absent | absent | **delegation + schedule**; plugin manager absent |
+| Tools | 145 | same as Standard | same as Standard | same as Standard | same as Standard |
+| Tool-schema chars | 123,050 | same as Standard | same as Standard | same as Standard | same as Standard |
+| Delegation / schedules / plugin manager tools | present | present (inherited) | present (inherited) | present (inherited) | present (inherited) |
 | Compaction engine | `compaction-basic` | our subclass, Codex kit | our subclass, Qwen kit | our subclass, **Codex kit** | our subclass, **Claude kit** |
 | Checkpoint prompt | base's 8 sections | Codex `CONTEXT CHECKPOINT COMPACTION` (425 chars) | Qwen Code compression prompt (3,583 chars) | Codex (425 chars) | authored nine-section instruction (3,378 chars), `<analysis>` then `<summary>` |
 | Frame | base preamble | 399-char handoff **prefix** | 168-char resume **suffix** | 399-char handoff **prefix** | 239-char continuation **prefix** + 204-char resume **suffix** |
@@ -72,10 +72,11 @@ tool descriptions plus runtime context.
 **Arya Standard** carries Codex's base instructions (plan-first workflow, editing
 constraints, ASCII default, final-message rules) followed by a short
 harness-capabilities section that points the model at `ask_user_question`,
-`todo_write`, `exit_plan_mode`, goals, skills, `present` and the web tools. Measured
-effect against Standard on an identical task: **≈ −2,800 prompt tokens per step
-(−8.1 %)**, because the 17 KB of dropped tool schemas outweigh the 6 KB of added
-instructions. See [the verification report](arya-standard-verification.md#3-token-effect-measured-on-the-same-task).
+`todo_write`, `exit_plan_mode`, goals, skills, `present` and the web tools. It
+mounts the same tool set as Standard, so its cost over Standard is the added
+prompt text; the older **≈ −2,800 prompt tokens per step (−8.1 %)** measurement
+came from the dropped tool schemas of the 0.103.6 build and is kept, as measured,
+in [the verification report](arya-standard-verification.md#3-token-effect-measured-on-the-same-task).
 
 **Arya Qwen** carries Qwen Code's structure — Core Mandates, Primary Workflows
 (software engineering and new applications), Operational Guidelines (communicating,
@@ -118,6 +119,16 @@ surface exists.
 All four mount `compaction-basic`, which owns the trigger evaluation, the durable
 lock, the event transaction and the shrink guard. The presets differ only in the
 `summarize()` swap and the policy row.
+
+**When `billion-context` owns the lane**, none of them mounts a live summarizer.
+bili is an HTTP proxy that replaces DSH's compaction rather than complementing
+it, and it disables the stock rows by package name; the Arya presets register
+with their own engine row and their `/compact` row disabled instead, while the
+policy row, the pruner and every tool row stay mounted. One compressor on one
+history is the contract here too: two summary shapes in one session would leave
+bili unable to reason about the fold it owns. Detection, timings and the
+fail-open path are documented in
+[billion-context and the Arya presets](billion-context.md).
 
 **Standard** asks for eight fixed Markdown sections and commits the answer with the
 base preamble. No post-turn fold, no verbatim user retention, no trigger beyond the
@@ -173,18 +184,15 @@ Everything else in the fold is shared and identical: the absolute token limit,
 
 ## 5. What only Standard can do
 
-Because all three Arya presets share a row list, they share its omissions. If you
-need any of these, use **Standard**:
-
-- `subagent`, `subagent_fork`, `workflow`, `send_message`, `list_agents`,
-  `interrupt_agent`, `list_subagent_models` — parallel exploration and delegation
-- `schedule_create`, `schedule_list`, `schedule_delete`, `schedule_update` —
-  scheduled/automation jobs
-- `plugin_manager` — installing or disabling plugins from chat
+Nothing. Every Arya preset now mounts the shipped `standard` tool rows — the
+subagent and workflow tools, the scheduled-job commands, the conditional
+plugin-manager row and the rest — so the choice between presets is the prompt and
+the compaction pipeline, not the capability set. The only intentional per-preset
+difference in the composition is how a session compacts.
 
 Conversely, all three Arya presets keep plan mode, `todo_write`,
-`ask_user_question`, goals, skills, `present`, jobs, the web tools and the full
-filesystem/shell set.
+`ask_user_question`, goals, skills, `present`, jobs, the web tools, the full
+filesystem/shell set, the delegation group and scheduling.
 
 ## 6. Evidence
 
@@ -223,7 +231,7 @@ found a client bundle that did not parse; 0.112.1 fixed it and added a
 
 | If you… | Use |
 |---|---|
-| need subagents, scheduled jobs, or in-chat plugin management | **Standard**, or **Arya Claude** for subagents and scheduling with the Claude loop |
+| need subagents, scheduled jobs, or in-chat plugin management | any preset — every Arya preset mounts the shipped tool rows |
 | want Codex's working style and checkpoints, on any model | **Arya Standard** |
 | run Qwen models and want their prompt's structure and its XML checkpoint | **Arya Qwen** |
 | want Claude Code's checkpoint shape, window arithmetic and two-level compression | **Arya Claude** |

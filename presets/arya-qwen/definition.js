@@ -14,7 +14,7 @@
  *      compression prompt already reproduces the user's messages inside
  *      `<all_user_messages>`.
  *
- * Everything else — no delegation group, no schedule or plugin-manager tools,
+ * Everything else — delegation, scheduling, the plugin-manager and market rows,
  * plan mode, the pruner — is the Arya Standard row list by construction.
  *
  * @module dsh-aryacode-polish-arya-qwen-definition
@@ -55,11 +55,17 @@ export const ARYA_QWEN_POLICY_MODULE = '@aryacode/dsh-aryacode-polish/arya-qwen-
  *
  * @param {{ [key: string]: boolean | number | string }} [settings] validated
  *   settings; defaults are read when omitted.
+ * @param {{ profileContext?: boolean, standDownCompaction?: boolean }} [options]
+ *   host facts available at mount; passed through to the shared base row list.
+ *   `standDownCompaction` also lands on this preset's replacement engine row so
+ *   billion-context and the Qwen summarizer never both compress one history.
  * @returns {{ id: string, name: string, description: string, order: number, plugins: object[] }}
  *   a definition `agentPresets.register()` accepts.
  */
-export function buildDefinition(settings = readSettings()) {
-  const base = buildAryaStandardDefinition(settings)
+export function buildDefinition(settings = readSettings(), options = {}) {
+  const base = buildAryaStandardDefinition(settings, options)
+  const safeOptions = options !== null && typeof options === 'object' ? options : {}
+  const stoodDown = safeOptions.standDownCompaction === true ? { disabled: true } : {}
   const plugins = base.plugins.map((row) => {
     if (row.id === 'persona') {
       return {
@@ -83,7 +89,7 @@ export function buildDefinition(settings = readSettings()) {
           }
         }
         if (child.id === 'arya-standard-compaction') {
-          return { id: ARYA_QWEN_ENGINE_ROW_ID, name: ARYA_QWEN_ENGINE_MODULE, config: engineConfig(settings) }
+          return { id: ARYA_QWEN_ENGINE_ROW_ID, name: ARYA_QWEN_ENGINE_MODULE, config: engineConfig(settings), ...stoodDown }
         }
         return child
       }),
