@@ -211,63 +211,6 @@ function ShippedMenuRow({ entry, session, runtime, workspacesSnapshot, onClose }
 }
 
 /**
- * The built-in Session actions, read from the Host's context-menu service.
- *
- * The shipped browser used to register Pin/Rename/Fork/Copy/Archive as legacy
- * slot components; newer Hosts register them as structured menu contributions.
- * The legacy slot is therefore empty, so a custom tree must resolve the same
- * contributions itself. A Host without the service (or a target with no
- * actions) renders nothing and leaves the legacy entries in charge.
- */
-function BuiltinSessionActions({ ctx, target, onClose, onOpenHost }) {
-  const menus = React.useMemo(() => {
-    if (!ctx) return undefined
-    try {
-      if (ctx.contextMenus) return ctx.contextMenus
-      return typeof ctx.get === 'function' ? ctx.get('contextMenus') : undefined
-    } catch {
-      return undefined
-    }
-  }, [ctx])
-  const resolution = React.useMemo(() => {
-    if (!menus || typeof menus.resolve !== 'function') return undefined
-    try { return menus.resolve(target) } catch { return undefined }
-  }, [menus, target.kind, target.value.sessionId])
-  React.useEffect(() => () => {
-    if (resolution && typeof resolution.dispose === 'function') resolution.dispose()
-  }, [resolution])
-  if (!resolution) {
-    if (typeof onOpenHost !== 'function') return null
-    return React.createElement('button', {
-      type: 'button',
-      'data-polish-session-more': target.value.sessionId,
-      style: WS_MENU_ITEM,
-      onClick: () => { onClose(); onOpenHost() },
-    }, 'More session actions…')
-  }
-  return React.createElement(BuiltinActionRows, { resolution, onClose })
-}
-
-function BuiltinActionRows({ resolution, onClose }) {
-  const views = useLive(resolution.source)
-  return (views || []).map((view) => [
-    view.separatorBefore ? React.createElement('div', { key: view.id + ':sep', style: WS_MENU_SEPARATOR }) : null,
-    React.createElement('button', {
-      key: view.id,
-      type: 'button',
-      role: 'menuitem',
-      disabled: view.disabled === true,
-      style: Object.assign({}, WS_MENU_ITEM, view.disabled === true ? { opacity: 0.45, cursor: 'default' } : null, view.danger === true ? { color: 'var(--dsw-alias-label-danger, #b42318)' } : null),
-      onClick: () => {
-        if (view.disabled === true) return
-        try { resolution.select(view.id) } catch { /* the menu closes even when an action refuses */ }
-        onClose()
-      },
-    }, view.label),
-  ])
-}
-
-/**
  * Keeps one broken third-party row from blanking the whole tree. Built lazily so
  * this file stays importable from a plain Node test, where React is absent.
  */
@@ -359,11 +302,6 @@ const WS_MENU_ITEM = {
   cursor: 'pointer',
   textAlign: 'left',
   whiteSpace: 'nowrap',
-}
-const WS_MENU_SEPARATOR = {
-  height: '1px',
-  margin: '4px 6px',
-  background: 'var(--dsw-alias-border-l2, rgba(0,0,0,0.12))',
 }
 
 function CaretGlyph({ open }) {
@@ -2991,6 +2929,13 @@ export function BetterWorkspace(props) {
   const openMenu = (event, row, workspace) => {
     event.preventDefault()
     event.stopPropagation()
+    // The shared menu service owns the Session menu now: built-in actions (Pin,
+    // Rename, Fork, Copy ID, Archive) are context-menu contributions there, and
+    // the same overlay renders this bundle's legacy rows. Drawing our own menu
+    // meant duplicating — and then losing — every built-in action. The internal
+    // menu stays as the fallback for a Shell without the service.
+    if (typeof services.openSessionMenu === 'function'
+      && services.openSessionMenu(row, { x: event.clientX, y: event.clientY }) === true) return
     setMenu({ kind: 'session', row, workspace, anchor: { top: event.clientY, left: event.clientX } })
   }
   const openWorkspaceMenu = (event, workspace) => {
@@ -4087,17 +4032,6 @@ export function BetterWorkspace(props) {
           },
         }, 'Make this folder a workspace')
       })(),
-      React.createElement(BuiltinSessionActions, {
-        ctx: services.pluginCtx || ctx,
-        target: { kind: 'session', value: { sessionId: menu.row.id, displayTitle: menu.row.displayTitle } },
-        onClose: closeMenu,
-        onOpenHost: () => {
-          try {
-            const open = runtime.injected && runtime.injected.openSessionMenu
-            if (typeof open === 'function') open(menu.row.id, menu.row.displayTitle, { x: menu.anchor.left, y: menu.anchor.top })
-          } catch { /* the tree keeps working when the shared menu is unavailable */ }
-        },
-      }),
       entries.map((entry, index) => React.createElement(RowBoundary, { key: (entry.options && entry.options.id) || index },
         React.createElement(ShippedMenuRow, {
           entry,
@@ -5666,6 +5600,22 @@ export function installWorkspaceSeat(ctx, configForms, extras = {}) {
   let dispose
   let disposeHero
   let unlisten
+  // The Shell's shared context-menu service, when this composition mounts it.
+  // Bound through its own injection because the workspace seat must not require
+  // it: a Shell without the service still gets the tree, with its internal menu.
+  let contextMenus
+  let disposeMenus
+  const bindContextMenus = () => {
+    if (typeof disposeMenus !== 'undefined') return
+    try {
+      disposeMenus = ctx.inject(['contextMenus'], (menuCtx) => {
+        contextMenus = menuCtx.contextMenus
+        return () => { contextMenus = undefined }
+      })
+    } catch (error) {
+      console.warn('[aryacode-polish] shared context menu unavailable:', error && error.message)
+    }
+  }
   const scope = () => {
     try {
       return configForms()
@@ -5691,13 +5641,13 @@ export function installWorkspaceSeat(ctx, configForms, extras = {}) {
   }
   const install = () => {
     if (dispose !== undefined) return
+    bindContextMenus()
     try {
       dispose = ctx.inject(
         ['slots', 'sessions', 'workspaces', 'uiWorkspace', 'locale', 'remote', 'remote.session'],
         (seated) => {
           const services = {
             ctx: seated,
-            pluginCtx: ctx,
             configForms,
             sourceFlow: extras.sourceFlow,
             slots: seated.slots,
@@ -5727,6 +5677,20 @@ export function installWorkspaceSeat(ctx, configForms, extras = {}) {
             openFolder: async (path) => {
               const answer = await seated.remote.session.openWorkspacePath({ path })
               if (answer && answer.ok === false) throw new Error('cannot open the folder')
+            },
+            // The Shell's own Session menu. A Host without the service answers
+            // false, and the tree falls back to its internal menu.
+            openSessionMenu: (row, point) => {
+              if (typeof contextMenus === 'undefined' || typeof contextMenus.open !== 'function') return false
+              try {
+                contextMenus.open({
+                  kind: 'session',
+                  value: { sessionId: row.id, displayTitle: row.displayTitle || row.title || 'Session' },
+                }, point)
+                return true
+              } catch {
+                return false
+              }
             },
             // The Session list is the Host's baseline, re-pulled on demand. The trash
             // moves a log folder on disk, which is not a Host verb, so the tree asks
@@ -5772,6 +5736,13 @@ export function installWorkspaceSeat(ctx, configForms, extras = {}) {
       } catch {}
     }
     dispose = undefined
+    if (typeof disposeMenus === 'function') {
+      try {
+        disposeMenus()
+      } catch {}
+      disposeMenus = undefined
+      contextMenus = undefined
+    }
   }
   sync()
   const forms = scope()
@@ -5785,6 +5756,11 @@ export function installWorkspaceSeat(ctx, configForms, extras = {}) {
     if (typeof unlisten === 'function') unlisten()
     if (typeof disposeHero === 'function') disposeHero()
     if (typeof dispose === 'function') dispose()
+    if (typeof disposeMenus === 'function') {
+      try {
+        disposeMenus()
+      } catch {}
+    }
   }
 }
 const WS_HEADER = { display: 'flex', alignItems: 'center', gap: '6px', flexShrink: 0, padding: '2px 4px 4px' }

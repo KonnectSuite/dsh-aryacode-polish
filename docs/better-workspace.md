@@ -26,8 +26,18 @@ by hand, reproducing exactly the two props the renderer would have synthesised:
 - `useMenuOpenState` - the row's open-state pair, produced by the owner's declared
   hook factory (`inject.hooks.menuOpenState(standard, hookContext)`).
 
-Everything else on the occupant (Pin, Rename, Fork, Archive, Copy Session ID, and our
-own "Open workspace folder") therefore keeps working untouched.
+Everything else on the occupant (our own "Open workspace folder") therefore keeps
+working untouched.
+
+**The menu itself belongs to the Shell.** Pin, Rename, Fork, Copy session ID and
+Archive are no longer slot components: they are contributions to the Shell's
+`contextMenus` service, and the legacy slot now carries only external rows. So a
+session right-click opens
+`contextMenus.open({ kind: 'session', value: { sessionId, displayTitle } })` and
+the Shell draws the whole menu — its own actions and our rows together. The tree's
+internal menu survives only as the fallback for a Shell that mounts no such
+service. Drawing the menu by hand is exactly how the built-ins went missing after
+the Shell moved them.
 
 **Presence is the switch.** Because presence is what shadows the shipped browser, the
 seat is registered and disposed with the `betterWorkspace` switch rather than

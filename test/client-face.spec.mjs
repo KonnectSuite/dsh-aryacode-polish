@@ -432,6 +432,25 @@ test('the balance sits at the right end of the DeepSeek row', () => {
   }
 })
 
+test('a session menu is the Shell own, not a copy of it', () => {
+  // The Shell moved its built-in Session actions (Pin, Rename, Fork, Copy ID,
+  // Archive) into the context-menu service; the tree opens that shared overlay so
+  // the two can never drift apart again. Drawing our own menu is what lost them.
+  for (const marker of [
+    "ctx.inject(['contextMenus']",
+    'openSessionMenu',
+    "kind: 'session'",
+    'contextMenus.open(',
+  ]) {
+    assert.ok(workspaceSource.includes(marker), 'the tree should carry ' + marker)
+  }
+  assert.equal(workspaceSource.includes('More session actions'), false, 'the dead fallback row is gone')
+  assert.equal(workspaceSource.includes('BuiltinSessionActions'), false, 'the tree must not reimplement built-ins')
+  for (const marker of ['openSessionMenu', 'contextMenus', 'displayTitle']) {
+    assert.ok(bundle.includes(marker), 'the bundle should carry ' + marker)
+  }
+})
+
 test('inline previews ride the turn tail the Shell already renders', () => {
   // `conversation.chat.turnTail` is a LIST seat: ui-deliverables, ui-plan and
   // ui-schedule already contribute cards there, so this is an addition. A keyed
