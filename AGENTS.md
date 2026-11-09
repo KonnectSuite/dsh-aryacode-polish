@@ -41,3 +41,16 @@ this repo. `docs/releasing.md` is the full runbook.
    44 px / 24 px picture / 14 px label because `ui-settings-account` is, not
    because it looked nice. Verify with a rendered screenshot before shipping.
 
+
+## Releasing: the market step is not optional
+
+`node scripts/release.mjs` ends at a polled npm publish, which is three quarters of a
+release. The fourth is the market catalogue: a version on npm that the `catalog`
+branch does not list is hidden from every user, because the market answers from
+`releases[0]`. Finish with
+
+    node ../dsh-arya-market/scripts/release-plugin.mjs --skip-build --skip-tests
+
+which verifies npm, the catalogue entry, the recorded `sha256` and
+`check-catalogue-parity.mjs`, and records whatever is missing. Never hand-edit
+`data/arya-plugins.json`.
