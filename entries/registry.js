@@ -26,10 +26,6 @@
 import { mountMcpManager } from './mcp.js'
 import { mountAryaSearch } from './web-search.js'
 import { mountPreview } from './preview.js'
-import { mountAryaStandard } from '../presets/arya-standard/plugin.js'
-import { mountAryaQwen } from '../presets/arya-qwen/plugin.js'
-import { mountAryaClaude } from '../presets/arya-claude/plugin.js'
-import { readSettings } from '../presets/arya-standard/settings.js'
 import { mountCost } from './cost.js'
 import { mountFolders } from './folders.js'
 import { mountGithub } from './github.js'
@@ -105,32 +101,6 @@ export const features = [
     description: 'Render the HTML, SVG and image files a turn wrote, under its message, in a sandboxed frame.',
     defaultOn: true,
     mount: mountPreview,
-  },
-  {
-    id: 'aryaStandard',
-    label: 'Arya Standard preset',
-    description: 'Add the Arya Standard agent preset, with Codex checkpoint compaction and its own Compaction tab.',
-    defaultOn: true,
-    mount: mountAryaStandard,
-    // The mount needs the policy group beside the switches, not the switches
-    // themselves: `readSettings` validates it and fills in every default.
-    config: rowConfig => readSettings(rowConfig),
-  },
-  {
-    id: 'aryaQwen',
-    label: 'Arya Qwen preset',
-    description: 'Add the Arya Qwen agent preset: Qwen Code’s prompt and its state_snapshot checkpoint compaction, on Arya Standard’s tool list.',
-    defaultOn: true,
-    mount: mountAryaQwen,
-    config: rowConfig => readSettings(rowConfig),
-  },
-  {
-    id: 'aryaClaude',
-    label: 'Arya Claude preset',
-    description: 'Add the Arya Claude agent preset: Claude Code-style checkpoint compaction, tool-result microcompact, a summarizer failure breaker, and subagent fan-out.',
-    defaultOn: true,
-    mount: mountAryaClaude,
-    config: rowConfig => readSettings(rowConfig),
   },
   {
     id: 'memory',

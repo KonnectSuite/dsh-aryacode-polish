@@ -36,8 +36,15 @@ and how to release. `README.md` is the user-facing story and lists every switch;
   installer ships the market, the better sidebar and the engineering bundle;
   polish and local-llm are market-only, so users install and update them from the
   market without an app release.
-- Eight shipped features, each its own switch (below). **361 specs**
-  (`node --test`, ~1 s) — the old "66 specs" figure is long gone.
+- One switch per feature; `client/switches.json` is the list, and the table below
+  covers the ones with the most moving parts. **463 specs**
+  (`node --test`, ~2 s) — the old "66 specs" figure is long gone.
+- **The three Arya presets are retired** (0.119.0): `aryaStandard`, `aryaQwen` and
+  `aryaClaude` are gone — `presets/`, their switches, their subpath exports, their
+  Settings page, the Compaction and Engineering tabs, the `skills/` review lenses
+  they mounted, and the billion-context compaction adapter that existed only to
+  keep those presets from fighting bili's compactor. Nothing in this package
+  registers an agent preset any more.
 - Nothing was ever written to the installed AryaCode
   (`%LOCALAPPDATA%\Programs\AryaCode`) or to the installed data home. All
   verification used Dev AryaCode.
@@ -53,48 +60,9 @@ and how to release. `README.md` is the user-facing story and lists every switch;
 | `workspaceSources` | **On this PC** / **GitHub repository…** behind the Workspaces **+**. | `entries/folders.js` |
 | `betterWorkspace` | Replaces the sidebar workspace list with our tree: folders, pins, day grouping, find, sort, read state, money, bulk actions, keyboard, subagent hiding. **The big one.** | `docs/better-workspace.md` (46 KB, the real spec) |
 | `panelScreenshot` | Camera button in the right panel: copies the open tab to the clipboard and attaches it to the message. | `docs/panel-screenshot.md` |
-| `aryaStandard` | An **Arya Standard** agent preset: Codex checkpoint compaction over the unchanged `compaction-basic` transaction, a Settings page for its knobs, and a **Compaction** conversation dashboard (trajectory, cache strip, tiles, checkpoints, log, settings). | `docs/arya-standard.md`, `presets/arya-standard/` |
-| `aryaQwen` | An **Arya Qwen** agent preset: Qwen Code's prompt and `<state_snapshot>` checkpoint on Arya Standard's tool list; shares the settings group and the Compaction tab. | `docs/arya-qwen.md`, `presets/arya-qwen/` |
-| `aryaClaude` | An **Arya Claude** agent preset: authored nine-section checkpoint with an `<analysis>` scratchpad and `<summary>` envelope, Claude Code's `window − output − 13k` trigger, a microcompact tool-result pruner that can skip the fold, a three-strike summarizer breaker, and the delegation + schedule rows Arya Standard omits. Verified live in a dev Host (`/compact` committed; follow-up turn ran). | `docs/arya-claude.md`, `presets/arya-claude/` |
 
 Parked, by the user's decision: right-click spelling corrections — it needs a
 shell change no plugin can reach (`docs/parked-spellcheck.md`).
-
-## Arya Standard, specifically
-
-The newest feature is not a surface: it is an **agent preset**, and four contracts
-made it shaped the way it is.
-
-1. **A preset is registered in JavaScript, not by a second patch row.**
-   `cordis.patch.yml` is pinned to exactly one `insert` with one row by
-   `test/patch.spec.mjs`, and $DSH_WEB_APP's preset rows live inside a preset's
-   `config.plugins` — nested rows no patch layer can address by id. So
-   `presets/arya-standard/definition.js` builds the definition and
-   `presets/arya-standard/plugin.js` calls `agentPresets.register(...)` from the
-   feature mount. Duplicate registration (`Duplicate agent preset: arya-standard`)
-   is logged, never thrown: the already-mounted preset is the one sessions use.
-2. **The engine row resolves through the package's own exports.** The row names
-   `@aryacode/dsh-aryacode-polish/arya-standard`, which is the `./arya-standard`
-   export entry pointing at `presets/arya-standard/engine.js`. A preset row is
-   loaded like any other bundle entry, so that default export *is* the compaction
-   service.
-3. **`summary()` is the only hook.** `@deepseek-ai/dsh-compaction`'s
-   `CompactionEngine` is an empty base; trigger, lock, transaction, shrink guard
-   and the single replacement message belong to `compaction-basic`. Never
-   re-implement those here — overriding `summarize()` keeps a crash's blocking
-   `compaction/start` recoverable the way the Host expects.
-4. **The settings group is non-volatile on purpose.** A volatile boolean re-runs
-   nothing but `sync()`; a plain object field re-runs `apply()`, which is what
-   rebuilds the definition. Only sessions created afterwards pick up new numbers.
-5. **The tail stays, the Codex shape sits on top.** Codex replaces every assistant
-   and tool turn; DSH's loop resumes on the surface, so compacting the newest step
-   away made a model stop mid-task in a real session. `retainRatio` (0.16) keeps
-   the last step, and the checkpoint carries Codex's prefix plus the user's own
-   messages inside it. Do not "fix" that back to 0 without a live loop test.
-6. **The Compaction tab is projection-only.** Everything it draws — trajectory,
-   cache strip, tiles, checkpoints, failures — is folded from durable session
-   events in `presets/arya-standard/projection.js` (state version 2). No route, no
-   iframe, no polling: if a number is not in the projection, add it there first.
 
 ## MCP servers, specifically
 
@@ -142,8 +110,7 @@ entries/folders.js    workspace sources: OS folder chooser / folder list
 entries/github.js     GitHub CLI auth, repo listing, clone (Host side)
 client/face.js        browser face: shell surfaces, menus, cost pill, balance line
 client/workspace.js   the tree itself (211 KB — read docs/better-workspace.md first)
-client/arya.js        Arya Standard settings fields + the Compaction tab
-presets/arya-standard/  the preset: definition, prompt adaptation, engine row, projection
+client/arya.js        the shared style primitives every page draws on
 client/money.js       wallet choice + amount rendering (inlined into the bundle)
 client/account.js     granted, timeout-bounded balance read (inlined)
 client/switches.json  browser half of the seam: one entry per switch

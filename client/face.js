@@ -122,16 +122,10 @@ function PolishConfig(props) {
   }
 
   const current = draft === null ? value : draft
-  const aryaVisible = aryaEnabled(current)
   const dirty = SWITCHES.some(entry => switchValue(current, entry) !== switchValue(value, entry))
-    || (aryaVisible && aryaDirty(value, current))
   const writable = state.writable === true
   const setSwitch = (key, next) => {
     setDraft({ ...current, [key]: next })
-    setNotice('')
-  }
-  const setAryaOption = (key, next) => {
-    setDraft({ ...current, [ARYA_GROUP]: { ...aryaOptionsOf(current), [key]: next } })
     setNotice('')
   }
   const save = async () => {
@@ -140,9 +134,6 @@ function PolishConfig(props) {
     setNotice('')
     try {
       const ops = SWITCHES.map(entry => ({ op: 'set', path: [entry.key], value: switchValue(current, entry) }))
-      // The preset's policy group is one non-volatile field, so its operations
-      // travel with the switches: one Save writes the whole row in one revision.
-      if (aryaVisible) ops.push(...aryaOps(aryaOptionsOf(current), true))
       const owner = live === undefined ? form : live
       const accepted = await owner.mutate(ops, state.revision)
       if (accepted) {
@@ -177,21 +168,6 @@ function PolishConfig(props) {
         React.createElement('span', { style: { display: 'block', opacity: 0.8, lineHeight: '1.45' } }, entry.description),
       ))),
     ),
-    // The preset's knobs sit under the switches rather than in a page of their
-    // own only because this page already writes the row: one Save covers both.
-    aryaVisible ? React.createElement('div', {
-      style: { borderTop: '1px solid rgba(127, 127, 127, 0.2)', paddingTop: '14px', display: 'grid', gap: '8px' },
-    },
-    React.createElement('p', { style: { ...SPACING, fontWeight: 600, margin: 0 } }, 'Arya Standard'),
-    React.createElement('p', { style: { ...SPACING, opacity: 0.8, lineHeight: '1.45', margin: 0 } },
-      'Codex-style checkpoint compaction. These values shape the definition a new session mounts; '
-      + 'a running session keeps the values it started with.'),
-    React.createElement(AryaSettingsFields, {
-      options: aryaOptionsOf(current),
-      enabled: true,
-      disabled: !writable || saving,
-      onChange: setAryaOption,
-    })) : null,
     React.createElement('div', { style: { display: 'flex', gap: '10px', alignItems: 'center' } },
       React.createElement('button', {
         type: 'button',
@@ -2537,17 +2513,6 @@ return {
         inject: () => ({ configForms }),
       }, GithubStatus))
     })
-    // Arya Standard's two surfaces. Both read the row configuration through the
-    // same lazy getter as the switch page. They stay registered while the bundle
-    // is loaded — a page that vanished with its own switch would leave a stale
-    // tab behind — and both explain the preset is switched off instead.
-    ctx.slots.inject('settings.section', () => ctx.slots.register({
-      name: 'settings.section',
-      id: 'arya-standard',
-      order: 60,
-      label: () => 'Arya Standard',
-      inject: () => ({ configForms }),
-    }, AryaStandardSettingsPage))
     // Memory is its own section: it belongs to the profile, not to a preset, and
     // the switch beside it can be off while the page still explains itself.
     ctx.slots.inject('settings.section', () => ctx.slots.register({
@@ -2564,15 +2529,6 @@ return {
       label: () => 'Hooks',
       inject: () => ({}),
     }, AryaHooksPage))
-    // The engineering ledger is a conversation view beside the Compaction tab:
-    // what was read, checked, written, verified, and left to a human.
-    ctx.slots.inject('conversation.view', () => ctx.slots.register({
-      name: 'conversation.view',
-      id: 'arya-engineering',
-      order: 41,
-      label: () => 'Engineering',
-      inject: () => ({}),
-    }, AryaEngineeringTab))
     // AryaSearch sits next to the shipped Web search card, because that is where
     // the harness keeps search-provider configuration.
     ctx.slots.inject('plugins.item', () => ctx.slots.register({
@@ -2597,25 +2553,6 @@ return {
       order: 11,
       label: () => 'MCP',
     }, McpSidebarIcon))
-    ctx.slots.inject('conversation.view', () => ctx.slots.register({
-      name: 'conversation.view',
-      id: 'arya-standard-compaction',
-      order: 40,
-      label: () => 'Compaction',
-      inject: () => ({
-        configForms,
-        // The Sessions client service is optional here: without it the tab still
-        // renders checkpoints, and only the Compact now button reports why it
-        // cannot run. `command()` is the client's own route to `/compact`.
-        sessions: () => {
-          try {
-            return ctx.get('sessions')
-          } catch {
-            return undefined
-          }
-        },
-      }),
-    }, AryaCompactionView))
     // The "+" menu's `Add workspace…` row exists only while a plugin occupies
     // this single-owner hole, so occupying it means standing in for the folder
     // picker: the flow offers the machine and GitHub as sources. It needs no

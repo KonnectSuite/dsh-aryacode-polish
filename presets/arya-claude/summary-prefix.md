@@ -1,1 +1,0 @@
-This session continues an earlier conversation whose history was compacted to fit the model's context window. The checkpoint below records the work done before the compaction. The messages after it are the most recent turns, kept verbatim.

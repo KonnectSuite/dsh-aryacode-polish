@@ -56,27 +56,9 @@
       "defaultOn": true
     },
     {
-      "key": "aryaStandard",
-      "label": "Arya Standard preset",
-      "description": "Add the Arya Standard agent preset, with Codex checkpoint compaction and its own Compaction tab.",
-      "defaultOn": true
-    },
-    {
       "key": "mcpManager",
       "label": "MCP servers",
       "description": "Add and manage Model Context Protocol servers from Settings → MCP servers.",
-      "defaultOn": true
-    },
-    {
-      "key": "aryaQwen",
-      "label": "Arya Qwen preset",
-      "description": "Add the Arya Qwen agent preset: Qwen Code’s prompt and its state_snapshot checkpoint compaction, on Arya Standard’s tool list.",
-      "defaultOn": true
-    },
-    {
-      "key": "aryaClaude",
-      "label": "Arya Claude preset",
-      "description": "Add the Arya Claude agent preset: Claude Code-style checkpoint compaction, tool-result microcompact, a summarizer failure breaker, and subagent fan-out.",
       "defaultOn": true
     },
     {

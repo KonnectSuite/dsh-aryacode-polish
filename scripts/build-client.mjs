@@ -7,8 +7,8 @@
  * only names modules the Shell already answers (`react`), so wrapping the source
  * is enough, and keeping it a wrapper means the emitted bundle stays readable
  * when someone has to debug it inside a running app. The fragments are inlined in
- * dependency order: money, account and workspace first, then the Arya Standard
- * settings and tab, then `face.js`, which registers every slot.
+ * dependency order: money, account and workspace first, then the shared theme
+ * primitives, then the pages, then `face.js`, which registers every slot.
  */
 
 import { readFileSync, rmSync, writeFileSync } from 'node:fs'
@@ -22,17 +22,9 @@ const declaration = JSON.parse(readFileSync(new URL('client/switches.json', root
 const money = readFileSync(new URL('client/money.js', root), 'utf8')
 const account = readFileSync(new URL('client/account.js', root), 'utf8')
 const workspace = readFileSync(new URL('client/workspace.js', root), 'utf8')
-/*
- * The Arya Standard preset's knobs are declared once, in the host half, and
- * inlined here as ARYA_FIELDS so the settings form shows the same labels, bounds
- * and defaults the host validates against. The client half cannot import it: the
- * face is a factory body, not a module graph.
- */
-const { ARYA_STANDARD_FIELDS } = await import(new URL('presets/arya-standard/fields.js', root))
 const arya = readFileSync(new URL('client/arya.js', root), 'utf8')
 const memory = readFileSync(new URL('client/memory.js', root), 'utf8')
 const hooks = readFileSync(new URL('client/hooks.js', root), 'utf8')
-const engineering = readFileSync(new URL('client/engineering.js', root), 'utf8')
 const mcp = readFileSync(new URL('client/mcp.js', root), 'utf8')
 const mcpIcons = readFileSync(new URL('client/mcp-icons.js', root), 'utf8')
 const aryasearch = readFileSync(new URL('client/aryasearch.js', root), 'utf8')
@@ -63,7 +55,6 @@ const indent = text => text.split('\n').map(line => (line === '' ? '' : '    ' +
 
 const constants = [
   `const SWITCHES = ${JSON.stringify(declaration.switches, null, 2)}`,
-  `const ARYA_FIELDS = ${JSON.stringify(ARYA_STANDARD_FIELDS, null, 2)}`,
   `const ROW_ID = ${JSON.stringify(declaration.row)}`,
   `const ROW_KEY = ${JSON.stringify(id)} + '#' + ROW_ID`,
   `const CLIENT_VERSION = ${JSON.stringify(manifest.version)}`,
@@ -98,8 +89,6 @@ ${indent(arya.trimEnd())}
 ${indent(memory.trimEnd())}
 
 ${indent(hooks.trimEnd())}
-
-${indent(engineering.trimEnd())}
 
 ${indent(mcpIcons.trimEnd().replace(/^export /gm, ''))}
 

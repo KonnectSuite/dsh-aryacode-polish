@@ -1,1 +1,0 @@
-Resume the work from where the checkpoint leaves it. Do not acknowledge or restate the checkpoint, do not ask the user to confirm anything it has already settled, and continue with the next step directly.
