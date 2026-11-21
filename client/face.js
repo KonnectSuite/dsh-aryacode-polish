@@ -2404,9 +2404,37 @@ return {
         return undefined
       }
     }
-    // The Better workspace seat shadows the shipped browser at a different priority,
-    // so it must be present only while its switch is on.
-    installWorkspaceSeat(ctx, configForms, { sourceFlow: WorkspaceSourceFlow })
+    // The workspace row's menu. The shipped list already registers Rename,
+    // Reveal and Delete for a workspace, so this adds the row it does not: the
+    // workspace's path on the clipboard. It is one registration against the
+    // Shell's own menu service rather than a replacement of the list that draws
+    // the row, which is what lets it survive a harness update. The icon key is
+    // one the shipped workspace menu already draws (`workspace.copy`), so there
+    // is no icon to register here either.
+    try {
+      ctx.inject(['contextMenus'], ({ contextMenus }) => {
+        ctx.effect(() => contextMenus.register({
+          id: 'polish.workspace',
+          target: 'workspace',
+          // Rename sits at 100 and Reveal at 200, Delete at 300 with its own
+          // separator: 250 puts this row with the two read-only rows.
+          order: 250,
+          resolve: ({ path }) => typeof path === 'string' && path !== '' ? [{
+            id: 'copyPath',
+            label: 'Copy path',
+            icon: { key: 'workspace.copy' },
+            failureLabel: 'Could not copy the path',
+            run: async () => {
+              await navigator.clipboard.writeText(path)
+              contextMenus.notify('Copied', true)
+            },
+          }] : [],
+        }), 'polish: workspace copy path')
+      })
+    } catch {
+      // A composition without the shared menu service still gets the shipped
+      // workspace menu; there is simply no row of ours to add to it.
+    }
     ctx.slots.inject('plugins.row.config', () => ctx.slots.register({
       name: 'plugins.row.config',
       key: ROW_KEY,

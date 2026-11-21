@@ -37,8 +37,9 @@ and how to release. `README.md` is the user-facing story and lists every switch;
   polish and local-llm are market-only, so users install and update them from the
   market without an app release.
 - One switch per feature; `client/switches.json` is the list, and the table below
-  covers the ones with the most moving parts. **463 specs**
-  (`node --test`, ~2 s) — the old "66 specs" figure is long gone.
+  covers the ones with the most moving parts. **210 specs**
+  (`node --test`, ~2 s) — retiring the workspace tree and the session trash took
+  253 of the 463 that 0.119.0 shipped with.
 - **The three Arya presets are retired** (0.119.0): `aryaStandard`, `aryaQwen` and
   `aryaClaude` are gone — `presets/`, their switches, their subpath exports, their
   Settings page, the Compaction and Engineering tabs, the `skills/` review lenses
@@ -58,8 +59,18 @@ and how to release. `README.md` is the user-facing story and lists every switch;
 | `openWorkspaceFolder` | **Open workspace folder** in a Session's `…` menu. | `docs/workspace-folder.md` |
 | `githubWorkspace` | Sign in with the GitHub CLI, list repositories, clone one as a workspace. Token stays on the Host, used only as git's auth header. | `docs/github-workspaces.md` |
 | `workspaceSources` | **On this PC** / **GitHub repository…** behind the Workspaces **+**. | `entries/folders.js` |
-| `betterWorkspace` | Replaces the sidebar workspace list with our tree: folders, pins, day grouping, find, sort, read state, money, bulk actions, keyboard, subagent hiding. **The big one.** | `docs/better-workspace.md` (46 KB, the real spec) |
 | `panelScreenshot` | Camera button in the right panel: copies the open tab to the clipboard and attaches it to the message. | `docs/panel-screenshot.md` |
+
+The sidebar workspace list is the Shell’s own again. Through 0.119.x this
+package drew its own tree in that slot (`betterWorkspace`, `client/workspace.js`)
+and kept an archived-session trash beside it (`sessionTrash`). Both are retired.
+The seat rested on a claim about the harness that turned out not to hold: the
+shipped workspace row does declare a context menu — the Shell registers Rename,
+Reveal and Delete for it — and a plugin may add rows to that menu. What is left of
+the seat’s intent is one contribution in `client/face.js`: `polish.workspace` adds
+**Copy path** to the workspace row’s menu at order 250, between Reveal (200) and
+the separator before Delete (300). Nothing in this package replaces a shipped
+sidebar surface any more.
 
 Parked, by the user's decision: right-click spelling corrections — it needs a
 shell change no plugin can reach (`docs/parked-spellcheck.md`).
@@ -105,11 +116,9 @@ entries/polish.js     the row: Config derived from the registry, apply(), mount/
 entries/config.js     accessors: resolve / flag / list / text
 entries/usage.js      fold: model-attributed usage out of the session event log
 entries/cost.js       polishCost projection + dated rate table + pricing
-entries/sessions.js   the tree's own route (POST api/polish.sessions): parent links
 entries/folders.js    workspace sources: OS folder chooser / folder list
 entries/github.js     GitHub CLI auth, repo listing, clone (Host side)
 client/face.js        browser face: shell surfaces, menus, cost pill, balance line
-client/workspace.js   the tree itself (211 KB — read docs/better-workspace.md first)
 client/arya.js        the shared style primitives every page draws on
 client/money.js       wallet choice + amount rendering (inlined into the bundle)
 client/account.js     granted, timeout-bounded balance read (inlined)
@@ -157,10 +166,7 @@ locale/en.json, zh.json  card title + description (keys must match)
 - The client session contract exposes **no events** (`ISession`,
   `SessionSnapshot`). Anything derived from the log must be a host projection via
   `ctx.sessionProjections.register(...)`, which is a ctx effect: disposal follows
-  the fiber. For facts the projections cannot carry, the tree uses its own Host
-  route, `POST api/polish.sessions` (`entries/sessions.js`), answered from the
-  session rows' `parentSessionId` — the route exists because projections are empty
-  on a profile whose subagents were never resumed (0.93.4 vs 0.94.0).
+  the fiber..
 - **Slot geography matters.** `SidebarRoot` renders `footerActions`
   (`sidebar.footer.action`) *above* `settingsArea` (`sidebar.settings` →
   `settings.launcher` → the account row). Nothing documented renders below the
@@ -172,11 +178,6 @@ locale/en.json, zh.json  card title + description (keys must match)
   nothing times the read out, the promise never settles — the line stays empty
   for the life of the page. `client/account.js` uses a 10 s ceiling and starts the
   call before the effect's yielded disposer.
-- **The tree's metrics are the shipped list's.** 0.95.x pinned workspace rows to
-  34px, session rows to 32px, 8px inline padding, titles 14/20, counts and money
-  12/17 tertiary, section headings 12px sentence case, chips 22px pill height,
-  density presets comfortable 34 / compact 28 / folders 30. Change one of those
-  and the tree stops looking native.
 - The market badge still reads **"Host requirement unknown"** even with
   `dsh.engines.dsh` declared and the package on npm. That is market-side; the same
   declaration does feed the compatibility filter
@@ -194,7 +195,7 @@ that shipped to the UI. Bump versions with `npm pkg set version=…`
 
 ```powershell
 cd C:\Users\KNPhu\.arya\github\KonnectSuite\dsh-aryacode-polish
-pnpm test                 # 361 specs, node --test
+pnpm test                 # 210 specs, node --test
 pnpm pack                 # runs build:client first
 
 # Web profile (fastest for browser checks)

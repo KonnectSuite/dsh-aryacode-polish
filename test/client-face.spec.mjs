@@ -15,72 +15,11 @@ import { features } from '../entries/registry.js'
 
 const root = new URL('../', import.meta.url)
 const read = path => readFileSync(new URL(path, root), 'utf8')
-const workspaceSource = read('client/workspace.js')
 const faceSource = read('client/face.js')
 const previewSource = read('client/preview.js')
 const manifest = JSON.parse(read('package.json'))
 const declaration = JSON.parse(read('client/switches.json'))
 const bundle = read('lib/client.js')
-
-test('the header menu names every tree action, and can reset the view', () => {
-  assert.match(workspaceSource, /'data-polish-ws-menu': 'tree'/)
-  assert.match(workspaceSource, /'data-polish-tree-density'/)
-  assert.match(workspaceSource, /'data-polish-tree-sort'/)
-  assert.match(workspaceSource, /'data-polish-tree-reset'/)
-  assert.match(workspaceSource, /treeDefaults\(\)/)
-})
-
-test('a running session says how long it has been running', () => {
-  assert.match(workspaceSource, /'data-polish-running-for'/)
-  assert.match(workspaceSource, /runningFor\(row\.id\)/)
-  assert.match(workspaceSource, /counted since this window opened/)
-  assert.match(bundle, /data-polish-running-for/)
-})
-
-test('a session says how long ago it was touched', () => {
-  assert.match(workspaceSource, /'data-polish-session-age'/)
-  assert.match(workspaceSource, /ageLabel\(row\.updatedAt, clock\)/)
-  assert.match(bundle, /data-polish-session-age/)
-})
-
-test('the tree can sort by what was touched last', () => {
-  assert.match(workspaceSource, /recent: 'Recent first'/)
-  assert.match(workspaceSource, /kind === 'recent'/)
-  assert.match(bundle, /Recent first/)
-})
-
-test('the palette can act, not only jump', () => {
-  assert.match(workspaceSource, /actionEntries\(/)
-  assert.match(workspaceSource, /'data-polish-switcher-action'/)
-  assert.match(workspaceSource, /services\.startSession\(hit\.workspaceId\)/)
-})
-
-test('the filter says how many rows survived it, and marks the part that matched', () => {
-  assert.match(workspaceSource, /'data-polish-ws-matches'/)
-  assert.match(workspaceSource, /'data-polish-hit': 'true'/)
-  assert.match(workspaceSource, /highlightParts\(/)
-  // A session row is focused by its walk index; a workspace row has its own flag. Mixing the two
-  // threw "rowFocused is not defined" inside the seat and blanked the whole tree.
-  assert.match(workspaceSource, /'data-polish-cursor': rowFocused \? 'true' : undefined/)
-  assert.match(workspaceSource, /'data-polish-cursor': focused \? 'true' : undefined/)
-  assert.match(workspaceSource, /event\.key === 'Home' \|\| event\.key === 'End'/)
-})
-
-test('a session can be pinned by dropping it on the Pinned header', () => {
-  assert.match(workspaceSource, /dropping === 'pinned'/)
-  assert.match(workspaceSource, /kind: 'pinned'/)
-  assert.match(workspaceSource, /services\.pinSession\(moving\.id\)/)
-  assert.match(workspaceSource, /services\.unpinSession\(moving\.id\)/)
-  assert.match(workspaceSource, /typeBufferRef/)
-})
-
-test('a folder wears its own colour and glyph', () => {
-  assert.match(workspaceSource, /'data-polish-folder-tone-pick'/)
-  assert.match(workspaceSource, /'data-polish-folder-glyph-pick'/)
-  assert.match(workspaceSource, /'data-polish-folder-strong'/)
-  assert.match(workspaceSource, /folderLookOf\(/)
-  assert.match(workspaceSource, /FOLDER_LOOK_PREFIX/)
-})
 
 test('the manifest declares a browser face the Shell can find', () => {
   assert.equal(manifest.dsh.client?.platform, 'web')
@@ -332,16 +271,13 @@ test('the workspace row opens the folder through the Session Remote', () => {
     bundle.includes("inject(['workspaces', 'remote', 'remote.session']"),
     'the workspace row declares every service it reaches; the Shell refuses an undeclared namespace',
   )
-  // A plugin may not reach into a Shell-rendered row, so the menu row stays a menu
-  // row. The right-click menu lives on the rows Better workspace renders itself,
-  // inside the surface it replaced - that is the sanctioned route.
+  // A plugin may not reach into a row the Shell draws. The folder row therefore
+  // stays a menu row of its own, and the workspace row is reached the sanctioned
+  // way: the shared menu service, which the polish.workspace contribution below
+  // adds a Copy path row to.
   assert.ok(
     !bundle.includes('data-row-key'),
     'no private row attribute is patched: a release would erase that',
-  )
-  assert.ok(
-    bundle.includes('onContextMenu'),
-    'the replaced surface owns its own rows, so their menus are ours to draw',
   )
 })
 
@@ -432,25 +368,6 @@ test('the balance sits at the right end of the DeepSeek row', () => {
   }
 })
 
-test('a session menu is the Shell own, not a copy of it', () => {
-  // The Shell moved its built-in Session actions (Pin, Rename, Fork, Copy ID,
-  // Archive) into the context-menu service; the tree opens that shared overlay so
-  // the two can never drift apart again. Drawing our own menu is what lost them.
-  for (const marker of [
-    "ctx.inject(['contextMenus']",
-    'openSessionMenu',
-    "kind: 'session'",
-    'contextMenus.open(',
-  ]) {
-    assert.ok(workspaceSource.includes(marker), 'the tree should carry ' + marker)
-  }
-  assert.equal(workspaceSource.includes('More session actions'), false, 'the dead fallback row is gone')
-  assert.equal(workspaceSource.includes('BuiltinSessionActions'), false, 'the tree must not reimplement built-ins')
-  for (const marker of ['openSessionMenu', 'contextMenus', 'displayTitle']) {
-    assert.ok(bundle.includes(marker), 'the bundle should carry ' + marker)
-  }
-})
-
 test('inline previews ride the turn tail the Shell already renders', () => {
   // `conversation.chat.turnTail` is a LIST seat: ui-deliverables, ui-plan and
   // ui-schedule already contribute cards there, so this is an addition. A keyed
@@ -495,379 +412,31 @@ test('the emitted bundle lists exactly the declared switches', () => {
   }
 })
 
-test('the better workspace seat shadows the shipped browser without re-declaring its children', () => {
-  // A child-hole declaration is exclusive: the shipped entry owns session.menu.item,
-  // so re-declaring it throws and the seat is dropped. The occupants are read off
-  // the slots service instead and rendered by hand.
-  assert.ok(bundle.includes("'sidebar.workspaces'"))
-  assert.ok(bundle.includes('priority: -1'))
-  assert.ok(bundle.includes("slots.entries('sidebar.workspaces.session.menu.item')"))
-  assert.ok(bundle.includes('menuOpenState'))
-  assert.ok(bundle.includes('installWorkspaceSeat('))
-  assert.ok(!bundle.includes('children: {'), 'no child-hole declaration may ride this registration')
-})
 
-test('the workspace seat also offers the Hero picker, with the same colours', () => {
-  assert.ok(bundle.includes('conversation.hero.workspace'), 'the Hero seat is registered')
-  assert.ok(bundle.includes('data-polish-hero'), 'the picker marks its rows')
-  assert.ok(bundle.includes('data-polish-tone'), 'the palette exposes one button per tone')
-  assert.ok(workspaceSource.includes('aryacode-polish:workspace-appearance'), 'the palette has a storage key')
-  assert.ok(workspaceSource.includes('writeAppearance(next)'), 'a colour is written when it is chosen')
-})
-
-test('folders and saved orders ride the same workspace seat', () => {
-  assert.ok(workspaceSource.includes('data-polish-ws-folder'), 'a folder row is rendered')
-  assert.ok(workspaceSource.includes('aryacode-polish:workspace-order'), 'the preset has a storage key')
-  assert.ok(workspaceSource.includes("'data-polish-order': 'remember'"), 'the menu can remember the order')
-  assert.ok(workspaceSource.includes('planReorder('), 'restoring walks an insertBefore plan')
-  assert.ok(workspaceSource.includes("'data-polish-ws-rename': 'open'"), 'the menu can rename a workspace')
-  assert.ok(workspaceSource.includes('workspaces.rename('), 'the rename is a Host call')
-  assert.ok(workspaceSource.includes('data-polish-switcher'), 'Ctrl-K opens a switcher')
-  assert.ok(workspaceSource.includes('aryacode-polish:folded'), 'the folded state has a storage key')
-
-})
-
-test('the tree offers density modes and an archived section', () => {
-  assert.ok(workspaceSource.includes("'data-polish-tree-density'"), 'the tree menu carries the density switch')
-  assert.ok(workspaceSource.includes('aryacode-polish:density'), 'the chosen density is remembered')
-  assert.ok(workspaceSource.includes('DENSITY_METRICS'), 'density changes row height from a table')
-  assert.ok(workspaceSource.includes("'data-polish-ws-archived'"), 'archived sessions get their own section')
-  assert.ok(workspaceSource.includes("'data-polish-ws-unarchive'"), 'an archived row can be restored')
-  assert.ok(workspaceSource.includes('workspaces.unarchiveSession('), 'restoring goes through the Host verb')
-  assert.ok(workspaceSource.includes('splitArchived('), 'archived sessions leave their workspace rows')
-})
-
-test('the tree scrolls instead of squeezing its rows', () => {
-  assert.ok(workspaceSource.includes("'data-polish-ws-rows'"), 'the rows live in their own column')
-  assert.ok(workspaceSource.includes('flexShrink: 0'), 'rows refuse to shrink below their height')
-  assert.ok(workspaceSource.includes('ARCHIVE_PAGE'), 'an expanded archive lists a page at a time')
-  assert.ok(workspaceSource.includes("'data-polish-ws-archived-more'"), 'the rest of the archive is one click away')
-  assert.ok(workspaceSource.includes("'data-polish-tree-copy'"), 'copying the tree lives in the tree menu')
-  assert.ok(!workspaceSource.includes("'data-polish-ws-copy'"), 'the header no longer carries a copy button')
-  assert.ok(!workspaceSource.includes("'data-polish-ws-help-open'"), 'the header no longer carries a help button')
-})
-
-test('a workspace can wear a glyph and carry a note', () => {
-  assert.ok(workspaceSource.includes("'data-polish-glyph'"), 'the menu can open the glyph picker')
-  assert.ok(workspaceSource.includes("'data-polish-glyph-pick'"), 'the picker offers badges')
-  assert.ok(workspaceSource.includes("'data-polish-note'"), 'the menu can open the note editor')
-  assert.ok(workspaceSource.includes("'data-polish-note-input'"), 'the note is typed into a field')
-  assert.ok(workspaceSource.includes("'data-polish-ws-glyph'"), 'the row renders the chosen glyph')
-  assert.ok(workspaceSource.includes('looks.note || undefined'), 'the note rides the row tooltip')
-})
-
-test('a workspace can be dropped on a folder and shows its note on hover', () => {
-  assert.ok(workspaceSource.includes('fileUnder('), 'dropping uses the filing helper')
-  assert.ok(workspaceSource.includes("'folder:' + folder"), 'the folder header is a drop target')
-  assert.ok(workspaceSource.includes("'Filed under '"), 'a drop reports what happened')
-  assert.ok(workspaceSource.includes("'data-polish-note-card'"), 'the note appears in a card')
-  assert.ok(workspaceSource.includes('setCard({ text: note'), 'the card only exists when a note does')
-})
-
-test('a folder can exist before it holds a workspace', () => {
-  assert.ok(workspaceSource.includes("'data-polish-folder-new'"), 'the menu can declare a folder')
-  assert.ok(workspaceSource.includes("'data-polish-folder-input'"), 'the folder name is typed into a field')
-  assert.ok(workspaceSource.includes('aryacode-polish:folders'), 'declared folders are remembered')
-  assert.ok(workspaceSource.includes("'data-polish-ws-empty'"), 'an empty folder still draws a header')
-  assert.ok(workspaceSource.includes("'data-polish-folder-remove'"), 'an empty folder can be removed')
-  assert.ok(workspaceSource.includes('folderNamesOf('), 'declared folders join the ones the workspaces imply')
-})
-
-test('a workspace can leave its folder, and a folder can be renamed', () => {
-  assert.ok(workspaceSource.includes("'data-polish-ws-unfile'"), 'the workspace menu can lift a workspace out')
-  assert.ok(workspaceSource.includes('unfiled('), 'lifting uses the prefix helper')
-  assert.ok(workspaceSource.includes("'data-polish-folder-edit'"), 'a folder header carries a rename action')
-  assert.ok(workspaceSource.includes("'data-polish-folder-edit-input'"), 'the new name is typed into a field')
-  assert.ok(workspaceSource.includes('fileUnder(workspaceLabel(workspace), target)'), 'renaming a folder refiles each member')
-})
-
-test('the tree can flag a session, note it, and copy itself as text', () => {
+test('the workspace row menu gains exactly one row: Copy path', () => {
+  // The shipped list already registers Rename, Reveal and Delete for a workspace.
+  // This package adds the row it does not - the path on the clipboard - as one
+  // registration against the Shell menu service, and replaces no shipped surface.
+  assert.ok(faceSource.includes("ctx.inject(['contextMenus']"), 'the face binds the shared menu service')
+  assert.ok(faceSource.includes('contextMenus.register({'), 'the face contributes to a menu')
+  assert.ok(faceSource.includes("id: 'polish.workspace'"), 'the contribution is keyed to this package')
+  assert.ok(faceSource.includes("target: 'workspace'"), 'it targets the workspace row')
+  assert.ok(faceSource.includes('order: 250'), 'it sits with the read-only rows, before the Delete separator')
+  assert.ok(faceSource.includes("id: 'copyPath'"), 'the row copies the path')
+  assert.ok(faceSource.includes("icon: { key: 'workspace.copy' }"), 'it wears an icon key the shipped menu already draws')
+  assert.ok(faceSource.includes('contextMenus.notify('), 'the copy reports itself to the menu')
   for (const marker of [
-    'aryacode-polish:session-marks',
-    'data-polish-session-flag',
-    'data-polish-session-note',
-    'data-polish-mark-input',
-    'data-polish-mark-flag',
-    'data-polish-tree-copy',
-    'treeText(',
-    'navigator.clipboard.writeText',
+    "id: 'polish.workspace'",
+    "target: 'workspace'",
+    "id: 'copyPath'",
+    'contextMenus.register(',
   ]) {
-    assert.ok(bundle.includes(marker), 'bundle is missing ' + marker)
-  }
-})
-
-test('the tree can hop between workspaces and show folders only', () => {
-  for (const marker of ['jumpWorkspace(', 'nextDensity(', 'folders', "'['", "']'"]) {
-    assert.ok(bundle.includes(marker), 'bundle is missing ' + marker)
-  }
-})
-
-test('a row can start a session in its workspace and pin a session in one click', () => {
-  for (const marker of ['data-polish-ws-new-session', 'data-polish-session-pin', 'startSession(', 'unpinSession(']) {
-    assert.ok(bundle.includes(marker), 'bundle is missing ' + marker)
-  }
-})
-
-test('a look can be saved as a preset and applied elsewhere', () => {
-  for (const marker of ['data-polish-preset-apply', 'data-polish-preset-forget', 'withPreset(', 'aryacode-polish:workspace-presets']) {
-    assert.ok(bundle.includes(marker), 'bundle is missing ' + marker)
-  }
-})
-
-test('the tree can sort A to Z and the switcher can jump to a workspace', () => {
-  for (const marker of ['data-polish-ws-sort', 'aryacode-polish:sort.v1', "'workspace:' + group.workspace.workspaceId", 'revealWorkspace(']) {
-    assert.ok(bundle.includes(marker), 'bundle is missing ' + marker)
-  }
-})
-
-test('a pinned session is lifted into its own section', () => {
-  for (const marker of ['data-polish-ws-pinned', 'data-polish-ws-pinned-row', 'splitPinned(', "'Pinned'"]) {
-    assert.ok(bundle.includes(marker), 'bundle is missing ' + marker)
-  }
-})
-
-test('a session row carries its cost in the tooltip, not a pill', () => {
-  for (const marker of ['costLabel(costOf(sessionState', 'projectionsBySession', 'sessionTip(row, { note: markOf(marks, row.id).note, cost: sessionCost, age: ageTitle(row.updatedAt) })']) {
-    assert.ok(bundle.includes(marker), 'bundle is missing ' + marker)
-  }
-  for (const gone of ["'data-polish-ws-cost'", "'data-polish-session-cost-open'"]) {
-    assert.ok(!bundle.includes(gone), 'the session row cost pill is gone: ' + gone)
-  }
-})
-
-test('a session can be renamed in place, and a filed workspace dragged back out', () => {
-  for (const marker of ['requestRenameSession', 'onDoubleClick', 'data-polish-ws-topzone', 'Drop here to leave the folder', 'unfiled(workspaceLabel(dragged.workspace))']) {
-    assert.ok(bundle.includes(marker), 'bundle is missing ' + marker)
-  }
-})
-
-
-test('workspace and folder rows no longer carry running-total pills', () => {
-  const bundle = read('lib/client.js')
-  assert.ok(!bundle.includes("'data-polish-ws-cost-total'"))
-  assert.ok(!bundle.includes("'data-polish-ws-cost-open'"))
-  assert.ok(!bundle.includes("'data-polish-ws-folder-cost'"))
-  assert.ok(bundle.includes('sumCostLabel('), 'the running total is still computed for the hover recap')
-})
-
-
-test('a folder can grow a workspace, and the menus are reachable from the keyboard', () => {
-  const bundle = read('lib/client.js')
-  assert.ok(bundle.includes("'data-polish-folder-add'"))
-  assert.ok(bundle.includes("event.key === 'ContextMenu'"))
-  assert.ok(bundle.includes("'F10' && event.shiftKey"))
-  assert.ok(bundle.includes("fileUnder(workspaceLabel(created), into)"))
-})
-
-
-test('a folder shows a running dot, and Alt folds the others', () => {
-  const bundle = read('lib/client.js')
-  assert.ok(bundle.includes("'data-polish-folder-running'"))
-  assert.ok(bundle.includes('folderHasRunning('))
-  assert.ok(bundle.includes('event.altKey === true'))
-})
-
-
-test('dropping a workspace on another one refiles it, and an archived row can open or copy', () => {
-  const bundle = read('lib/client.js')
-  assert.ok(bundle.includes("'data-polish-archived-open'"))
-  assert.ok(bundle.includes("'data-polish-archived-copy'"))
-  assert.ok(bundle.includes('Moved into '))
-  assert.ok(bundle.includes('await reorderWorkspace(moving.id, targetId)'))
-})
-
-
-test('the tree can explain itself, and stops hinting once it has', () => {
-  const bundle = read('lib/client.js')
-  assert.ok(bundle.includes("'data-polish-ws-help': 'open'"))
-  assert.ok(bundle.includes("'data-polish-ws-help-row'"))
-  assert.ok(bundle.includes("'data-polish-ws-help-hint'"))
-  assert.ok(bundle.includes('aryacode-polish:help.v1'))
-  assert.ok(bundle.includes("event.key !== '?'"))
-})
-
-
-test('a pinned row can be unpinned in place, and carries no cost pill', () => {
-  const bundle = read('lib/client.js')
-  assert.ok(!bundle.includes("'data-polish-pinned-cost'"))
-  assert.ok(bundle.includes("'data-polish-pinned-unpin'"))
-  assert.ok(bundle.includes("hover === 'pinned:' + row.id"))
-})
-
-
-test('a running session is marked the same way in its workspace and when pinned', () => {
-  const bundle = read('lib/client.js')
-  assert.ok(bundle.includes("'data-polish-session-running'"))
-  assert.ok(bundle.includes("'data-polish-pinned-running'"))
-})
-
-test('working spins, and green means the turn is done', () => {
-  assert.ok(workspaceSource.includes('function SpinnerMark()'), 'the running mark is a spinner')
-  assert.ok(workspaceSource.includes('animateTransform'), 'the spinner turns itself, with no stylesheet')
-  assert.ok(workspaceSource.includes("'data-polish-session-done'"), 'a finished turn is marked done')
-  assert.ok(workspaceSource.includes('!isRunning(row) && isUnread(row, seen)'), 'done only when the turn is not working')
-  assert.ok(workspaceSource.includes("title: 'Done — ready for review'"), 'done says what it means')
-  // A session that is open is read, even if its turn finishes while you watch it.
-  assert.ok(workspaceSource.includes('const open = allRows.find((candidate) => candidate && candidate.id === currentSessionId)'), 'the open session is marked read')
-  assert.ok(workspaceSource.includes('if (!open || !isUnread(open, seen)) return'), 'only an unread open session is written')
-  // The green dot now belongs to "done", so no running mark may wear WS_DOT.
-  assert.ok(!workspaceSource.includes("'data-polish-session-running': row.id, style: WS_DOT"), 'running is not a green dot')
-  assert.ok(!workspaceSource.includes("'data-polish-pinned-running': row.id, style: WS_DOT"), 'pinned running is not a green dot')
-})
-
-test('a bulk change offers a way back out', () => {
-  assert.ok(workspaceSource.includes("'data-polish-undo'"), 'the notice can carry an Undo')
-  assert.ok(workspaceSource.includes('offerUndo'), 'the action is offered, not assumed')
-  assert.ok(workspaceSource.includes('unarchiveSession(payload.ids[at])'), 'archiving is undone one session at a time')
-  assert.ok(workspaceSource.includes('writeMarks(payload.before)'), 'flagging is undone from the marks it replaced')
-})
-
-test('the filter is an icon that becomes the field it always was', () => {
-  for (const marker of ["'data-polish-ws-search'", "'data-polish-ws-filter'", 'filterOpen', 'React.createElement(SearchGlyph)']) {
-    assert.ok(workspaceSource.includes(marker), 'bundle should carry ' + marker)
-  }
-  for (const gone of ["'data-polish-chip'", "'data-polish-ws-chips'", 'const CHIPS = [']) {
-    assert.ok(!workspaceSource.includes(gone), 'the chip row is gone: ' + gone)
-  }
-})
-
-test('the filter speaks the operators it understands', () => {
-  for (const marker of ["parseQuery", "t:new", 'queryHasToken(', 'withToken(']) {
-    assert.ok(workspaceSource.includes(marker), 'bundle should carry ' + marker)
-  }
-})
-
-test('a workspace colour is never drawn as a status dot', () => {
-  assert.ok(workspaceSource.includes("'data-polish-ws-tone'"), 'the tone is worn by the glyph')
-  assert.ok(workspaceSource.includes('WS_TONE_BAR'), 'a folder gets a tag, not a dot')
-  assert.ok(!workspaceSource.includes("Object.assign({}, WS_TONE, { background"), 'no detached tone dot')
-  // The only round dots left are status: done, and the folder rollup of "new".
-  assert.ok(workspaceSource.includes("'data-polish-session-done'"), 'a finished turn keeps a dot')
-})
-
-test('the default glyph is the folder emoji, and a colour turns its hue', () => {
-  assert.ok(workspaceSource.includes('export const FOLDER_GLYPH'), 'the default glyph is named once')
-  assert.ok(workspaceSource.includes('looks.glyph || FOLDER_GLYPH'), 'the row falls back to it')
-  assert.ok(workspaceSource.includes('export function folderTint(tone)'), 'an emoji needs its hue turned, not its colour set')
-  assert.ok(workspaceSource.includes('hue-rotate('), 'the tint is a filter')
-  assert.ok(!workspaceSource.includes('function FolderGlyph()'), 'the old outline folder is retired')
-})
-
-test('the row menu keeps its slot so hover cannot move the +', () => {
-  for (const marker of ["'data-polish-ws-menu-shown'", "visibility: 'hidden'"]) {
-    assert.ok(workspaceSource.includes(marker), 'bundle should carry ' + marker)
-  }
-})
-
-test('the tree marks what you have not looked at', () => {
-  for (const marker of ["'data-polish-unread'", 'isUnread(row, seen)', 'writeSeen(next, window.localStorage)', "'data-polish-tree-mark-read'"]) {
-    assert.ok(workspaceSource.includes(marker), 'bundle should carry ' + marker)
-  }
-})
-
-test('the New filter keeps what changed', () => {
-  for (const marker of ['unread: (row) => isUnread(row, seen)']) {
-    assert.ok(workspaceSource.includes(marker), 'bundle should carry ' + marker)
-  }
-})
-
-test('new sessions are visible above a folded workspace', () => {
-  for (const marker of ["'data-polish-ws-unread'", "'data-polish-folder-unread'", 'unreadInside(']) {
-    assert.ok(workspaceSource.includes(marker), 'bundle should carry ' + marker)
-  }
-})
-
-test('hovering a workspace explains it', () => {
-  for (const marker of ['workspaceRecap(group, sessionState', "'data-polish-card-lines'"]) {
-    assert.ok(workspaceSource.includes(marker), 'bundle should carry ' + marker)
-  }
-})
-
-test('a workspace can be starred to the top', () => {
-  for (const marker of ['orderStarred(applyFolderOrder', "'data-polish-ws-star-toggle'", "'data-polish-ws-starred': 'head'"]) {
-    assert.ok(workspaceSource.includes(marker), 'bundle should carry ' + marker)
-  }
-})
-
-test('the tree can group sessions by day', () => {
-  for (const marker of ['groupByDay(shown, clock)', "'data-polish-ws-day'", "'data-polish-tree-daygroups'"]) {
-    assert.ok(workspaceSource.includes(marker), 'bundle should carry ' + marker)
-  }
-})
-
-test('a session can be flagged straight from the row', () => {
-  for (const marker of ["'data-polish-session-flag'", 'withMark(prev, row.id, { flag: !on })']) {
-    assert.ok(workspaceSource.includes(marker), 'bundle should carry ' + marker)
-  }
-})
-
-test('empty workspaces can be hidden', () => {
-  for (const marker of ["'data-polish-tree-hide-empty'", 'const drawnRows = hideEmpty ?']) {
-    assert.ok(workspaceSource.includes(marker), 'bundle should carry ' + marker)
-  }
-})
-
-test('Ctrl+Alt keyboard reorder', () => {
-  for (const marker of ["event.ctrlKey && event.altKey && (event.key === 'ArrowDown'", 'moveTarget(orderedRows', "'Focus a workspace to move it.'"]) {
-    assert.ok(workspaceSource.includes(marker), 'bundle should carry ' + marker)
-  }
-})
-
-test('F2 rename and shift-extended selection', () => {
-  for (const marker of ["event.key === 'F2'", "'Focus a row to rename it.'", "event.shiftKey && (event.key === 'Home' || event.key === 'End')"]) {
-    assert.ok(workspaceSource.includes(marker), 'bundle should carry ' + marker)
-  }
-})
-
-test('tree semantics', () => {
-  for (const marker of ["'aria-level': 1", "'aria-level': 2", "'aria-multiselectable': true", "'aria-expanded': open === true", "'aria-selected': picked.indexOf(row.id) >= 0 || rowFocused"]) {
-    assert.ok(workspaceSource.includes(marker), 'bundle should carry ' + marker)
-  }
-})
-
-test('Space picks the focused session', () => {
-  for (const marker of ["event.key === ' ' && !typing", "'Focus a session to pick it.'", "const typing = tag === 'INPUT'"]) {
-    assert.ok(workspaceSource.includes(marker), 'bundle should carry ' + marker)
-  }
-})
-
-test('secondary rows carry the same facts', () => {
-  for (const marker of ["'data-polish-archived-age'", "'data-polish-pinned-age'", "isRunning(row) ? null : React.createElement('span', { 'data-polish-pinned-age'"]) {
-    assert.ok(workspaceSource.includes(marker), 'bundle should carry ' + marker)
-  }
-  for (const gone of ["'data-polish-archived-cost'", "'data-polish-pinned-cost'"]) {
-    assert.ok(!workspaceSource.includes(gone), 'the secondary-row cost pills are gone: ' + gone)
-  }
-})
-
-test('the trash row, the trash card and the undo are all in the tree', () => {
-  // The destructive row lives only inside the archived menu, gated on the switch.
-  for (const marker of [
-    "'data-polish-trash-move'",
-    "'data-polish-trash-open'",
-    "'data-polish-trash-card'",
-    "'data-polish-trash-restore'",
-    "'data-polish-trash-purge'",
-    "'data-polish-trash-empty-button'",
-    "'data-polish-trash-close'",
-    "trashOn\n        ? React.createElement('button'",
-    "useSwitch(services.configForms, 'sessionTrash', true)",
-  ]) {
-    assert.ok(workspaceSource.includes(marker), 'the tree should carry ' + marker)
-  }
-  // A trashed log is undone through the trash route, not the archive service.
-  assert.ok(workspaceSource.includes("payload.kind === 'trash'"), 'Undo must know the trash kind')
-  assert.ok(workspaceSource.includes("offerUndo({ kind: 'trash', ids: [row.id] })"), 'trashing must offer Undo')
-  // The Host re-pulls its Session baseline after every trash action: the folder moved
-  // on disk, which is not a Host verb, so a trashed row must leave the tree right
-  // away and not sit there until the app restarts.
-  assert.ok(workspaceSource.includes("typeof list.refresh === 'function'"), 'the seat must offer the session-list refresh')
-  assert.ok(workspaceSource.includes('await services.refreshSessions()'), 'every trash action must re-pull the session list')
-  // The Host has no verb that forgets a Session, so a re-pull alone cannot make a
-  // trashed row leave: the tree also hides exactly what the trash manifest holds.
-  assert.ok(workspaceSource.includes("trashedIds.has(String(row.id).replace(/^session-/, ''))"), 'the tree must hide the sessions the trash holds, comparing the bare uuid the manifest stores')
-  // And the same hooks reach the emitted bundle.
-  for (const marker of ['data-polish-trash-card', 'data-polish-trash-restore', '"key": "sessionTrash"', 'typeof list.refresh', 'trashedIds.has']) {
     assert.ok(bundle.includes(marker), 'the bundle should carry ' + marker)
   }
+  assert.equal((bundle.match(/polish\.workspace/g) || []).length, 1, 'exactly one workspace menu contribution')
+  // And the mirror that used to stand in for the shipped list is gone from both.
+  assert.ok(!bundle.includes('installWorkspaceSeat('), 'the seat that replaced the sidebar list is gone')
+  assert.ok(!faceSource.includes('installWorkspaceSeat('), 'the seat is gone from the source too')
+  assert.ok(!bundle.includes('conversation.hero.workspace'), 'the Hero picker override is gone')
+  assert.ok(!bundle.includes('data-polish-trash'), 'the trash UI is gone')
 })

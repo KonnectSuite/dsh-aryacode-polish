@@ -31,8 +31,6 @@ import { mountFolders } from './folders.js'
 import { mountGithub } from './github.js'
 import { mountHooks } from './hooks.js'
 import { mountMemory } from './memory.js'
-import { mountSessions } from './sessions.js'
-import { mountTrash } from './trash.js'
 
 /**
  * Every feature this bundle ships. Spelling corrections are investigated and
@@ -74,20 +72,6 @@ export const features = [
     description: 'Put an "On this PC" / "GitHub repository" source menu behind the Workspaces + button.',
     defaultOn: true,
     mount: mountFolders,
-  },
-  {
-    id: 'betterWorkspace',
-    label: 'Better workspace',
-    description: 'Replace the sidebar workspace list with our own tree, with a right-click menu on every workspace.',
-    defaultOn: true,
-    mount: mountSessions,
-  },
-  {
-    id: 'sessionTrash',
-    label: 'Session trash',
-    description: 'Move an archived session\u2019s transcript to a trash you can restore from, and empty it when you want the space back.',
-    defaultOn: true,
-    mount: mountTrash,
   },
   {
     id: 'panelScreenshot',

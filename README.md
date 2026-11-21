@@ -30,16 +30,13 @@ Configure page automatically.
 
 | Switch | Default | What it does |
 | --- | --- | --- |
-| Better workspace | On | Replaces the sidebar workspace list with our own tree and a right-click menu on each workspace. |
-| **Session trash** (`sessionTrash`) | On | Moves an **archived** session's transcript folder into a trash you can restore from, and empties it when you want the space back. The workspace folder and every file in it are never touched. See [Session trash](docs/session-trash.md). |
 | **Estimated session cost** (`sessionCost`) | On | A `≈$0.39` pill in the composer dock that opens a breakdown card — cache hit, uncached input, cached input, output, requests, and the estimate — priced from the session's recorded usage at the published DeepSeek rates. |
 | **Account balance** (`accountBalance`) | On | The account's remaining wallet (`$17.33`) in the sidebar foot, above the account row. Renders nothing when the Host exposes no wallet, so it never shows a number nobody gave it. |
-| **Open workspace folder** (`openWorkspaceFolder`) | On | An **Open workspace folder** row in a Session's "…" menu that opens the Session's workspace in Explorer/Finder. Renders nothing when the Session has no workspace or the Host cannot open a path. See [Open a workspace folder](docs/workspace-folder.md) for why the request had to land here instead of on the workspace row itself. |
+| **Open workspace folder** (`openWorkspaceFolder`) | On | An **Open workspace folder** row in a Session's "…" menu that opens the Session's workspace in Explorer/Finder. Renders nothing when the Session has no workspace or the Host cannot open a path. See [Open a workspace folder](docs/workspace-folder.md) for how the row reaches the Host, and for the workspace-row menu claim that doc no longer makes. |
 | **Add a workspace from GitHub** (`githubWorkspace`) | On | Adds the GitHub half of the workspace sources: the dialog lists the repositories your GitHub CLI session can clone, and cloning one creates the workspace. The token never enters the browser — it is read on the Host, used only as git's http auth header, and never stored. The sidebar foot carries the sign-in state (`GitHub · <login>`). See [GitHub workspaces](docs/github-workspaces.md). |
 | **Add a workspace from this PC or GitHub** (`workspaceSources`) | On | The Workspaces **+** button gets a source menu: **On this PC** (the Host's OS chooser, or a folder list when the composition has no native chooser) and **GitHub repository…**. Off, the **+** button goes back to the shipped folder picker. |
 | **Right-panel screenshot** (`panelScreenshot`) | On | A camera button in the right panel's top-right corner photographs the open tab, copies the picture to the clipboard, and attaches it to the message being written. See [Right-panel screenshot](docs/panel-screenshot.md) for what it can and cannot capture. |
 | **Inline previews in the chat** (`inlinePreviews`) | On | The HTML, SVG and image files a turn wrote render under its message: markup in a sandboxed frame with its own policy (no network, no same-origin), raster images as pictures, each with **Open in panel**. A turn that wrote nothing previewable draws nothing. See [Inline previews](docs/inline-previews.md). |
-| **Better workspace** (`betterWorkspace`) | On | Replaces the sidebar workspace list with our own tree: workspaces with their sessions, a right-click menu on a workspace (open, copy path, remove), and the shipped session menu inside it. See [Better workspace](docs/better-workspace.md). |
 | **Cross-session memory** (`memory`) | On | Keeps short notes across sessions in `polish/memory.json` and quotes them into the system prompt as recalled context, never as instructions. **Settings → Memory** adds, filters and forgets them. See [Memory](docs/memory.md). |
 | **Lifecycle hooks** (`hooks`) | On | Runs a command when a turn stops, a session errors, or a checkpoint lands. Rules live in `polish/hooks.json`; dispatch is observational with a bounded in-memory log at **Settings → Hooks**. See [Hooks](docs/hooks.md). |
 | **MCP servers** (`mcpManager`) | On | Adds **MCP** to the sidebar: the whole Model Context Protocol manager — a live list with health, tools and icons, a detail view, a bundled catalog, GitHub search, a paste importer and a manual form. Servers mount through the harness's own `dsh-mcp-client`, so their tools appear as `mcp__name__tool`. See [MCP servers](docs/mcp-servers.md). |
@@ -145,34 +142,17 @@ The numbers come from the Host, never from the browser:
   price pages they came from. When DeepSeek changes prices, append a period; do
   not edit history.
 
-## Better workspace
+## The workspace row's menu
 
-The tree that replaces the shipped sidebar list is the largest thing in this bundle. What it does,
-all of it switchable by turning the **Better workspace** switch off:
-
-- **Structure.** Workspaces with their sessions, `/` in a workspace name to file it under a folder,
-  declared empty folders, and folders you can colour, glyph and bold.
-- **Order.** Drag a workspace onto another to reorder, drag it onto a folder header to file it, drag
-  it to the dashed top zone to lift it out, star one to the top, or hand-keep the folder order.
-- **Find.** One filter with operators (`!` running, `#` flagged, `@folder`, `t:today`, `t:week`,
-  `t:new`) and fuzzy matching (`dcp` finds `dsh-aryacode-polish`); it stays an icon until you click
-  it or press `/`, then becomes the field. Counts say what they excluded.
-- **Sort.** Host order, A to Z, most spent first, recent first — applied to workspaces and to the
-  sessions inside them.
-- **Status.** A session spins while its turn works, then shows a green dot when the turn is done and
-  you have not opened it since — the same dot rolled up onto its workspace and folder so a folded row
-  still tells you, `Alt+Up/Down` to jump to the next one, and **Mark everything as read**.
-- **Money.** No row wears a price: a session's cost lives in its tooltip, a workspace's running total
-  in its hover recap, and the header total opens **Spend by workspace**.
-- **Bulk.** Pick with `Space`/`Shift`, then pin, flag, mark read, archive or copy the selection, with
-  **Undo** for the two that change durable state. A workspace can also be archived whole.
-- **Navigation.** `Ctrl+K` palette, `Alt+Left/Right` history that survives a reload, focus mode for
-  the workspace you are in, and a marker on it so you can see where you are.
-- **Keyboard and screen readers.** `aria-tree` semantics with real `Left/Right` open-close, `F2` rename,
-  `Home/End`, type-ahead, and a `?` sheet listing every key.
-
-The design notes, including the parts the Host makes impossible, live in
-[Better workspace](docs/better-workspace.md).
+The sidebar list is the Shell's own, and this package does not redraw it. What it
+adds is one row to the menu a right-clicked workspace opens: the Shell registers
+**Rename**, **Reveal** and **Delete** for that row, and `client/face.js` registers
+`polish.workspace`, which adds **Copy path** at order 250 - between Reveal and the
+separator before Delete - so the workspace folder path lands on the clipboard. One
+registration against the Shell's menu service is also what keeps this working
+across a harness update, which a replacement of the list that draws the row never
+did. The row is not a switch: if a composition has no menu service, the shipped
+menu simply comes without it.
 
 ## Declaring a feature
 

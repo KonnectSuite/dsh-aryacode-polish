@@ -18,48 +18,34 @@ The row renders nothing when the switch is off, when the Session belongs to no
 workspace, or when the Host reports it cannot open a path. A menu row that cannot
 act is worse than no row.
 
-## What cannot ship, and why
+## What was thought impossible, and what changed
 
-The requested surface was **right-click on the workspace row itself**, with a menu
-like the one AryaAI has (`Open in Explorer`, `Rename`, `Manage folders`, `Delete
-workspace`). That is not reachable from a plugin, for three independent reasons:
+When this row shipped (2026-10), the same request was answered on the Session row
+because the workspace row looked unreachable from a plugin: the row element carried
+no `onContextMenu`, the only workspace-adjacent slots were Session-scoped
+(`sidebar.workspaces.session.menu.item`, `sidebar.workspaces.session.row.action`),
+the single `sidebar.workspaces` slot replaces the whole browser
+(`replaceRisk: 'shadows-shipped-ui'`), and native Electron menus were closed to
+plugins. That reading was right about the slots and wrong about the menu.
 
-1. The workspace row is drawn by `packages/client/ui-workspace/src/client/rows/Rows.tsx`.
-   The row element carries `data-row-key`, `role="treeitem"` and `onClick`, and has
-   no `onContextMenu`. Its "…" button opens a menu whose entries are hardcoded
-   (`rename`, `delete.workspace`).
-2. No slot exists for per-workspace menu entries. The only workspace-related list
-   slots are `sidebar.workspaces.session.menu.item` and
-   `sidebar.workspaces.session.row.action`, both scoped to a **Session** row. The
-   single `sidebar.workspaces` slot replaces the whole browser
-   (`replaceRisk: 'shadows-shipped-ui'`), which would mean rebuilding the shipped
-   sidebar.
-3. Native menus are closed to plugins: `apps/desktop/src/main.ts` allows only the
-   `application` and `edit` roles from the main window's main frame, and the
-   desktop IPC surface (`apps/desktop/src/ipc.ts`, `DshDesktopProductApi`) exposes
-   no open/reveal call.
+The harness has since grown a shared context-menu service. The shipped workspace
+row now declares a menu target (`kind: "workspace"`, value `{ workspaceId, path,
+displayTitle }`), and the Shell itself registers Rename, Reveal and Delete for it.
+A plugin adds rows to that same menu without touching the row, the list or the
+harness: `ctx.contextMenus.register({ id, target: 'workspace', order, resolve })`.
+`client/face.js` uses it to add **Copy path** (`polish.workspace`, order 250,
+between Reveal at 200 and the separator before Delete at 300).
 
-Attaching an `onContextMenu` to the row's DOM by selector would be a hack against
-private markup — the thing this bundle's ground rules forbid, and the first thing
-to break when the sidebar changes. The honest options were:
-
-- **Ship on the Session row menu** (chosen): documented slot, supported API,
-  survives harness updates.
-- Change the shell to declare `sidebar.workspaces.menu.item` and render it from the
-  workspace row, then release a harness patch. Declined: the owner wants to keep
-  taking harness updates from public releases.
-- Park the feature. Declined: the underlying capability (open a workspace folder)
-  is worth shipping now.
-
-If the harness ever declares a workspace-scoped menu slot, this feature should move
-there: the Host call and the path resolution stay exactly as they are, and only the
-registration line changes.
+So this row still earns its place: it opens the folder from inside a Session, which
+no Session-row menu does, and its Host call and path resolution are unchanged. What
+is no longer true is the claim this file used to make — that a workspace row could
+not carry a menu at all.
 
 **Owner's decision (2026-10-27):** asked again, after the Session row menu shipped,
-whether to add that slot to the harness and release a harness patch, the owner
-declined — "then forget it". The workspace row stays untouched and the feature stays
-on the Session row menu. The question has been asked and answered; do not re-open it
-without a new instruction.
+whether to add a workspace-scoped menu slot to the harness and release a harness
+patch, the owner declined — "then forget it". That decision stands: no harness patch
+was ever made. What changed is that the workspace-row menu arrived from DeepSeek as
+a normal harness update, which is exactly the future the decision was protecting.
 
 ## Evidence for the next reader
 

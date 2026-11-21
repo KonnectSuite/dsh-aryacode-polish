@@ -7,8 +7,8 @@
  * only names modules the Shell already answers (`react`), so wrapping the source
  * is enough, and keeping it a wrapper means the emitted bundle stays readable
  * when someone has to debug it inside a running app. The fragments are inlined in
- * dependency order: money, account and workspace first, then the shared theme
- * primitives, then the pages, then `face.js`, which registers every slot.
+ * dependency order: money and account first, then the shared theme primitives,
+ * then the pages, then `face.js`, which registers every slot.
  */
 
 import { readFileSync, rmSync, writeFileSync } from 'node:fs'
@@ -21,7 +21,6 @@ const manifest = JSON.parse(readFileSync(new URL('package.json', root), 'utf8'))
 const declaration = JSON.parse(readFileSync(new URL('client/switches.json', root), 'utf8'))
 const money = readFileSync(new URL('client/money.js', root), 'utf8')
 const account = readFileSync(new URL('client/account.js', root), 'utf8')
-const workspace = readFileSync(new URL('client/workspace.js', root), 'utf8')
 const arya = readFileSync(new URL('client/arya.js', root), 'utf8')
 const memory = readFileSync(new URL('client/memory.js', root), 'utf8')
 const hooks = readFileSync(new URL('client/hooks.js', root), 'utf8')
@@ -82,7 +81,6 @@ ${indent(html2canvas.trimEnd())}
 ${indent(money.trimEnd().replace(/^export /gm, ''))}
 
 ${indent(account.trimEnd().replace(/^export /gm, ''))}
-${indent(workspace.trimEnd().replace(/^export /gm, ''))}
 
 ${indent(arya.trimEnd())}
 

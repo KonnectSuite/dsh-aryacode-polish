@@ -44,18 +44,6 @@
       "defaultOn": true
     },
     {
-      "key": "betterWorkspace",
-      "label": "Better workspace",
-      "description": "Replace the sidebar workspace list with our own tree: workspaces with their sessions, a right-click menu on a workspace (open, copy path, remove), and the shipped session menu inside it.",
-      "defaultOn": true
-    },
-    {
-      "key": "sessionTrash",
-      "label": "Session trash",
-      "description": "Move an archived session’s transcript to a trash you can restore from, and empty it when you want the space back.",
-      "defaultOn": true
-    },
-    {
       "key": "mcpManager",
       "label": "MCP servers",
       "description": "Add and manage Model Context Protocol servers from Settings → MCP servers.",
