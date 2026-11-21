@@ -15,9 +15,21 @@ import { dirname, join } from 'node:path'
 /** Absolute path the Host registers; the browser addresses `api/polish.github`. */
 export const GITHUB_ROUTE = '/api/polish.github'
 
-/** Root a clone lands in: `<home>/AryaCode/<owner>/<repo>`. */
+/** Root a clone lands in: `<home>/AryaCode`, then `<account>/<owner>/<repo>`. */
 export function cloneRoot(home = homedir()) {
   return join(home, 'AryaCode')
+}
+
+/**
+ * The folder one account clones into: the shared root when no account is picked,
+ * that account's own level when one is. The dialog previews this before a clone.
+ *
+ * @param home - home directory to root the clone tree in.
+ * @param account - GitHub login, empty for the shared tree.
+ * @returns absolute folder path.
+ */
+export function accountRoot(home = homedir(), account = '') {
+  return account === '' ? cloneRoot(home) : join(cloneRoot(home), assertSegment(account))
 }
 
 const SEGMENT = /^[A-Za-z0-9_.-]+$/
@@ -36,13 +48,22 @@ export function assertSegment(value) {
 
 /**
  * Directory one repository clones into.
+ *
+ * With an account the tree is `<home>/AryaCode/<account>/<owner>/<repo>`, so two
+ * accounts never share a checkout and never fight over one. Without an account it
+ * stays exactly as it was, which is what keeps every existing checkout valid.
+ *
  * @param owner - repository owner.
  * @param name - repository name.
  * @param home - home directory to root the default clone tree in.
+ * @param account - GitHub login whose folder this is, empty for the shared tree.
  * @returns absolute destination path.
  */
-export function cloneDestination(owner, name, home = homedir()) {
-  return join(cloneRoot(home), assertSegment(owner), assertSegment(name))
+export function cloneDestination(owner, name, home = homedir(), account = '') {
+  if (account === undefined || account === '') {
+    return join(cloneRoot(home), assertSegment(owner), assertSegment(name))
+  }
+  return join(cloneRoot(home), assertSegment(account), assertSegment(owner), assertSegment(name))
 }
 
 /**
@@ -405,6 +426,93 @@ export async function signOutAll(logins, run = runCommand) {
 }
 
 /**
+ * Every account the GitHub CLI holds for github.com, with the one it would use
+ * right now marked active.
+ *
+ * `gh auth status --json hosts` is the modern answer and carries the fields the
+ * picker needs. An older CLI has no `--json` there, so the text parse in
+ * `listAccounts` is the fallback rather than a second choice: the CLI lists the
+ * active account first, which is the best guess available from prose. A machine
+ * without the CLI has no accounts, and a spawn failure must not read as an error.
+ *
+ * @param run - command runner, injected by tests.
+ * @returns one entry per account: login, active, state, tokenSource, scopes, gitProtocol.
+ */
+export async function accountStatus(run = runCommand) {
+  let answer
+  try {
+    answer = await run('gh', ['auth', 'status', '--json', 'hosts'])
+  } catch {
+    return []
+  }
+  if (answer.code === 0) {
+    try {
+      const rows = JSON.parse(answer.stdout)?.hosts?.['github.com']
+      const accounts = (Array.isArray(rows) ? rows : [])
+        .filter(row => typeof row?.login === 'string' && row.login !== '')
+        .map(row => ({
+          login: row.login,
+          active: row.active === true,
+          state: typeof row.state === 'string' ? row.state : 'active',
+          tokenSource: typeof row.tokenSource === 'string' ? row.tokenSource : '',
+          scopes: typeof row.scopes === 'string' ? row.scopes : '',
+          gitProtocol: typeof row.gitProtocol === 'string' ? row.gitProtocol : '',
+        }))
+      if (accounts.length > 0) return accounts
+    } catch {
+      // Not JSON: an older CLI answered in prose, so fall through to the text parse.
+    }
+  }
+  const logins = await listAccounts(run).catch(() => [])
+  return logins.map((login, index) => ({
+    login,
+    active: index === 0,
+    state: 'active',
+    tokenSource: '',
+    scopes: '',
+    gitProtocol: '',
+  }))
+}
+
+/**
+ * The token of ONE named account, leaving the CLI's active account alone.
+ *
+ * This is what lets the dialog browse and clone as a work account while the
+ * terminal stays on whatever the user last used.
+ *
+ * @param login - the account to read a token for.
+ * @param run - command runner, injected by tests.
+ * @returns that account's token, or undefined when it is not signed in.
+ */
+export async function tokenFor(login, run = runCommand) {
+  try {
+    const answer = await run('gh', ['auth', 'token', '--hostname', 'github.com', '--user', assertSegment(login)])
+    const token = String(answer.stdout).trim()
+    return answer.code === 0 && token !== '' ? token : undefined
+  } catch {
+    return undefined
+  }
+}
+
+/**
+ * Make one account the CLI's active one, so a terminal's git and gh follow the
+ * picker in this dialog too. That is a machine-wide change, which is why it is a
+ * row the user asks for by name and never something browsing does silently.
+ *
+ * @param login - the account to activate.
+ * @param run - command runner, injected by tests.
+ * @returns ok, and the account list as it stands afterwards.
+ */
+export async function switchAccount(login, run = runCommand) {
+  const answer = await run('gh', ['auth', 'switch', '--hostname', 'github.com', '--user', assertSegment(login)])
+  if (answer.code !== 0) {
+    const text = `${answer.stderr}${answer.stdout}`.trim()
+    return { ok: false, error: text === '' ? 'the GitHub CLI could not switch accounts' : text }
+  }
+  return { ok: true, accounts: await accountStatus(run) }
+}
+
+/**
  * Read the login that owns a token.
  * @param token - GitHub access token.
  * @param fetchImpl - HTTP implementation.
@@ -423,7 +531,7 @@ export async function fetchLogin(token, fetchImpl = fetch) {
  *
  * @param token - GitHub access token.
  * @param fetchImpl - HTTP implementation.
- * @returns the login and its avatar URL (empty when GitHub omits one).
+ * @returns login, avatar URL (empty when GitHub omits one), account id and display name.
  */
 export async function fetchProfile(token, fetchImpl = fetch) {
   const response = await fetchImpl('https://api.github.com/user', { headers: githubHeaders(token) })
@@ -432,7 +540,11 @@ export async function fetchProfile(token, fetchImpl = fetch) {
   const login = body?.login
   if (typeof login !== 'string' || login === '') throw new Error('GitHub did not return a login')
   const avatarUrl = typeof body?.avatar_url === 'string' ? body.avatar_url : ''
-  return { login, avatarUrl }
+  // The numeric id is what GitHub's noreply address is built from, and a machine
+  // holding two accounts needs that address to credit a commit to the right one.
+  const id = typeof body?.id === 'number' || typeof body?.id === 'string' ? String(body.id) : ''
+  const name = typeof body?.name === 'string' ? body.name : ''
+  return { login, avatarUrl, id, name }
 }
 
 /** The largest profile picture this route will hand the browser, as a data URL. */
@@ -567,6 +679,82 @@ async function existingRealpath(path) {
 }
 
 /**
+ * Where this repository is already checked out: the account's own folder first,
+ * the flat folder this feature cloned into before accounts existed second.
+ *
+ * @param owner - repository owner.
+ * @param name - repository name.
+ * @param home - home directory to root the clone tree in.
+ * @param account - GitHub login whose folder this is, empty for the shared tree.
+ * @returns the real path of an existing checkout, or undefined when there is none.
+ */
+async function existingCheckout(owner, name, home, account) {
+  const own = await existingRealpath(cloneDestination(owner, name, home, account))
+  if (own !== undefined) return own
+  return account === '' ? undefined : existingRealpath(cloneDestination(owner, name, home))
+}
+
+/**
+ * A checkout of this repository that already exists: the account's own folder
+ * first, then the flat folder this feature cloned into before accounts existed.
+ *
+ * The legacy probe is what keeps an existing checkout reusable once the layout
+ * grows an account level. A directory that is not this repository is still an
+ * error, because cloning beside it would hide the collision.
+ *
+ * @param owner - repository owner.
+ * @param name - repository name.
+ * @param home - home directory to root the clone tree in.
+ * @param account - GitHub login whose folder this is, empty for the shared tree.
+ * @param run - command runner.
+ * @param progress - progress sink.
+ * @returns the reuse answer, or undefined when nothing is there yet.
+ */
+async function reuseCheckout(owner, name, home, account, run, progress) {
+  const candidates = [cloneDestination(owner, name, home, account)]
+  if (account !== '') candidates.push(cloneDestination(owner, name, home))
+  for (const path of candidates) {
+    if (!(await directoryExists(path))) continue
+    const origin = await run('git', ['remote', 'get-url', 'origin'], { cwd: path })
+    if (origin.code === 0 && sameOrigin(origin.stdout, owner, name)) {
+      progress(`Reusing the existing checkout at ${path}`)
+      return { path, reused: true }
+    }
+    throw new Error(`${path} already exists and is not ${owner}/${name}`)
+  }
+  return undefined
+}
+
+/**
+ * Give a fresh checkout the identity of the account that cloned it, so the first
+ * commit on a two-account machine is credited to the right person.
+ *
+ * Only `--local`: the global config belongs to the user's terminal, and a value
+ * the repository already carries is left alone, because a repo may set its own
+ * identity on purpose.
+ *
+ * @param path - the fresh checkout.
+ * @param identity - name and email to record.
+ * @param run - command runner.
+ * @returns what was actually recorded, or undefined when there was nothing to record.
+ */
+async function applyIdentity(path, identity, run) {
+  const wanted = [
+    ['user.name', identity?.name],
+    ['user.email', identity?.email],
+  ].filter(([, value]) => typeof value === 'string' && value !== '')
+  if (wanted.length === 0) return undefined
+  const applied = {}
+  for (const [key, value] of wanted) {
+    const current = await run('git', ['config', '--local', '--get', key], { cwd: path })
+    if (current.code === 0 && String(current.stdout).trim() !== '') continue
+    const answer = await run('git', ['config', '--local', key, value], { cwd: path })
+    if (answer.code === 0) applied[key] = value
+  }
+  return Object.keys(applied).length === 0 ? undefined : applied
+}
+
+/**
  * Clone a repository, or reuse a directory whose origin is already that repo.
  *
  * The token travels in git's environment as an http header, never in the
@@ -575,21 +763,18 @@ async function existingRealpath(path) {
  * @param owner - repository owner.
  * @param name - repository name.
  * @param token - GitHub access token.
- * @param options - command runner, home directory and optional progress sink.
- * @returns destination path and whether an existing checkout was kept.
+ * @param options - command runner, home directory, account folder, git identity and progress sink.
+ * @returns destination path, whether an existing checkout was kept, and any identity recorded.
  */
 export async function cloneRepo(owner, name, token, options = {}) {
   const run = options.run ?? runCommand
-  const path = cloneDestination(owner, name, options.home)
+  const account = typeof options.account === 'string' && options.account !== ''
+    ? assertSegment(options.account)
+    : ''
+  const path = cloneDestination(owner, name, options.home, account)
   const progress = options.progress ?? (() => {})
-  if (await directoryExists(path)) {
-    const origin = await run('git', ['remote', 'get-url', 'origin'], { cwd: path })
-    if (origin.code === 0 && sameOrigin(origin.stdout, owner, name)) {
-      progress(`Reusing the existing checkout at ${path}`)
-      return { path, reused: true }
-    }
-    throw new Error(`${path} already exists and is not ${owner}/${name}`)
-  }
+  const existing = await reuseCheckout(owner, name, options.home, account, run, progress)
+  if (existing !== undefined) return existing
   await mkdir(dirname(path), { recursive: true })
   progress(`Cloning ${owner}/${name} into ${path}`)
   // GitHub's git server rejects a bearer token, so it is presented as basic auth
@@ -609,7 +794,37 @@ export async function cloneRepo(owner, name, token, options = {}) {
   if (cloned.code !== 0) {
     throw new Error(scrubToken(cloned.stderr || cloned.stdout || 'git clone failed', token))
   }
-  return { path, reused: false }
+  // A reused checkout keeps whatever identity it already had: only a clone this
+  // dialog just made gets the account's name written into it. The supplier is a
+  // function so a reuse never pays for a profile request.
+  const supplied = typeof options.identity === 'function' ? await options.identity() : undefined
+  const identity = await applyIdentity(path, supplied, run)
+  return { path, reused: false, identity }
+}
+
+/**
+ * The git identity a fresh clone should carry: the name GitHub shows for the
+ * account that owns the token, and that account's noreply address, which is the
+ * only address GitHub credits without publishing someone's private email.
+ *
+ * @param token - the token the clone is about to use.
+ * @param deps - injected implementations, the same ones the route already takes.
+ * @returns the identity, or undefined when the account cannot be read.
+ */
+async function identityFor(token, deps) {
+  try {
+    const profile = typeof deps.profile === 'function' ? await deps.profile(token) : await fetchProfile(token)
+    if (typeof profile?.login !== 'string' || profile.login === '') return undefined
+    const id = profile.id === undefined || profile.id === null ? '' : String(profile.id)
+    return {
+      name: typeof profile.name === 'string' && profile.name !== '' ? profile.name : profile.login,
+      email: id === ''
+        ? `${profile.login}@users.noreply.github.com`
+        : `${id}+${profile.login}@users.noreply.github.com`,
+    }
+  } catch {
+    return undefined
+  }
 }
 
 /**
@@ -620,6 +835,11 @@ export async function cloneRepo(owner, name, token, options = {}) {
  */
 export async function handleRequest(body, deps = {}) {
   const action = body?.action
+  // Which account the browser asked for. Empty means "the CLI's active one", so a
+  // request that names nothing behaves exactly as it did before accounts existed.
+  const requested = typeof body?.account === 'string' && body.account !== ''
+    ? assertSegment(body.account)
+    : ''
   // Sign-in is reachable while signed out: it is how a machine gets there.
   if (action === 'login') return (deps.startLogin ?? startLogin)()
   if (action === 'loginStatus') return { ok: true, value: (deps.loginStatus ?? loginStatus)() }
@@ -637,10 +857,29 @@ export async function handleRequest(body, deps = {}) {
     if (answer.ok !== true) return { ok: false, error: answer.error }
     return { ok: true, value: { logins: answer.removed } }
   }
-  const token = await (deps.token ?? ghToken)()
+  // The account list and the switch are CLI operations, not token operations: both
+  // answer while signed out, which is how a second account gets found in the first place.
+  if (action === 'accounts') {
+    const accounts = await (deps.accountStatus ?? accountStatus)()
+    return { ok: true, value: { accounts, active: accounts.find(entry => entry.active)?.login ?? '' } }
+  }
+  if (action === 'setActive') {
+    const answer = await (deps.switchAccount ?? switchAccount)(requested)
+    if (answer.ok !== true) return { ok: false, error: answer.error }
+    const accounts = answer.accounts ?? []
+    return { ok: true, value: { accounts, active: accounts.find(entry => entry.active)?.login ?? requested } }
+  }
+  const token = requested === ''
+    ? await (deps.token ?? ghToken)()
+    : await (deps.tokenFor ?? tokenFor)(requested)
   if (action === 'status') {
     const present = await (deps.present ?? ghPresent)()
-    const accounts = await (deps.accounts ?? listAccounts)().catch(() => [])
+    const roster = await (deps.accountStatus ?? accountStatus)().catch(() => [])
+    // `accounts` stays a list of logins because that is what the dialog's sign-out
+    // path already consumes; `accountList` carries the per-account detail the
+    // picker needs, and `active` names the account the CLI would use right now.
+    const accounts = roster.map(entry => entry.login)
+    const active = roster.find(entry => entry.active)?.login ?? ''
     if (token === undefined) {
       return {
         ok: true,
@@ -648,11 +887,15 @@ export async function handleRequest(body, deps = {}) {
           signedIn: false,
           installed: present,
           login: '',
-          accounts: [],
-          root: cloneRoot(deps.home),
-          reason: present
-            ? 'The GitHub CLI is not signed in on this machine. Sign in from this dialog, or run `gh auth login` in a terminal.'
-            : 'The GitHub CLI is not installed on this machine. Install it from this dialog.',
+          accounts,
+          accountList: roster,
+          active,
+          root: accountRoot(deps.home, requested),
+          reason: requested === ''
+            ? (present
+              ? 'The GitHub CLI is not signed in on this machine. Sign in from this dialog, or run `gh auth login` in a terminal.'
+              : 'The GitHub CLI is not installed on this machine. Install it from this dialog.')
+            : `${requested} is not signed in on this machine. Sign in from this dialog, or run \`gh auth login --hostname github.com\` for that account.`,
         },
       }
     }
@@ -665,7 +908,7 @@ export async function handleRequest(body, deps = {}) {
     } else {
       login = await (deps.login ?? fetchLogin)(token)
     }
-    return { ok: true, value: { signedIn: true, installed: true, login, avatarUrl, accounts, root: cloneRoot(deps.home), reason: '' } }
+    return { ok: true, value: { signedIn: true, installed: true, login, avatarUrl, accounts, accountList: roster, active, root: accountRoot(deps.home, requested), reason: '' } }
   }
   if (token === undefined) {
     return { ok: false, error: 'Sign in to GitHub first: use Sign in here, run `gh auth login` in a terminal, or install the GitHub CLI from this dialog.' }
@@ -689,16 +932,23 @@ export async function handleRequest(body, deps = {}) {
     const repos = await (deps.repos ?? fetchRepos)(token)
     const marked = []
     for (const repo of repos) {
-      const real = await existingRealpath(cloneDestination(repo.owner, repo.name, deps.home))
+      // The probe looks in the picked account's folder first and the shared
+      // folder second, so a repository cloned before accounts existed still
+      // reads as cloned instead of offering a second copy of it.
+      const real = await existingCheckout(repo.owner, repo.name, deps.home, requested)
       marked.push({ ...repo, cloned: real !== undefined })
     }
-    return { ok: true, value: { root: cloneRoot(deps.home), repos: marked } }
+    return { ok: true, value: { root: accountRoot(deps.home, requested), repos: marked } }
   }
   if (action === 'clone') {
     const owner = assertSegment(body.owner)
     const name = assertSegment(body.name)
-    const result = await (deps.clone ?? cloneRepo)(owner, name, token, { home: deps.home })
-    return { ok: true, value: { path: result.path, reused: result.reused } }
+    const result = await (deps.clone ?? cloneRepo)(owner, name, token, {
+      home: deps.home,
+      account: requested,
+      identity: () => identityFor(token, deps),
+    })
+    return { ok: true, value: { path: result.path, reused: result.reused, identity: result.identity } }
   }
   return { ok: false, error: `unknown GitHub action: ${String(action)}` }
 }

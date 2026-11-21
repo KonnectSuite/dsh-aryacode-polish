@@ -6,6 +6,8 @@ import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import {
+  accountRoot,
+  accountStatus,
   assertSegment,
   cancelInstall,
   cancelLogin,
@@ -30,6 +32,8 @@ import {
   sameOrigin,
   startInstall,
   startLogin,
+  switchAccount,
+  tokenFor,
 } from '../entries/github.js'
 
 async function scratch() {
@@ -114,7 +118,12 @@ test('the profile picture never leaves the Host as a URL to fetch', async () => 
       return {
         ok: true,
         status: 200,
-        json: async () => ({ login: 'acme', avatar_url: 'https://avatars.githubusercontent.com/u/42' }),
+        json: async () => ({
+          login: 'acme',
+          avatar_url: 'https://avatars.githubusercontent.com/u/42',
+          id: 42,
+          name: 'Acme Person',
+        }),
       }
     }
     assert.equal(String(url), 'https://avatars.githubusercontent.com/u/42')
@@ -126,8 +135,15 @@ test('the profile picture never leaves the Host as a URL to fetch', async () => 
       arrayBuffer: async () => new Uint8Array([137, 80, 78, 71]).buffer,
     }
   }
+  // The id is asked for because it is what turns a noreply address into one that
+  // credits the right account, which is the whole point of a two-account machine.
   const profile = await fetchProfile('gho', fetchImpl)
-  assert.deepEqual(profile, { login: 'acme', avatarUrl: 'https://avatars.githubusercontent.com/u/42' })
+  assert.deepEqual(profile, {
+    login: 'acme',
+    avatarUrl: 'https://avatars.githubusercontent.com/u/42',
+    id: '42',
+    name: 'Acme Person',
+  })
 
   const first = await readAvatar('gho', 'acme', { fetchImpl })
   assert.match(first.dataUrl, /^data:image\/png;base64,/, 'the browser receives a data URL')
@@ -332,12 +348,20 @@ test('a sign-out reports the account the CLI fell back to', async () => {
 })
 
 test('the status names every account the CLI holds, and signing out all removes them', async () => {
+  const roster = [
+    { login: 'KonnectSuite', active: true, state: 'active', tokenSource: 'keyring', scopes: 'repo, read:org', gitProtocol: 'https' },
+    { login: 'KphungFROMM', active: false, state: 'active', tokenSource: 'keyring', scopes: 'repo', gitProtocol: 'https' },
+  ]
   const status = await handleRequest({ action: 'status' }, {
     token: async () => 'gho_token',
     login: async () => 'KonnectSuite',
-    accounts: async () => ['KonnectSuite', 'KphungFROMM'],
+    accountStatus: async () => roster,
   })
+  // `accounts` stays the plain list of logins the sign-out path already uses;
+  // `accountList` and `active` are what the picker needs on top of it.
   assert.deepEqual(status.value.accounts, ['KonnectSuite', 'KphungFROMM'])
+  assert.deepEqual(status.value.accountList, roster)
+  assert.equal(status.value.active, 'KonnectSuite')
   assert.equal(status.value.signedIn, true)
 
   const removed = []
@@ -369,6 +393,283 @@ test('the CLI account list is read from the status text it already prints', asyn
   assert.deepEqual(logins, ['KonnectSuite', 'KphungFROMM'])
   const empty = await listAccounts(async () => ({ code: 1, stdout: '', stderr: 'not logged in to any hosts' }))
   assert.deepEqual(empty, [])
+})
+
+test('the roster is read from the JSON the CLI answers, with the active account named', async () => {
+  // This is the real shape `gh auth status --json hosts` answers on this machine,
+  // so the parse is pinned to what the CLI actually prints, not to a guess.
+  const payload = {
+    hosts: {
+      'github.com': [
+        { state: 'success', active: true, host: 'github.com', login: 'KonnectSuite', tokenSource: 'keyring', scopes: 'repo, workflow', gitProtocol: 'https' },
+        { state: 'success', active: false, host: 'github.com', login: 'KphungFROMM', tokenSource: 'env GITHUB_TOKEN', scopes: '', gitProtocol: 'https' },
+      ],
+    },
+  }
+  const asked = []
+  const roster = await accountStatus(async (command, args) => {
+    asked.push({ command, args })
+    return { code: 0, stdout: JSON.stringify(payload), stderr: '' }
+  })
+  assert.deepEqual(asked, [{ command: 'gh', args: ['auth', 'status', '--json', 'hosts'] }])
+  assert.deepEqual(roster.map(entry => entry.login), ['KonnectSuite', 'KphungFROMM'])
+  assert.equal(roster[0].active, true)
+  assert.equal(roster[1].active, false)
+  assert.equal(roster[0].tokenSource, 'keyring')
+  assert.equal(roster[0].state, 'success')
+})
+
+test('an older CLI that answers in prose still gives a roster, and no CLI gives none', async () => {
+  const text = [
+    'github.com',
+    '  ✓ Logged in to github.com account KonnectSuite (keyring)',
+    '  - Active account: true',
+    '  ✓ Logged in to github.com account KphungFROMM (keyring)',
+    '  - Active account: false',
+  ].join('\n')
+  const roster = await accountStatus(async () => ({ code: 1, stdout: text, stderr: '' }))
+  assert.deepEqual(roster.map(entry => entry.login), ['KonnectSuite', 'KphungFROMM'])
+  // The CLI lists the active account first, so the first login is the best guess
+  // at which one a terminal would use. It is a guess, and it is the only one prose allows.
+  assert.equal(roster[0].active, true)
+  assert.equal(roster[1].active, false)
+  assert.deepEqual(await accountStatus(async () => { throw new Error('spawn gh ENOENT') }), [],
+    'a machine without the CLI has no accounts, which is not an error')
+})
+
+test('a named account is read its own token, and a missing session reads as no token', async () => {
+  const asked = []
+  const token = await tokenFor('KphungFROMM', async (command, args) => {
+    asked.push({ command, args })
+    return { code: 0, stdout: 'gho_work\n', stderr: '' }
+  })
+  assert.equal(token, 'gho_work')
+  assert.deepEqual(asked, [{ command: 'gh', args: ['auth', 'token', '--hostname', 'github.com', '--user', 'KphungFROMM'] }])
+  assert.equal(await tokenFor('nobody', async () => ({ code: 1, stdout: '', stderr: 'no auth data for user nobody' })), undefined)
+  assert.equal(await tokenFor('nobody', async () => { throw new Error('spawn gh ENOENT') }), undefined)
+})
+
+test('making an account active in the CLI is asked for by name, and a failure is reported', async () => {
+  const twoAccounts = {
+    hosts: {
+      'github.com': [
+        { state: 'success', active: false, host: 'github.com', login: 'KonnectSuite', tokenSource: 'keyring', scopes: '', gitProtocol: 'https' },
+        { state: 'success', active: true, host: 'github.com', login: 'KphungFROMM', tokenSource: 'keyring', scopes: '', gitProtocol: 'https' },
+      ],
+    },
+  }
+  const asked = []
+  const switched = await switchAccount('KphungFROMM', async (command, args) => {
+    asked.push(args)
+    return args[0] === 'switch'
+      ? { code: 0, stdout: '', stderr: '' }
+      : { code: 0, stdout: JSON.stringify(twoAccounts), stderr: '' }
+  })
+  assert.equal(switched.ok, true)
+  assert.deepEqual(asked[0], ['auth', 'switch', '--hostname', 'github.com', '--user', 'KphungFROMM'])
+  assert.equal(switched.accounts.find(entry => entry.active).login, 'KphungFROMM')
+
+  const failed = await switchAccount('nobody', async () => ({ code: 1, stdout: '', stderr: 'no auth data for user nobody' }))
+  assert.equal(failed.ok, false)
+  assert.match(failed.error, /no auth data for user nobody/)
+})
+
+test('a picked account owns its clone folder, and no account keeps the shared one', () => {
+  const home = join('C:', 'Users', 'someone')
+  assert.equal(accountRoot(home), join(home, 'AryaCode'))
+  assert.equal(accountRoot(home, 'work'), join(home, 'AryaCode', 'work'))
+  assert.equal(cloneDestination('acme', 'rocket', home, 'work'), join(home, 'AryaCode', 'work', 'acme', 'rocket'))
+  assert.throws(() => accountRoot(home, '../escape'), /single path segment/)
+})
+
+test('the account list answers while signed out, which is how a second account is found', async () => {
+  const answer = await handleRequest({ action: 'accounts' }, {
+    token: async () => undefined,
+    accountStatus: async () => [
+      { login: 'KonnectSuite', active: true, state: 'success', tokenSource: 'keyring', scopes: '', gitProtocol: 'https' },
+      { login: 'KphungFROMM', active: false, state: 'success', tokenSource: 'keyring', scopes: '', gitProtocol: 'https' },
+    ],
+  })
+  assert.equal(answer.ok, true)
+  assert.deepEqual(answer.value.accounts.map(entry => entry.login), ['KonnectSuite', 'KphungFROMM'])
+  assert.equal(answer.value.active, 'KonnectSuite')
+})
+
+test('setting the active account names it to the CLI, and a name that could escape is refused', async () => {
+  const asked = []
+  const answer = await handleRequest({ action: 'setActive', account: 'KphungFROMM' }, {
+    token: async () => undefined,
+    switchAccount: async login => {
+      asked.push(login)
+      return { ok: true, accounts: [{ login: 'KphungFROMM', active: true, state: 'success', tokenSource: 'keyring', scopes: '', gitProtocol: 'https' }] }
+    },
+  })
+  assert.deepEqual(asked, ['KphungFROMM'])
+  assert.equal(answer.value.active, 'KphungFROMM')
+
+  const failed = await handleRequest({ action: 'setActive', account: 'nobody' }, {
+    token: async () => undefined,
+    switchAccount: async () => ({ ok: false, error: 'no auth data for user nobody' }),
+  })
+  assert.equal(failed.ok, false)
+  assert.match(failed.error, /no auth data for user nobody/)
+
+  await assert.rejects(
+    () => handleRequest({ action: 'setActive', account: '../elsewhere' }, { token: async () => undefined }),
+    /single path segment/,
+  )
+})
+
+test('a named account browses with that account token, and the active one is never asked for', async () => {
+  const asked = []
+  const answer = await handleRequest({ action: 'repos', account: 'KphungFROMM' }, {
+    home: join('C:', 'Users', 'someone'),
+    token: async () => { asked.push('active'); return 'gho_active' },
+    tokenFor: async login => { asked.push(login); return 'gho_work' },
+    repos: async token => { asked.push(token); return [] },
+  })
+  assert.equal(answer.ok, true)
+  assert.deepEqual(asked, ['KphungFROMM', 'gho_work'], 'the active account token is never read for a named account')
+})
+
+test('a repository cloned before accounts existed still reads as cloned once an account is picked', async () => {
+  const scratchDir = await scratch()
+  try {
+    await mkdir(join(scratchDir.dir, 'AryaCode', 'acme', 'exists'), { recursive: true })
+    const answer = await handleRequest({ action: 'repos', account: 'work' }, {
+      home: scratchDir.dir,
+      token: async () => 'gho_token',
+      tokenFor: async () => 'gho_work',
+      repos: async () => [
+        { owner: 'acme', name: 'exists', fullName: 'acme/exists', isPrivate: false, isFork: false, description: '', updatedAt: '', defaultBranch: 'main' },
+        { owner: 'acme', name: 'fresh', fullName: 'acme/fresh', isPrivate: false, isFork: false, description: '', updatedAt: '', defaultBranch: 'main' },
+      ],
+    })
+    assert.equal(answer.value.repos[0].cloned, true, 'the shared folder is still searched')
+    assert.equal(answer.value.repos[1].cloned, false)
+    assert.equal(answer.value.root, join(scratchDir.dir, 'AryaCode', 'work'), 'the preview names the account folder')
+  } finally {
+    await scratchDir.done()
+  }
+})
+
+test('a named account clones into its own folder', async () => {
+  const scratchDir = await scratch()
+  try {
+    const target = join(scratchDir.dir, 'AryaCode', 'work', 'acme', 'rocket')
+    const calls = []
+    const result = await cloneRepo('acme', 'rocket', 'gho_work', {
+      home: scratchDir.dir,
+      account: 'work',
+      run: async (command, args) => {
+        calls.push(args)
+        if (args.includes('clone')) await mkdir(target, { recursive: true })
+        return { code: 0, stdout: '', stderr: '' }
+      },
+    })
+    assert.equal(result.reused, false)
+    assert.equal(result.path, target)
+    assert.equal(calls.length, 1, 'nothing but the clone itself is run')
+    assert.equal(calls[0][calls[0].indexOf('--') + 1], 'https://github.com/acme/rocket.git')
+    assert.equal(calls[0][calls[0].length - 1], target)
+  } finally {
+    await scratchDir.done()
+  }
+})
+
+test('an account clone reuses the checkout made before accounts existed, instead of making a second copy', async () => {
+  const scratchDir = await scratch()
+  try {
+    const legacy = join(scratchDir.dir, 'AryaCode', 'acme', 'rocket')
+    await mkdir(legacy, { recursive: true })
+    const calls = []
+    const result = await cloneRepo('acme', 'rocket', 'gho_work', {
+      home: scratchDir.dir,
+      account: 'work',
+      run: async (command, args) => {
+        calls.push(args)
+        return args[0] === 'remote'
+          ? { code: 0, stdout: 'https://github.com/acme/rocket.git\n', stderr: '' }
+          : { code: 0, stdout: '', stderr: '' }
+      },
+    })
+    assert.equal(result.reused, true)
+    assert.equal(result.path, legacy, 'the old flat checkout is the one that is kept')
+    assert.deepEqual(calls, [['remote', 'get-url', 'origin']], 'no clone is run over an existing checkout')
+  } finally {
+    await scratchDir.done()
+  }
+})
+
+test('a fresh clone records the account identity, and only what the repository does not already carry', async () => {
+  const scratchDir = await scratch()
+  try {
+    const target = join(scratchDir.dir, 'AryaCode', 'work', 'acme', 'rocket')
+    const calls = []
+    const result = await cloneRepo('acme', 'rocket', 'gho_work', {
+      home: scratchDir.dir,
+      account: 'work',
+      identity: async () => ({ name: 'Work Person', email: '99+worky@users.noreply.github.com' }),
+      run: async (command, args) => {
+        calls.push(args.join(' '))
+        if (args.includes('clone')) await mkdir(target, { recursive: true })
+        if (args.includes('--get')) return { code: 1, stdout: '', stderr: '' }
+        return { code: 0, stdout: '', stderr: '' }
+      },
+    })
+    assert.equal(result.path, target)
+    assert.deepEqual(result.identity, {
+      'user.name': 'Work Person',
+      'user.email': '99+worky@users.noreply.github.com',
+    })
+    assert.ok(calls.includes('config --local user.name Work Person'))
+    assert.ok(calls.includes('config --local user.email 99+worky@users.noreply.github.com'))
+    assert.equal(calls.filter(call => call.includes('--get')).length, 2, 'each key is read before it is written')
+    // Only --local. The global config belongs to the user's terminal, and this
+    // dialog has no business rewriting it for a machine the picker does not own.
+    assert.equal(calls.some(call => call.includes('--global')), false)
+  } finally {
+    await scratchDir.done()
+  }
+})
+
+test('a repository that already carries an identity is left alone, and a reuse never asks for one', async () => {
+  const scratchDir = await scratch()
+  try {
+    const target = join(scratchDir.dir, 'AryaCode', 'work', 'acme', 'rocket')
+    const calls = []
+    const cloned = await cloneRepo('acme', 'rocket', 'gho_work', {
+      home: scratchDir.dir,
+      account: 'work',
+      identity: async () => ({ name: 'Work Person', email: '99+worky@users.noreply.github.com' }),
+      run: async (command, args) => {
+        calls.push(args.join(' '))
+        if (args.includes('clone')) await mkdir(target, { recursive: true })
+        // The repository carries its own name on purpose; the second read finds it.
+        if (args.includes('--get') && args.includes('user.name')) {
+          return { code: 0, stdout: 'Repo Bot\n', stderr: '' }
+        }
+        if (args.includes('--get')) return { code: 1, stdout: '', stderr: '' }
+        return { code: 0, stdout: '', stderr: '' }
+      },
+    })
+    assert.deepEqual(cloned.identity, { 'user.email': '99+worky@users.noreply.github.com' }, 'only the missing key is written')
+    assert.equal(calls.includes('config --local user.name Work Person'), false, 'the value the repository chose is kept')
+
+    const asked = []
+    const reused = await cloneRepo('acme', 'rocket', 'gho_work', {
+      home: scratchDir.dir,
+      account: 'work',
+      identity: async () => { asked.push('asked'); return { name: 'Work Person', email: '99+worky@users.noreply.github.com' } },
+      run: async (command, args) => (args[0] === 'remote'
+        ? { code: 0, stdout: 'https://github.com/acme/rocket.git\n', stderr: '' }
+        : { code: 0, stdout: '', stderr: '' }),
+    })
+    assert.equal(reused.reused, true)
+    assert.deepEqual(asked, [], 'a checkout that already exists never pays for a profile request')
+  } finally {
+    await scratchDir.done()
+  }
 })
 
 test('cloning spawns git with the token in the environment, never in the URL or arguments', async () => {

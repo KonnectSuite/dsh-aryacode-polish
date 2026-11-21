@@ -96,6 +96,23 @@ test('a sign-out says which account is signed in afterwards', () => {
   assert.ok(bundle.includes('React.useSyncExternalStore(githubStatusStore.subscribe, githubStatusStore.get)'), 'the footer subscribes to that store')
 })
 
+test('the dialog works as one account of several without moving the CLI', () => {
+  // Two GitHub accounts on one machine is the owner's real setup. The picker has to
+  // browse and clone as either one while the CLI keeps whatever it was last using,
+  // and the machine-wide switch has to stay a button the user asks for by name.
+  assert.ok(bundle.includes('githubAccountStore'), 'the pick is a store, so the footer and the dialog agree')
+  assert.ok(bundle.includes("'aryacode-polish:github-account.v1'"), 'the pick survives a reload')
+  assert.ok(bundle.includes('if (picked !== \'\' && body.account === undefined)'), 'every call rides with the picked account')
+  assert.ok(bundle.includes("'data-polish-github-accounts'"), 'the roster is rendered as its own strip')
+  assert.ok(bundle.includes("'data-polish-github-account'"), 'each account is a chip that can be picked')
+  assert.ok(bundle.includes("'data-polish-github-active'"), 'the account the CLI is on is marked, not assumed')
+  assert.ok(bundle.includes("'data-polish-github': 'follow-cli'"), 'a pick can be released back to the CLI')
+  assert.ok(bundle.includes("'data-polish-github': 'add-account'"), 'a second account is added from here')
+  assert.ok(bundle.includes("'data-polish-github': 'make-active'"), 'the CLI switch is a separate asked-for row')
+  assert.ok(bundle.includes("githubCall('setActive'"), 'and it goes through the Host like everything else')
+  assert.ok(bundle.includes("'Make active in the CLI'"), 'the button says it changes the machine, not just this window')
+})
+
 test('every switch has a label and a description', () => {
   for (const entry of declaration.switches) {
     assert.equal(typeof entry.key, 'string')

@@ -37,7 +37,7 @@ and how to release. `README.md` is the user-facing story and lists every switch;
   polish and local-llm are market-only, so users install and update them from the
   market without an app release.
 - One switch per feature; `client/switches.json` is the list, and the table below
-  covers the ones with the most moving parts. **210 specs**
+  covers the ones with the most moving parts. **224 specs**
   (`node --test`, ~2 s) — retiring the workspace tree and the session trash took
   253 of the 463 that 0.119.0 shipped with.
 - **The three Arya presets are retired** (0.119.0): `aryaStandard`, `aryaQwen` and
@@ -57,7 +57,7 @@ and how to release. `README.md` is the user-facing story and lists every switch;
 | `sessionCost` | `≈$…` pill in the composer dock from the session's recorded usage, at the published DeepSeek rates; opens a breakdown card. Host projection `polishCost`. | `entries/usage.js`, `entries/cost.js` |
 | `accountBalance` | Remaining wallet in `sidebar.footer.action`, directly above the account row; renders nothing when the Host exposes no wallet. | `client/account.js` |
 | `openWorkspaceFolder` | **Open workspace folder** in a Session's `…` menu. | `docs/workspace-folder.md` |
-| `githubWorkspace` | Sign in with the GitHub CLI, list repositories, clone one as a workspace. Token stays on the Host, used only as git's auth header. | `docs/github-workspaces.md` |
+| `githubWorkspace` | Sign in with the GitHub CLI, list repositories, clone one as a workspace. Token stays on the Host, used only as git's auth header. Two accounts on one machine: pick either to browse and clone, each into its own folder, and the clone carries that account's git identity. | `docs/github-workspaces.md` |
 | `workspaceSources` | **On this PC** / **GitHub repository…** behind the Workspaces **+**. | `entries/folders.js` |
 | `panelScreenshot` | Camera button in the right panel: copies the open tab to the clipboard and attaches it to the message. | `docs/panel-screenshot.md` |
 
@@ -195,7 +195,7 @@ that shipped to the UI. Bump versions with `npm pkg set version=…`
 
 ```powershell
 cd C:\Users\KNPhu\.arya\github\KonnectSuite\dsh-aryacode-polish
-pnpm test                 # 210 specs, node --test
+pnpm test                 # 224 specs, node --test
 pnpm pack                 # runs build:client first
 
 # Web profile (fastest for browser checks)

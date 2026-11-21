@@ -23,9 +23,11 @@ token.
    `affiliation=owner,collaborator,organization_member`, paged through the
    `link` header, most recently updated first.
 3. **Clones into your own folder.** `<home>\AryaCode\<owner>\<repo>`, created if
-   missing. A directory that is already the same repository is reused instead of
-   cloned again; a directory that is a *different* repository is an error, never
-   a silent overwrite.
+   missing. With an account picked in the dialog it is
+   `<home>\AryaCode\<account>\<owner>\<repo>` instead — see **Two GitHub accounts
+   on one machine** below. A directory that is already the same repository is
+   reused instead of cloned again; a directory that is a *different* repository is
+   an error, never a silent overwrite.
 4. **Creates the workspace.** The clone path is handed to the workspace
    controller (`workspaces.create({ path })`), which is the same call the "+" menu
    makes, so the new workspace behaves like any other.
@@ -70,6 +72,60 @@ The session belongs to the GitHub CLI, and both directions stay inside the app:
 
 Nothing about this stores a credential of its own: the code is a one-time device
 code, and the token never leaves the CLI's own credential store.
+
+## Two GitHub accounts on one machine
+
+The owner runs a personal account and a work account. The GitHub CLI keeps both in
+the keyring and names one of them active, and everything here follows that model
+rather than inventing a parallel one.
+
+- **The roster is read from the CLI**, not from a store of our own:
+  `gh auth status --json hosts` answers one entry per account with `login`,
+  `active`, `state`, `tokenSource`, `scopes` and `gitProtocol`. An older CLI has
+  no `--json` there, so the prose parse in `listAccounts` is the fallback rather
+  than a second choice — the CLI lists the active account first, which is the only
+  signal that parse can trust. A machine without the CLI has no accounts, and that
+  is an empty list, not an error.
+- **Picking an account is a chip strip in the dialog**: one chip per account, with
+  the one the CLI would use marked `CLI active`. The pick is remembered in the
+  browser (`aryacode-polish:github-account.v1`) and rides along on every call —
+  status, repository list, picture, clone — so the dialog browses and clones as
+  that one account while nothing outside the dialog changes. Clicking the picked
+  chip again, or **Follow the CLI**, releases the pick and the dialog goes back to
+  whichever account the CLI has active.
+- **A picked account is used, not assumed.** With a pick in force the Host reads
+  that account's token directly (`gh auth token --hostname github.com --user
+  <login>`) and never falls back to the active one, so a work repository the
+  personal account cannot see simply does not appear rather than appearing and
+  failing at clone time. A login that is not one path segment is refused before
+  any command runs.
+- **Each account clones into its own folder:**
+  `<home>\AryaCode\<account>\<owner>\<repo>`. A repository cloned before accounts
+  existed is still found — the probe checks the account folder first and the old
+  flat folder second — so an existing checkout is reused rather than copied a
+  second time under a new name.
+- **A fresh clone carries that account's git identity.** The checkout gets
+  `user.name` and `user.email` written **locally**, never `--global`: the display
+  name when GitHub supplies one, otherwise the login, and the noreply address
+  `<id>+<login>@users.noreply.github.com`, which is the only address GitHub
+  credits without publishing someone's private email. A value the repository
+  already carries is left alone, and a reused checkout is never touched — only a
+  clone this dialog just made gets an identity, which is why the identity is
+  handed to the clone as a supplier and a reuse never pays for that request.
+- **Making an account active in the CLI is a separate button** labelled **Make
+  active in the CLI**, and it runs `gh auth switch --hostname github.com --user
+  <login>`. That is a machine-wide change — a terminal's `git` and `gh` follow it —
+  so it is never something browsing does silently. When the dialog works as one
+  account and the CLI is on another, the footer tooltip names both.
+- **Adding an account is the same device flow as the first sign-in.**
+  `gh auth login` adds another account to the keyring without signing the first
+  one out, so **Add another account…** reuses it and there is no second verb to
+  maintain. The one-time code block therefore renders while a machine is already
+  signed in, and a failure of that second flow says so beside the chips instead of
+  vanishing into the signed-out block.
+- **Signing out stays honest about the rest.** `gh auth logout --user <login>`
+  removes only the account it names, so the notice says who is signed in
+  afterwards, and **Sign out of every account** still lists them all.
 
 ## How the entry point works
 
@@ -126,4 +182,11 @@ winget), the sign-in-shaped install polling, the `cloned` marker against a real
 temporary tree, the spawn shape of a clone (command, `--`, URL, destination, and
 the header in the environment rather than in the arguments), the reuse path, the
 refusal to overwrite another repository, and a failing clone whose message is
-scrubbed.
+scrubbed. The account half covers the roster from the real `--json hosts` payload
+and from the prose fallback (and an empty answer where there is no CLI), the
+argument shapes of `gh auth token --user` and `gh auth switch --user`, the
+`accounts` and `setActive` actions answering while the machine is signed out, a
+named account browsing with its own token and never the active one, a legacy flat
+checkout still marked cloned for an account pick, a clone landing in the account
+folder, a reuse of that legacy checkout, and an identity written only when the
+repository does not already carry one and only ever locally.
